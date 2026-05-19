@@ -1,0 +1,375 @@
+REF: Market Hunter RC-3 repo. Continue controlled build matrix.
+
+IMPORTANT:
+The previous attempt drifted into MH-19 Live Approval Gate. That was wrong and has been reverted. This prompt is ONLY for MH-06 Strategy Lab Data Contracts.
+
+CURRENT VERIFIED STATE:
+- MH-00 Repo Audit & Build Control complete.
+- MH-01 Data Centre Foundation complete.
+- MH-02 Historical Import Manager complete.
+- MH-03 Data Quality Engine complete.
+- MH-04 Data Centre UI complete.
+- MH-05 Import Job Orchestration complete and verified live.
+- Postgres, API, and web are running.
+- `/data-centre` works.
+- `/research/data/*` endpoints work.
+- `/research/jobs` endpoints work.
+- Existing candle storage is the current `bars` table. Do not create a duplicate candle table.
+
+PRIMARY GOAL:
+Build MH-06, Strategy Lab Data Contracts.
+
+PURPOSE:
+Create the backend database contracts, Pydantic schemas, service layer, routes, and tests for Strategy Lab. This is a structure-only phase. It must not execute historical replay, generate trades, optimise strategies, or involve live trading.
+
+ABSOLUTE DRIFT LOCK:
+If you start building any of the following, STOP immediately and report drift:
+- MH-07 historical replay engine
+- MH-08 mock trade simulator
+- MH-09 strategy variable runner
+- MH-10 AI backtest review
+- MH-11 news/event correlation
+- MH-12 baseline manager
+- MH-13 journal migration
+- MH-14 paper validation gate
+- MH-15 broker paper wiring
+- MH-16 tiny live gate
+- MH-17 advanced analytics
+- MH-18 baseline dashboard
+- MH-19 live approval gate
+- live approval
+- emergency stop
+- live trading
+- broker execution
+- auto trading
+- IBKR wiring
+- any route beginning `/live-approval`
+
+DO NOT BUILD:
+- Historical replay engine
+- Mock trade simulator
+- Real strategy execution
+- Variable runner
+- AI reports
+- News/event correlation
+- Baseline approval
+- Broker/live execution
+- Tiny live mode
+- Journal DB migration
+- Strategy Lab frontend UI, except no-op navigation if already required
+- Any live approval or emergency stop system
+
+SCOPE FOR MH-06 ONLY:
+
+1. Inspect current backend patterns:
+   - apps/api/app/db/models/*
+   - apps/api/app/schemas/*
+   - apps/api/app/api/routes/*
+   - apps/api/app/main.py
+   - apps/api/app/tests/*
+   - apps/api/alembic/versions/*
+   - docs/build-ledger.md
+
+2. Before coding, run a drift check:
+   Search for:
+   - MH-19
+   - live_approval
+   - LiveApproval
+   - live approval
+   - emergency_stop
+   - /live-approval
+
+   If implementation references remain in source files, stop and report. Do not proceed.
+   Roadmap/comment references are okay only if they are not implementation code.
+
+3. Add Strategy Lab database models/tables:
+   - strategy_configs
+   - backtest_runs
+   - mock_trades
+   - strategy_results
+   - equity_curve_points
+   - drawdown_periods
+
+4. Suggested model fields:
+
+   strategy_configs:
+   - id
+   - name
+   - strategy_type
+   - asset nullable
+   - timeframe nullable
+   - parameters JSON
+   - risk_settings JSON
+   - enabled boolean default true
+   - created_at
+   - updated_at
+
+   backtest_runs:
+   - id
+   - name
+   - status: queued | running | completed | partial | failed | cancelled
+   - date_from
+   - date_to
+   - requested_assets JSON
+   - requested_timeframes JSON
+   - strategy_config_ids JSON
+   - starting_capital numeric
+   - result_summary JSON nullable
+   - message nullable
+   - error_message nullable
+   - created_at
+   - started_at nullable
+   - completed_at nullable
+   - updated_at
+
+   mock_trades:
+   - id
+   - backtest_run_id
+   - strategy_config_id nullable
+   - asset
+   - timeframe
+   - side: long | short
+   - entry_time
+   - entry_price
+   - stop_price nullable
+   - target_price nullable
+   - exit_time nullable
+   - exit_price nullable
+   - status: open | closed | cancelled
+   - result: win | loss | breakeven | open | cancelled nullable
+   - pnl_amount nullable
+   - pnl_pct nullable
+   - r_multiple nullable
+   - reason_for_entry nullable
+   - reason_for_exit nullable
+   - metadata JSON nullable
+   - created_at
+   - updated_at
+
+   strategy_results:
+   - id
+   - backtest_run_id
+   - strategy_config_id nullable
+   - asset nullable
+   - timeframe nullable
+   - total_trades integer default 0
+   - wins integer default 0
+   - losses integer default 0
+   - breakeven integer default 0
+   - win_rate nullable
+   - average_win nullable
+   - average_loss nullable
+   - profit_factor nullable
+   - expectancy nullable
+   - total_return_pct nullable
+   - max_drawdown_pct nullable
+   - score nullable
+   - metrics JSON nullable
+   - created_at
+   - updated_at
+
+   equity_curve_points:
+   - id
+   - backtest_run_id
+   - timestamp
+   - equity
+   - cash nullable
+   - open_pnl nullable
+   - drawdown_pct nullable
+   - created_at
+
+   drawdown_periods:
+   - id
+   - backtest_run_id
+   - start_time
+   - trough_time nullable
+   - end_time nullable
+   - max_drawdown_pct
+   - duration_candles nullable
+   - recovered boolean default false
+   - created_at
+
+5. Use existing model conventions:
+   - Use existing UUID/string ID style.
+   - Use existing timestamp mixins if available.
+   - Use SQLAlchemy style already used in this repo.
+   - Use JSON fields consistently with existing models.
+   - Use Numeric precision consistent with existing finance models.
+
+6. Add Alembic migration:
+   - Create the six Strategy Lab tables.
+   - Add indexes on:
+     - backtest_run_id
+     - strategy_config_id
+     - asset
+     - timeframe
+     - timestamp fields where useful
+   - Do not modify existing `bars`, `assets`, `paper_orders`, signal tables, Data Centre tables, or research job tables.
+
+7. Add Pydantic schemas:
+   Suggested file:
+   - apps/api/app/schemas/strategy_lab.py
+
+   Include:
+   - StrategyConfigCreateRequest
+   - StrategyConfigResponse
+   - StrategyConfigListResponse
+   - BacktestRunCreateRequest
+   - BacktestRunResponse
+   - BacktestRunListResponse
+   - MockTradeResponse
+   - MockTradeListResponse
+   - StrategyResultResponse
+   - StrategyResultListResponse
+   - EquityCurvePointResponse
+   - EquityCurveResponse
+   - DrawdownPeriodResponse
+   - DrawdownPeriodListResponse
+
+8. Add service:
+   Suggested file:
+   - apps/api/app/services/strategy_lab_service.py
+
+   Responsibilities for MH-06 only:
+   - create strategy config
+   - list strategy configs
+   - get strategy config
+   - create backtest run record with status `queued`
+   - list backtest runs
+   - get backtest run
+   - list mock trades for run
+   - list strategy results for run
+   - list equity curve points for run
+   - list drawdown periods for run
+
+   Important:
+   - Do not execute backtests yet.
+   - Do not create mock trades.
+   - Do not calculate real results.
+   - Backtest creation should only create a queued/stub record.
+
+9. Add route file:
+   Suggested file:
+   - apps/api/app/api/routes/strategy_lab.py
+
+   Endpoints:
+   - POST /strategy-lab/configs
+   - GET  /strategy-lab/configs
+   - GET  /strategy-lab/configs/{config_id}
+   - POST /strategy-lab/backtests
+   - GET  /strategy-lab/backtests
+   - GET  /strategy-lab/backtests/{backtest_id}
+   - GET  /strategy-lab/backtests/{backtest_id}/trades
+   - GET  /strategy-lab/backtests/{backtest_id}/results
+   - GET  /strategy-lab/backtests/{backtest_id}/equity-curve
+   - GET  /strategy-lab/backtests/{backtest_id}/drawdowns
+
+   Required behavior:
+   - POST /strategy-lab/backtests must not run replay.
+   - It creates a queued backtest record only.
+   - It returns a message:
+     "Backtest record created. Historical replay engine is scheduled for MH-07."
+   - Empty-list endpoints return empty lists for a new queued run.
+
+10. Register the router in main.py.
+
+11. Add tests:
+   Suggested file:
+   - apps/api/app/tests/test_strategy_lab_contracts.py
+
+   Tests must cover:
+   - drift check confirms no `/live-approval` route registered
+   - create strategy config
+   - list strategy configs
+   - get strategy config
+   - create backtest run stub
+   - created backtest status is queued
+   - created backtest message says replay is scheduled for MH-07
+   - list backtest runs
+   - get backtest run
+   - empty trades for new run
+   - empty results for new run
+   - empty equity curve for new run
+   - empty drawdowns for new run
+   - no mock trades are generated by creating a backtest
+
+12. Update docs/build-ledger.md:
+   Add MH-06 entry only.
+   The entry must mention:
+   - Strategy Lab contracts only
+   - no replay engine
+   - no mock trade simulator
+   - no AI
+   - no live approval
+   - no live trading
+
+STRICT FILE BOUNDARY:
+Allowed new files:
+- apps/api/app/db/models/strategy_config.py
+- apps/api/app/db/models/backtest_run.py
+- apps/api/app/db/models/mock_trade.py
+- apps/api/app/db/models/strategy_result.py
+- apps/api/app/db/models/equity_curve_point.py
+- apps/api/app/db/models/drawdown_period.py
+- apps/api/alembic/versions/<new_mh06_strategy_lab_contracts_migration>.py
+- apps/api/app/schemas/strategy_lab.py
+- apps/api/app/services/strategy_lab_service.py
+- apps/api/app/api/routes/strategy_lab.py
+- apps/api/app/tests/test_strategy_lab_contracts.py
+
+Allowed existing files to modify:
+- apps/api/app/db/models/__init__.py
+- apps/api/app/main.py
+- docs/build-ledger.md
+
+Do not touch frontend files in this phase.
+Do not touch broker files.
+Do not touch live approval files.
+Do not touch execution/workflow/signal behavior.
+
+ACCEPTANCE CRITERIA:
+- Strategy Lab DB models exist.
+- Alembic migration exists.
+- Strategy Lab schemas exist.
+- Strategy Lab service exists.
+- Strategy Lab routes exist.
+- Router is registered in main.py.
+- Strategy config can be created/listed/fetched.
+- Backtest run stub can be created/listed/fetched.
+- Backtest trade/result/equity/drawdown endpoints return empty lists for a new run.
+- No replay engine exists.
+- No mock trades are created during backtest creation.
+- No live approval code is added.
+- No live trading code is added.
+- Targeted backend tests pass.
+- Ruff passes on changed files.
+- docs/build-ledger.md updated.
+
+COMMANDS TO RUN:
+Backend:
+cd apps/api
+.venv/bin/ruff check app/db/models/strategy_config.py app/db/models/backtest_run.py app/db/models/mock_trade.py app/db/models/strategy_result.py app/db/models/equity_curve_point.py app/db/models/drawdown_period.py app/services/strategy_lab_service.py app/api/routes/strategy_lab.py app/schemas/strategy_lab.py app/tests/test_strategy_lab_contracts.py
+.venv/bin/pytest app/tests/test_strategy_lab_contracts.py -v
+
+Regression guard:
+.venv/bin/pytest app/tests/test_research_data_routes.py -v
+.venv/bin/pytest app/tests/test_historical_import.py -v
+.venv/bin/pytest app/tests/test_data_quality*.py -v
+.venv/bin/pytest app/tests/test_research_jobs.py -v
+
+OUTPUT FORMAT:
+At the end, provide:
+1. Phase completed
+2. Drift check result before coding
+3. Files changed
+4. Database migrations added
+5. Backend endpoints added
+6. Strategy Lab behavior implemented
+7. Confirmation that no replay/mock simulator/live approval/live trading was added
+8. Tests run
+9. Test results
+10. Known limitations
+11. Any failures or blockers
+12. Next recommended matrix phase
+
+Apply this build plan now. If you drift toward live approval, live trading, baseline approval, emergency stop, broker execution, or anything outside MH-06 contracts, stop immediately and report drift. Produce the final report in the requested format.

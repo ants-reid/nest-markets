@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: markethunter
+      POSTGRES_PASSWORD: markethunter
+      POSTGRES_DB: markethunter
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://markethunter:markethunter@db:5432/markethunter
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./apps/api:/app
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    depends_on:
+      - api
+
+  learning:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.learning
+    environment:
+      DATABASE_URL: postgresql://markethunter:markethunter@db:5432/markethunter
+    depends_on:
+      - db
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/observability/alerts:/etc/prometheus/alerts
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: markethunter
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/observability/dashboards:/etc/grafana/provisioning/dashboards
+
+volumes:
+  postgres_data:
+  grafana_data:

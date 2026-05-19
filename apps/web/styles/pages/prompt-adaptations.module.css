@@ -1,0 +1,89 @@
+.page {
+  min-height: 100vh;
+  padding: 32px 20px 64px;
+  background: var(--app-shell-bg);
+  font-family: var(--font-base);
+}
+
+.container {
+  max-width: 640px;
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-strong);
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: var(--text-body);
+}
+
+.input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-family: var(--font-base);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface-soft);
+  color: var(--text-body);
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-family: var(--font-base);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface-soft);
+  color: var(--text-body);
+  min-height: 80px;
+  resize: vertical;
+}
+
+.monoTextarea {
+  composes: textarea;
+  font-family: Menlo, Monaco, monospace;
+  min-height: 120px;
+}
+
+.submitButton {
+  padding: 0.5rem 1rem;
+  background: var(--accent-primary);
+  color: var(--text-on-accent, #fff);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.submitButton:disabled {
+  background: var(--surface-border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.successMsg {
+  margin-top: 0.75rem;
+  color: var(--state-success);
+}
+
+.errorMsg {
+  margin-top: 0.75rem;
+  color: var(--state-danger);
+}

@@ -1,0 +1,27 @@
+groups:
+  - name: ingestion-lag
+    rules:
+      - alert: IngestionLagHigh
+        expr: market_hunter_ingestion_lag_seconds > 120
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Ingestion lag > 2 minutes for {{ $labels.provider }}"
+          description: >
+            Data from {{ $labels.provider }} is {{ $value }}s behind real-time.
+            This may affect signal quality.
+
+      - alert: IngestionLagCritical
+        expr: market_hunter_ingestion_lag_seconds > 600
+        for: 2m
+        labels:
+          severity: critical
+          team: data
+        annotations:
+          summary: "Critical ingestion lag for {{ $labels.provider }}"
+          description: >
+            Data lag for {{ $labels.provider }} has exceeded 10 minutes.
+            Live trading signals are likely stale.
+          runbook_url: "https://docs.internal/runbooks/provider-failure"

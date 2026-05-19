@@ -1,0 +1,1381 @@
+[
+  {
+    "id": "ddba9dbe-02fb-4dd0-8b87-dbf4d2715df8",
+    "signal_id": "40dc9e89-baf1-4f2c-b880-b7fb59634062",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T07:53:30.246799+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "0b323d7f-0a5c-4cdc-bb3d-2352df77248e",
+    "signal_id": "d0d4f7b6-8fc8-4994-b6fb-df5d5c8c4617",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T07:57:42.245648+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "ed99e513-65bd-4dce-a68d-b22faa513166",
+    "signal_id": "55ec5fb3-3ad3-4651-9962-120bac6a9011",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T08:14:27.402832+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "1452766f-81ad-4198-abc8-6686fa163d5a",
+    "signal_id": "736c8cf7-07b1-4f9f-ab7d-3f29eea14d22",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T08:15:31.974390+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "37d2f71b-6007-4ae6-a42a-800139ac711d",
+    "signal_id": "6a0d0644-056a-478a-b42a-ff6fbe31dae0",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T08:15:33.176349+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "4c612146-bfd6-4fae-83fa-12a810ac970e",
+    "signal_id": "6aece263-bb14-4fe2-a7d8-0cc749b3c7c4",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T09:00:57.222299+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "b9e813d5-013c-47f0-8510-9c1add10b861",
+    "signal_id": "179a4ecd-5b83-4cb5-97ef-a80548f9efb7",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-22T09:25:55.986034+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "ea6543fd-df80-42ce-83d9-96ef32aa5763",
+    "signal_id": "c2bb146f-3ee5-4325-b0e7-b847696d8249",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:41:54.229589+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "18ed311f-608b-4b74-91f8-6ab7def6cf55",
+    "signal_id": "3ed45a57-420d-4408-9b23-cc872e9ad8d8",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:42:19.144704+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "358cdd70-908c-4c1e-963f-8b9deb068b5a",
+    "signal_id": "2d7d6731-dbcc-4bd7-a913-14f14e47a12c",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:46:22.994969+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "4708fca3-0e70-466e-b139-33be5f2a7609",
+    "signal_id": "0bdf1833-bc80-419f-adf0-535c66a474c6",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:46:29.077272+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "2cce275c-3080-4aea-bdb3-52413b53dca9",
+    "signal_id": "e6d97f35-2d27-469e-8e27-0a0f0272c914",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:48:46.116038+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "950bf072-cb64-486a-b1ba-c74f929a96a7",
+    "signal_id": "9213d5f0-71e2-4834-8ca1-127c0ca2dc4e",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T04:48:52.154148+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "51ea93b4-a75d-4a23-999e-00052c68fea2",
+    "signal_id": "fae5d070-e89a-4d29-825f-52e4dd968836",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T20:10:50.078678+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "4cf907ff-f91d-4224-80d2-4cd70ff59d82",
+    "signal_id": "1188a3c2-cb06-41f0-83d5-cf4b2b534ee9",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T20:18:15.900638+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "0e730737-2308-4301-968e-44777de0a173",
+    "signal_id": "c2f95800-819c-4cf3-a824-4a47d1453c59",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T20:24:27.869717+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "3a6f4155-780c-459c-b53d-d2d185ab53b3",
+    "signal_id": "996d1c73-f2e3-46bd-8c61-f6933ab891f1",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T20:24:54.333268+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "e52e7e7d-4a2c-4fad-990f-0760ab8a8adb",
+    "signal_id": "5c065dd6-064e-4b7a-8730-36c615ade861",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T21:28:59.718722+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "59bc5c48-a3eb-4475-88a5-b2da673f9ea2",
+    "signal_id": "c06fdd67-44dc-4b2a-aec2-ea81739399ec",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T21:32:35.873486+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "f4234c73-33bc-4cde-a1eb-3fd148d06015",
+    "signal_id": "1e86e475-fe1b-435c-911f-8a4ca4fb5121",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T21:34:48.849339+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "f0ab7317-ed0c-462c-a4f7-bbc4d89c63b1",
+    "signal_id": "21168333-0d62-45ba-b08a-002ae753ef69",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-23T21:41:05.964083+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "82dd7de1-dbf5-4050-a268-7d2d98932f0e",
+    "signal_id": "17d28441-7593-44c6-a7df-1fea792d65aa",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:15:04.193531+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "c2f6dd9c-b803-448d-8381-a8d267e4072a",
+    "signal_id": "c971750f-97be-48ac-ba9c-3711e9be036d",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:25:36.512295+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "753639e9-4174-4475-9d24-a7bd91471308",
+    "signal_id": "38122ea6-43da-4636-9a2f-16bead19defa",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:29:45.638933+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "75842d5b-559f-4ca9-af3d-0352ec5bfc10",
+    "signal_id": "81abd469-0a66-4e9f-947e-bc8d3d2b9362",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:36:33.551160+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "7a01bc05-050b-4d3a-9da8-934e08510b9c",
+    "signal_id": "c8d98805-1492-4ff9-a187-5f8c83c28f3d",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:40:14.895470+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "a198402c-d6b7-4283-84aa-7f90dadd8a53",
+    "signal_id": "9ea54f4c-f14d-4075-a9c9-15190408480f",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:49:19.234743+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "d142b679-19b8-41bf-9770-98f1ea16a0ed",
+    "signal_id": "a9712d89-1eef-43e2-a084-a936c5fcc86a",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:49:53.788737+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "2b0d4fbc-ad20-40d2-af08-04cc83d5dccf",
+    "signal_id": "73c637e6-69bc-4976-926c-dc30201b514c",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T01:52:42.083197+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "49c14b9a-ab68-4af5-b3ca-f3fddc24f96e",
+    "signal_id": "47331b13-8db4-4b17-9703-d6d33bf58447",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T02:29:54.617368+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "f0721098-0d6b-46bd-bc03-ab75a21721e9",
+    "signal_id": "1d8f84a8-f5b2-4663-be2b-45e1f34fd5a0",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T03:11:15.483592+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "8a09eed9-cbcc-40e3-b649-b35fe323fa96",
+    "signal_id": "bd6a9a7e-e00f-4c6b-a1e4-a150cf1a69c4",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T03:12:37.655233+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "108e7a16-0ab0-40fa-a671-0a9692971130",
+    "signal_id": "d1a905cd-368a-4fea-803c-ade996e7ff03",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T03:14:51.887540+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "09028f61-06f9-45fb-ab0b-d207691162ec",
+    "signal_id": "bec36248-a8e1-4f1d-a182-0b6f2d5eea05",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T03:17:26.955021+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "4cb5a249-1cd7-435e-ba16-1f59746dea06",
+    "signal_id": "bff972e9-b206-41d7-b931-b0e007ad157b",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T03:19:02.114446+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "38f43fdf-6b9a-4192-bc2c-7568e5861dfb",
+    "signal_id": "8a45a42a-62b9-4d4a-aab6-a1ab97f58b94",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-24T07:09:59.042585+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "0a03f4e2-3c85-496d-9f64-95147e41aa2e",
+    "signal_id": "6d0fc932-886f-42c2-93d5-3e2ebe0a1bf1",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T08:52:43.494005+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "f7060534-e3d0-4ce8-b920-a56e64eef9e9",
+    "signal_id": "00706199-e19d-4b1f-8f0f-df21fc85c80a",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T08:52:52.988986+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "a43a8c0d-5f26-40a0-bc43-4b64cdebd653",
+    "signal_id": "00e469b0-4aeb-436d-81a0-e23a5abfe975",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:00:03.800502+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "694f2bfd-1dbe-4247-bdb1-fa7df3ec1935",
+    "signal_id": "c4c1bee2-9c17-4d4e-987a-55998a3ef109",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:00:24.248990+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "2c81dba4-40e3-4a96-9887-dd407f452662",
+    "signal_id": "101718bd-5eaa-479d-ac4b-4483c3445838",
+    "approved": "false",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:02:05.962188+00:00",
+    "blocked_reasons_json": [
+      "signal_not_actionable",
+      "confidence_below_threshold",
+      "signal_score_below_threshold"
+    ],
+    "position_risk_pct": null,
+    "notional_allowed": 0.0,
+    "correlation_bucket": null,
+    "spread_ok": false,
+    "session_ok": true,
+    "drawdown_ok": false,
+    "cooldown_ok": false,
+    "decision_json": {
+      "approved": false,
+      "blocked_reasons": [
+        "signal_not_actionable",
+        "confidence_below_threshold",
+        "signal_score_below_threshold"
+      ],
+      "allowed_risk_amount": 0.0,
+      "selected_execution_mode": "blocked"
+    },
+    "timestamp": null,
+    "blocking_rule": null
+  },
+  {
+    "id": "be609c99-e558-4c2f-be47-cae6e700eda0",
+    "signal_id": "5ca47079-78b6-4f85-9418-7a9d11abc0c5",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:29:55.265799+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T09:29:55.276579+00:00",
+    "blocking_rule": null
+  },
+  {
+    "id": "7747d8e7-e63e-4576-a10d-1b5624780eb3",
+    "signal_id": "5ca47079-78b6-4f85-9418-7a9d11abc0c5",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:30:04.823760+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T09:30:04.832228+00:00",
+    "blocking_rule": null
+  },
+  {
+    "id": "b40abf44-69cd-4374-87c2-5d2c14463404",
+    "signal_id": "4a63f184-dea3-4eed-bece-91e8f0b9a464",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:30:04.835751+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T09:30:04.846882+00:00",
+    "blocking_rule": null
+  },
+  {
+    "id": "e1dd6c6e-d10f-43a7-9b82-c47c38eaeb0f",
+    "signal_id": "7fbe1151-9db6-4fcd-9d47-93ab01354dd5",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:30:04.854924+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T09:30:04.860670+00:00",
+    "blocking_rule": null
+  },
+  {
+    "id": "771b1a54-623f-4c37-bacd-649aad1fc6a0",
+    "signal_id": "4fbf98b9-1b82-44d7-a146-e8499c1e5f5b",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T09:30:04.864443+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T09:30:04.868685+00:00",
+    "blocking_rule": null
+  },
+  {
+    "id": "66e84d95-0978-413f-92f4-c559830524c3",
+    "signal_id": "66e2db09-7e57-4894-8070-fbd326af7c2b",
+    "approved": "approved",
+    "kill_switch_active": false,
+    "created_at": "2026-04-25T10:05:18.609613+00:00",
+    "blocked_reasons_json": null,
+    "position_risk_pct": null,
+    "notional_allowed": null,
+    "correlation_bucket": null,
+    "spread_ok": null,
+    "session_ok": null,
+    "drawdown_ok": null,
+    "cooldown_ok": null,
+    "decision_json": null,
+    "timestamp": "2026-04-25T10:05:18.618926+00:00",
+    "blocking_rule": null
+  }
+]

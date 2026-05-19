@@ -1,0 +1,32 @@
+{
+  "title": "Market Hunter — Broker Health",
+  "description": "Monitor IBKR and broker connectivity",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Broker Connection Status",
+      "targets": [
+        {
+          "expr": "market_hunter_broker_connected",
+          "legendFormat": "{{broker}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Order Submission Latency (ms)",
+      "targets": [
+        {
+          "expr": "market_hunter_order_latency_ms",
+          "legendFormat": "{{broker}}"
+        }
+      ],
+      "gridPos": { "x": 6, "y": 0, "w": 18, "h": 8 }
+    }
+  ]
+}

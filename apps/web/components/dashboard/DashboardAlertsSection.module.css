@@ -1,0 +1,85 @@
+.panel {
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+  display: grid;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.headerText {
+  display: grid;
+  gap: 8px;
+}
+
+.eyebrow {
+  color: var(--state-success);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 38px;
+  line-height: 1.04;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 760px;
+  line-height: 1.55;
+}
+
+.refreshButton {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: var(--state-success-soft);
+  color: var(--state-success);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.itemList {
+  display: grid;
+  gap: 10px;
+}
+
+.attentionItem {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-body);
+}
+
+.itemText {
+  color: var(--text-body);
+  font-size: 13px;
+}
+
+.itemAction {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 700;
+}

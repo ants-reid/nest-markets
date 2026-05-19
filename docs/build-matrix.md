@@ -1,0 +1,219 @@
+# Market Hunter — Build Control Matrix
+
+> **Rule**: Every phase must update `docs/build-ledger.md` on completion with:
+> changed files, migrations added, tests run, pass/fail count, known limitations,
+> and recommended next phase.
+
+---
+
+## Phase Registry
+
+## Restart Stabilisation Note — 2026-05-19
+
+- frontend build-ready evidence is green from the stabilisation pass
+- backend local DB bootstrap is restored and backend pytest is green locally (`2301 passed`, `0 warnings`)
+- learning bootstrap is green locally (`99 passed`)
+- Gate 1 implementation-matrix inventory has been reconciled to the live repo surface and Gate 2 QA linkage has been extended to cover the new route/page IDs
+- smoke verification is green on the rebuilt web app (`20/20 passed`)
+- responsive verification is green after the 390px topbar fix (`46/46 passed`)
+- visual verification is green after snapshot rebaseline (`48/48 passed`)
+- full Playwright verification is green (`272/272 passed`)
+- release readiness is now GO / release-ready candidate on the MH-RESTART-004 evidence set
+
+| Phase  | Title                              | Status      | Depends On | Drift Lock |
+|--------|------------------------------------|-------------|------------|------------|
+| MH-00  | Repo Audit & Build Control         | ✅ Complete  | —          | No new features |
+| MH-01  | Data Centre Foundation             | ✅ Complete  | MH-00      | No Strategy Lab, no live trading |
+| MH-02  | Historical Import Manager          | ⏳ Pending   | MH-01      | No UI yet |
+| MH-03  | Data Quality Alerting              | ⏳ Pending   | MH-01      | No broker changes |
+| MH-04  | Data Centre UI (read-only)         | 🟡 Partial  | MH-01      | Split via cycle 26: 04-RO read-only subset ✅, 04-WR write actions ⏳ |
+| MH-04-RO | Data Centre UI — read-only subset (filters, coverage/quality/gaps/import-runs tables) | ✅ Complete | MH-01      | Strictly read-only filters + tables; consumes `GET /research/data/*` only |
+| MH-04-WR | Data Centre UI — write actions (start/cancel/retry import + quality jobs)             | ⏳ Pending  | MH-04-RO, MH-02 | Mutating job actions; out of scope until MH-02 import manager lands |
+| MH-05  | Strategy Lab Engine                | 🔒 Locked    | MH-04      | Do not start before MH-04 |
+| MH-06  | Historical Replay Engine           | 🔒 Locked    | MH-05      | Do not start before MH-05 |
+| MH-07  | Mock Trade Simulator               | 🔒 Locked    | MH-06      | Do not start before MH-06 |
+| MH-08  | AI Backtest Reports                | 🔒 Locked    | MH-07      | Do not start before MH-07 |
+| MH-09  | Baseline Manager                   | 🔒 Locked    | MH-08      | Do not start before MH-08 |
+| MH-10  | Journal Migration (DB-backed)      | ⏳ Pending   | MH-01      | Do not break existing JSON journal during migration |
+| MH-11  | Broker Live Wiring (Paper IBKR)    | ⏳ Pending   | MH-01      | No auto_live; paper only |
+| MH-12  | Tiny Live Mode                     | 🔒 Locked    | MH-11      | Do not start before MH-11 |
+
+---
+
+## Drift Lock Rules
+
+These guards apply to ALL phases unless explicitly overridden by a phase spec:
+
+1. **No duplicate candle table.** All OHLCV storage goes through `bars` / `Bar` model.
+2. **No Strategy Lab in MH-00..MH-04.** Strategy engine is MH-05+.
+3. **No replay engine before MH-05.**
+4. **No live broker wiring before MH-11.** `auto_live` remains hardcoded disabled (Gate 4).
+5. **No third-party charting libraries** without an explicit phase spec approving them.
+6. **No unrelated refactors** within a phase. One phase, one scope.
+7. **Build ledger must be updated** before a phase is marked complete.
+8. **Existing tests must not regress.** New phases may add tests; never delete existing ones.
+9. **Journal stays JSON-file-backed** until MH-10.
+10. **OpenAI signal pipeline is frozen** until a phase explicitly targets it.
+
+---
+
+## Phase Detail Summaries
+
+### MH-00 — Repo Audit & Build Control
+- Created `docs/build-matrix.md` (this file) and `docs/build-ledger.md`.
+- Recorded current repo state: assets, bars, market-data providers, feature pipeline,
+  paper execution, OpenAI signal pipeline, journal storage, IBKR adapter scaffold.
+- Established build ledger rules.
+
+### MH-01 — Data Centre Foundation
+- New DB models: `MarketDataImportRun`, `MarketDataQualityReport`, `MarketDataGap`,
+  `ProviderCoverageReport`.
+- Alembic migration: `a2b3c4d5e6f7_add_data_centre_tables.py`.
+- New services: `MarketDataCoverageService`, `MarketDataQualityService`.
+- New route: `apps/api/app/api/routes/research_data.py`.
+- Endpoints: `GET /research/data/{assets,providers,coverage,quality,gaps}`.
+- Tests: route registration, coverage shape, quality shape, empty-state, no duplicate
+  candle table.
+
+### MH-02 — Historical Import Manager *(pending)*
+- Will add `ImportSchedule` model and bulk-import workers.
+- Will hook into existing `MarketDataService.ingest_bars()`.
+- Will write import run records to `market_data_import_runs`.
+
+### MH-04 — Data Centre UI *(pending)*
+- Read-only Next.js page at `/data-centre`.
+- Consumes `GET /research/data/*` endpoints.
+- No new charting libraries; reuse existing SVG chart components.
+
+### MH-10 — Journal Migration *(pending)*
+- Migrate `execution_journals.json` to a `execution_journals` Postgres table.
+- Keep `ExecutionJournalService` interface stable; swap storage backend only.
+
+### MH-11 — Broker Live Wiring (Paper IBKR) *(pending)*
+- Wire `IBKRAdapter` into `LiveExecutionService` via `gateway_factory.py`.
+- Set `PAPER_TRADING_ENABLED=true` in `.env` to activate.
+- `auto_live` remains hardcoded disabled (Gate 4 invariant).
+
+---
+
+## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)
+
+> Canonical detail and rationale for every row below lives in `docs/build-ledger.md`
+> entry **MH-142-A — Build Matrix Lock-In** (Sections A–K).
+> Drift Lock (Gate 4: no live execution; auto-paper enforcement remains OFF until
+> Bucket 1 is fully green) is **inherited by every row** unless the row is itself
+> a Bucket 4 live-prereq phase.
+
+### Bucket 1 — Must Fix Before Auto-Paper Enforcement (blocks enforcement)
+
+| Phase        | Title                                          | Status  | Depends On                  | Drift Lock |
+|--------------|------------------------------------------------|---------|-----------------------------|------------|
+| MH-143       | Position Sizing Service                        | 🟡 Partial | MH-141                    | 143-A service module ✅; 143-B worker wiring deferred |
+| MH-144       | Drop MARKET fallback in worker                 | ⏳ Pending | MH-143                    | LIMIT-only path |
+| MH-145       | Real RiskInput values (spread/DD/recent loss)  | 🟡 Partial | MH-143                    | 145-A `MarketContextSnapshotService` scaffolding ✅ (NOT wired into worker; drift-lock test enforces); 145-B worker wiring deferred |
+| MH-146       | `Position.opened_by` column + backfill         | ✅ Complete | —                          | Additive column, default 'unknown' |
+| MH-147       | Unified `would_block` enforcement semantics    | ⏳ Pending | MH-145                    | Fail-closed only |
+| MH-148       | `BrokerSubmitDecision` audit table             | 🟡 Partial | MH-147                    | 148-A table+model ✅, 148-B read endpoint ✅; 148-C writer deferred until MH-147 |
+| MH-149       | Catalyst-context sanitization                  | ✅ Complete | —                          | Untrusted-text policy |
+| MH-150       | `LLMRequestLog` (full request/response)        | ✅ Complete | —                          | No PII bleed; redact keys |
+| MH-151       | Signal geometry validation (entry/stop/target) | ✅ Complete | —                          | Rejects inverted / NaN / wrong-side geometry |
+| MH-152       | Worker async refactor (drop `asyncio.run`)     | ⏳ Pending | MH-148                    | No behaviour change in this phase |
+| MH-153       | `risk_profile_id` denormalization              | 🟡 Partial | MH-148                    | 153-A column ✅; 153-B writer deferred until MH-148-C |
+| MH-154       | Persist risk-block reason (queryable)          | 🟡 Partial | MH-148                    | 154-A column ✅; 154-B writer deferred until MH-148-C |
+| MH-MON-01    | Health endpoint registry (`/health/services`)  | ✅ Complete | —                          | Read-only; no toggles |
+| MH-MON-02    | Feeds-In probes                                | ✅ Complete | MH-MON-01                | Probe-only, advisory |
+| MH-MON-03    | Feeds-Out probes                               | ✅ Complete | MH-MON-01                | Probe-only, advisory |
+| MH-MON-04    | Trading Safety Decision aggregator             | ✅ Complete | MH-MON-02, MH-MON-03      | Reads gates; never writes |
+| MH-MON-05    | Incidents log (`/monitor/incidents`)           | ✅ Complete | MH-MON-01                | Append-only |
+
+### Bucket 2 — Should Fix Before Paper-Auto Performance Testing
+
+| Phase           | Title                                          | Status  | Depends On             | Drift Lock |
+|-----------------|------------------------------------------------|---------|------------------------|------------|
+| MH-155          | Auto `SignalOutcome` on close                  | ⏳ Pending | MH-146, MH-148        | Backfill safe |
+| MH-156          | Cost model on paper (slippage/fees)            | ⏳ Pending | MH-155                | Paper-only |
+| MH-157          | Performance dimensions (regime/sector/session) | ⏳ Pending | MH-155                | Read-only views |
+| MH-158          | Worker-run-log archive                         | ✅ Complete | —                      | Retention policy |
+| MH-159          | Prompt frontmatter + content hash              | ✅ Complete | MH-150                | Immutable per version |
+| MH-160          | Correlation ID plumbing                        | ✅ Complete | MH-150                | End-to-end trace |
+| MH-NEWS-01      | Perplexity/Sonar provider client               | ✅ Complete | —                      | Research-only |
+| MH-NEWS-02      | News normalized JSON schema + storage          | ✅ Complete | MH-NEWS-01            | Raw + normalized + citations |
+| MH-NEWS-03      | News cache + freshness window                  | ✅ Complete | MH-NEWS-02            | TTL configurable |
+| MH-NEWS-04      | News Risk advisory flag (paper-only)           | ⏳ Pending | MH-NEWS-02, MH-148    | Never relaxes risk |
+| MH-NEWS-06      | `evidence_class="research_only"` enforcement   | ✅ Complete | MH-NEWS-02            | DB CHECK constraint |
+| MH-NEWS-07      | News UI surface (Cockpit + Asset Detail)       | ✅ Complete | MH-NEWS-02            | Citations always shown |
+| MH-NEWS-08      | News-in-decision audit log                     | 🟡 Partial | MH-NEWS-04, MH-150    | 08-A table+model+CHECK shipped (cycle 23, no writer); 08-B writer deferred until MH-NEWS-04 lands |
+| MH-MON-06       | `/system-health` frontend page                 | ✅ Complete | MH-MON-04             | View-only |
+| MH-MON-07       | Provider Configuration view                    | ✅ Complete | MH-MON-01             | Read-only |
+| MH-MON-08       | Health History charts                          | ✅ Complete | MH-MON-05             | Reuse SVG chart lib |
+| MH-MON-10       | Operator `POST /monitor/test/{service}` endpoint | ⏳ Pending | MH-MON-01           | Auth-gated, dry probes only |
+| MH-COCKPIT-01   | Markets-open snapshot endpoint                 | ✅ Complete | —                      | Read-only |
+| MH-COCKPIT-02   | Asset cards + market quality                   | ✅ Complete | MH-COCKPIT-01         | Read-only |
+| MH-COCKPIT-03   | Mode selector (Learning / Manual / Auto Paper) | ⏳ Pending | MH-COCKPIT-01, MH-MON-04 | Live modes disabled in UI |
+| MH-COCKPIT-04   | Plain-English explainer                        | ✅ Complete | MH-150                | Reads decision audit only |
+| MH-COCKPIT-05   | EOD report                                     | ⏳ Pending | MH-155                | Paper scope |
+| MH-COCKPIT-06   | Notifications surface                          | ✅ Complete | MH-MON-05             | In-app only initially |
+
+### Bucket 3 — Can Fix After Paper-Auto Is Safely Running
+
+| Phase           | Title                                          | Status   | Depends On             | Drift Lock |
+|-----------------|------------------------------------------------|----------|------------------------|------------|
+| MH-161          | `BrokerService` split (refactor)               | ⏳ Pending | Bucket 1 green        | No behaviour change |
+| MH-162          | Post-lock simulation regression suite          | ⏳ Pending | MH-161                | Test-only |
+| MH-MON-09       | Backend test-service POST endpoint hardening   | ⏳ Pending | MH-MON-10             | Auth + rate-limit |
+| MH-COCKPIT-07   | In-flight adjustments view                     | ⏳ Pending | MH-COCKPIT-05         | Paper scope |
+| MH-COCKPIT-08   | Trade-close explanations                       | ⏳ Pending | MH-150                | Audit-driven |
+| MH-COCKPIT-09   | Daily scoreboard                               | ⏳ Pending | MH-157                | Read-only |
+| MH-COCKPIT-10   | Alerts needing attention                       | ⏳ Pending | MH-MON-05             | Surfacing only |
+| MH-COCKPIT-11   | Asset-detail deep-link                         | ✅ Complete | MH-COCKPIT-02         | Read-only |
+| MH-COCKPIT-12   | Open-paper-positions live view                 | ⏳ Pending | MH-COCKPIT-05         | Read-only |
+| MH-COCKPIT-13   | Auto-paper status card                         | ✅ Complete | MH-141                | Read-only |
+
+### Bucket 4 — Future Live-Trading Prerequisites (Locked)
+
+| Phase           | Title                                          | Status   | Depends On             | Drift Lock |
+|-----------------|------------------------------------------------|----------|------------------------|------------|
+| MH-163          | Live-prereq doc + checklist                    | 🔒 Locked | All Bucket 1+2 green  | No code yet |
+| MH-NEWS-05L     | News Risk gate for live (manual approval req.) | 🔒 Locked | MH-NEWS-04, MH-163    | Requires explicit unlock |
+| MH-COCKPIT-14   | Assisted Live Trade mode UI                    | 🔒 Locked | MH-163                | Per-trade approval only |
+| MH-AI-01        | Per-task model env config                      | 🔒 Locked | MH-150                | `OPENAI_*` registry |
+| MH-AI-02        | Per-call model parameter passing               | 🔒 Locked | MH-AI-01              | No silent default |
+| MH-AI-03        | Decision-replay store                          | 🔒 Locked | MH-150, MH-159        | Immutable snapshots |
+| MH-AI-04        | Strategy/model/prompt comparison harness       | 🔒 Locked | MH-AI-03              | Offline only |
+
+### Park (Do Not Build Yet)
+
+| Phase           | Title                                          | Status   | Notes |
+|-----------------|------------------------------------------------|----------|-------|
+| MH-COCKPIT-15   | Limited Auto Live Trade                        | ⛔ Parked | Requires 30+ days paper, 100+ trades, positive expectancy, manual unlock |
+
+---
+
+## Post-MH-141 Drift Lock Additions
+
+Applies to ALL Bucket 1–4 phases above:
+
+11. **Auto-paper enforcement stays OFF** until every Bucket 1 row is green and signed off in `docs/build-ledger.md`. `assert_auto_trading_allowed()` continues to raise unconditionally.
+12. **News, Monitor, and Cockpit modules are consumption-only.** No FK from any trading table to `news_*`, `monitor_*`, or `cockpit_*` tables. One-way imports only (trading → none of them).
+13. **News output is `evidence_class="research_only"`** at the DB-CHECK level. News may add caution; it must never relax a risk control.
+14. **`trade_mode_settings.real_money_enabled` is forced `false`** by a DB CHECK constraint until MH-163 explicitly removes it.
+15. **The "Auto Trade Today" button is permanently disabled** in the UI until Bucket 4 unlock; mode selectors render Live/Limited-Auto-Live as disabled with a lock tooltip.
+16. **Loss-framing rule**: every plain-English explainer must surface downside before upside.
+17. **No frontend toggle may bypass a backend gate.** Monitor and Cockpit pages render the gate state read-only; toggling UI must POST to a gated backend endpoint that re-validates.
+
+---
+
+## Recommended Next 10 Phases (in order)
+
+1. **MH-146** — `Position.opened_by` column + backfill (smallest migration; unblocks MH-155).
+2. **MH-143** — Position Sizing Service (removes hardcoded `Decimal("1.0")`).
+3. **MH-144** — Drop MARKET fallback in worker (LIMIT-only path).
+4. **MH-145** — Real `RiskInput` values (spread, daily DD, recent losses).
+5. **MH-148** — `BrokerSubmitDecision` audit table (persist preflight JSON).
+6. **MH-147** — Unified `would_block` enforcement semantics (fail-closed).
+7. **MH-154** — Persist structured risk-block reason.
+8. **MH-153** — `risk_profile_id` denormalization onto orders/positions.
+9. **MH-149** — Catalyst-context sanitization (prompt-injection guard).
+10. **MH-150** — `LLMRequestLog` (full request/response, redacted).
+
+(MH-151, MH-152, MH-MON-01..05 follow to close Bucket 1 before any enforcement-flip discussion.)

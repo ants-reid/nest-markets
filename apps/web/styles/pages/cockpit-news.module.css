@@ -1,0 +1,243 @@
+/* MH-NEWS-07-C-2 — Cockpit news surface styling. Read-only. */
+
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  max-width: 70ch;
+}
+
+.subtitleAlt {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.inlineLink {
+  color: var(--state-info, #60a5fa);
+  text-decoration: none;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}
+
+.headerControls {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.refreshTimestamp {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.refreshButton {
+  background: var(--button-bg, #1f2937);
+  color: var(--button-fg, #f9fafb);
+  border: 1px solid var(--button-border, #374151);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.limitControl {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.limitLabel {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.limitInput {
+  background: var(--input-bg, #0f172a);
+  color: var(--text-body);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  width: 80px;
+}
+
+.errorBanner {
+  background: #4c0519;
+  color: #fecdd3;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 1rem;
+  background: var(--card-bg, #111827);
+  border: 1px dashed var(--card-border, #1f2937);
+  border-radius: 10px;
+}
+
+.loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.newsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.newsItem {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.newsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.newsHeadline {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.newsTimestamp {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.metaRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  align-items: center;
+}
+
+.metaPill {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  color: var(--text-body);
+}
+
+.evidenceBadge {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sourceLink {
+  color: var(--state-info, #60a5fa);
+  text-decoration: none;
+  font-size: 0.78rem;
+}
+
+.sourceLink:hover {
+  text-decoration: underline;
+}
+
+.newsSummary {
+  margin: 0.1rem 0 0;
+  color: var(--text-body);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.citationsBlock {
+  margin-top: 0.15rem;
+}
+
+.citationsLabel {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+
+.citationsList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+}
+
+.citationsList a {
+  color: var(--state-info, #60a5fa);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.citationsList a:hover {
+  text-decoration: underline;
+}
+
+.driftLockNotice {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border-left: 3px solid #fbbf24;
+  padding: 0.4rem 0.75rem;
+  background: rgba(251, 191, 36, 0.06);
+  border-radius: 0 6px 6px 0;
+}

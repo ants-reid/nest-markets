@@ -1,0 +1,32 @@
+{
+  "title": "Market Hunter — Queue Health",
+  "description": "Monitor job queue depth and throughput",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Queue Depth by Queue",
+      "targets": [
+        {
+          "expr": "market_hunter_queue_depth",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Job Failure Rate",
+      "targets": [
+        {
+          "expr": "rate(market_hunter_job_failures_total[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    }
+  ]
+}

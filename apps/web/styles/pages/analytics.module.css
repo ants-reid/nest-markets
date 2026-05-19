@@ -1,0 +1,301 @@
+.shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(1300px 700px at -12% -10%, color-mix(in oklab, var(--state-info) 22%, transparent) 0%, transparent 52%),
+    radial-gradient(900px 500px at 110% -5%, color-mix(in oklab, var(--accent-highlight) 30%, transparent) 0%, transparent 55%),
+    var(--app-shell-bg);
+  color: var(--text-strong);
+}
+
+.content {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 28px clamp(16px, 3vw, 30px) 42px;
+  display: grid;
+  gap: 18px;
+}
+
+.panel {
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+}
+
+.panelGrid {
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+  display: grid;
+  gap: 12px;
+}
+
+.intro {
+  display: grid;
+  gap: 6px;
+}
+
+.introTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--text-strong);
+}
+
+.introBody {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 860px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.filterStack {
+  display: grid;
+  gap: 10px;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filterLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.filterLabelOffset {
+  margin-left: 10px;
+}
+
+.selectControl {
+  min-width: 120px;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.metaText {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.metaStrong {
+  color: var(--text-strong);
+}
+
+.metaNumeric {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.stateMessage {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.errorBanner {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--state-danger-border);
+  background: var(--state-danger-soft);
+  color: var(--state-danger);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+
+.drilldownGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.emptyCard {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  background: var(--surface-soft);
+}
+
+.drilldownCard {
+  text-align: left;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+}
+
+.drilldownCardActive {
+  border-color: var(--state-info);
+  background: color-mix(in oklab, var(--state-info) 18%, var(--surface-soft));
+}
+
+.drilldownLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.drilldownCount {
+  font-size: 22px;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.drilldownPct {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.insightGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.insightLabel {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+
+.insightValue {
+  margin: 8px 0 0;
+  font-size: 26px;
+  color: var(--text-strong);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lifecycleList {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.lifecycleItem {
+  display: grid;
+  gap: 4px;
+}
+
+.lifecycleHeader {
+  display: flex;
+  justify-content: space-between;
+}
+
+.lifecycleStage {
+  color: var(--text-strong);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.lifecycleCount {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.progressTrack {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--state-info), var(--state-success));
+}
+
+.tableWrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.recordsTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  color: var(--text-body);
+}
+
+.recordsHeaderCell {
+  text-align: left;
+  padding: 9px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.recordsCell {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 12px;
+}
+
+.recordsStrong {
+  color: var(--text-strong);
+}
+
+.recordsMuted {
+  color: var(--text-muted);
+}
+
+.recordsNumeric {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.snapshotWrap {
+  margin-top: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-strong);
+  overflow-x: auto;
+}
+
+.snapshotPre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.emptyText {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}

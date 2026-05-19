@@ -1,0 +1,263 @@
+:root {
+  color-scheme: dark;
+  font-family: var(--font-inter), "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-base: 15px;
+  --line-height-base: 1.55;
+
+  --app-shell-bg: radial-gradient(1300px 560px at 0% 0%, rgba(59, 158, 255, 0.06) 0%, transparent 56%),
+    linear-gradient(180deg, #0a1520 0%, #0d1a26 100%);
+
+  --text-body: #c2d8ec;
+  --text-strong: #e8f4ff;
+  --text-muted: #91abc1;
+
+  --surface-border: #1a3040;
+  --surface-fill: linear-gradient(165deg, #0f1d2b 0%, #0a1520 100%);
+  --surface-shadow: 0 16px 40px rgba(10, 22, 36, 0.34);
+  --surface-soft: rgba(255, 255, 255, 0.02);
+  --overlay-backdrop: rgba(0, 0, 0, 0.6);
+  --shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-tooltip: 0 6px 24px rgba(0, 0, 0, 0.4);
+
+  --control-bg: rgba(255, 255, 255, 0.03);
+  --control-border: #1e3446;
+  --control-text: #d4e8f8;
+
+  --accent-primary: #3b9eff;
+  --accent-secondary: #00c4b4;
+  --accent-highlight: #d4a843;
+  --state-success: #00c4b4;
+  --state-warning: #d4a843;
+  --state-danger: #ef5350;
+  --state-info: #3b9eff;
+
+  --state-success-soft: color-mix(in oklab, var(--state-success) 14%, transparent);
+  --state-warning-soft: color-mix(in oklab, var(--state-warning) 16%, transparent);
+  --state-danger-soft: color-mix(in oklab, var(--state-danger) 16%, transparent);
+  --state-info-soft: color-mix(in oklab, var(--state-info) 14%, transparent);
+  --state-success-border: color-mix(in oklab, var(--state-success) 46%, var(--surface-border));
+  --state-warning-border: color-mix(in oklab, var(--state-warning) 46%, var(--surface-border));
+  --state-danger-border: color-mix(in oklab, var(--state-danger) 46%, var(--surface-border));
+  --state-info-border: color-mix(in oklab, var(--state-info) 46%, var(--surface-border));
+
+  --chart-series-1: #58b9ff;
+  --chart-series-2: #34d8c8;
+  --chart-series-3: #f1c15c;
+  --chart-series-4: #b49bff;
+  --chart-series-5: #ff8b95;
+  --chart-series-6: #7fd67b;
+  --chart-grid-line: color-mix(in oklab, var(--text-muted) 38%, transparent);
+  --chart-axis-text: var(--text-body);
+  --chart-guide-line: color-mix(in oklab, var(--text-strong) 48%, transparent);
+  --chart-track-bg: color-mix(in oklab, var(--text-muted) 26%, transparent);
+  --chart-point-stroke: var(--surface-fill);
+  --chart-line-halo: color-mix(in oklab, var(--surface-fill) 70%, var(--text-strong) 30%);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --app-shell-bg: radial-gradient(1300px 560px at 0% 0%, rgba(59, 158, 255, 0.08) 0%, transparent 56%),
+    linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
+
+  --text-body: #18354e;
+  --text-strong: #10283b;
+  --text-muted: #2f4f68;
+
+  --surface-border: #ccdbe8;
+  --surface-fill: linear-gradient(165deg, #ffffff 0%, #f4f9ff 100%);
+  --surface-shadow: 0 14px 32px rgba(17, 46, 73, 0.10);
+  --surface-soft: #f5f9fe;
+  --overlay-backdrop: rgba(11, 33, 51, 0.28);
+  --shadow-elevated: 0 16px 48px rgba(17, 46, 73, 0.22);
+  --shadow-tooltip: 0 6px 24px rgba(17, 46, 73, 0.18);
+
+  --control-bg: #ffffff;
+  --control-border: #b9ccdd;
+  --control-text: #17344c;
+
+  --accent-primary: #1f6fb3;
+  --accent-secondary: #0f8d81;
+  --accent-highlight: #9a6d1d;
+  --state-success: #147d74;
+  --state-warning: #9a6d1d;
+  --state-danger: #b64a44;
+  --state-info: #1f6fb3;
+
+  --state-success-soft: color-mix(in oklab, var(--state-success) 16%, #ffffff);
+  --state-warning-soft: color-mix(in oklab, var(--state-warning) 18%, #ffffff);
+  --state-danger-soft: color-mix(in oklab, var(--state-danger) 18%, #ffffff);
+  --state-info-soft: color-mix(in oklab, var(--state-info) 16%, #ffffff);
+  --state-success-border: color-mix(in oklab, var(--state-success) 55%, var(--surface-border));
+  --state-warning-border: color-mix(in oklab, var(--state-warning) 55%, var(--surface-border));
+  --state-danger-border: color-mix(in oklab, var(--state-danger) 55%, var(--surface-border));
+  --state-info-border: color-mix(in oklab, var(--state-info) 55%, var(--surface-border));
+
+  --chart-series-1: #1f6fb3;
+  --chart-series-2: #0f8d81;
+  --chart-series-3: #8d6117;
+  --chart-series-4: #6a4fb0;
+  --chart-series-5: #ad4b4f;
+  --chart-series-6: #2f7a4e;
+  --chart-grid-line: color-mix(in oklab, var(--text-muted) 34%, transparent);
+  --chart-axis-text: var(--text-body);
+  --chart-guide-line: color-mix(in oklab, var(--text-strong) 44%, transparent);
+  --chart-track-bg: color-mix(in oklab, var(--text-muted) 22%, transparent);
+  --chart-point-stroke: var(--surface-fill);
+  --chart-line-halo: color-mix(in oklab, var(--surface-fill) 55%, #ffffff 45%);
+
+  --font-size-base: 15px;
+  --line-height-base: 1.55;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  letter-spacing: 0.01em;
+  font-weight: 450;
+  color: var(--text-body);
+  background: var(--app-shell-bg);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-strong);
+  line-height: 1.22;
+  letter-spacing: 0.01em;
+  font-weight: 650;
+}
+
+p,
+li,
+label,
+input,
+select,
+textarea,
+button {
+  line-height: 1.5;
+}
+
+small,
+[data-ui="label"],
+[data-ui="meta"] {
+  font-weight: 550;
+  color: var(--text-muted);
+}
+
+.tabular,
+[data-numeric="true"],
+td,
+th,
+code,
+kbd,
+samp {
+  font-variant-numeric: tabular-nums;
+}
+
+main {
+  padding-inline: 20px;
+}
+
+section {
+  line-height: 1.55;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  letter-spacing: 0.01em;
+}
+
+input,
+select,
+textarea {
+  font-weight: 500;
+}
+
+button,
+input,
+select,
+textarea {
+  border-radius: 10px;
+}
+
+@media (max-width: 1024px) {
+  [data-rs="two-col"],
+  [data-rs="split-main"],
+  [data-rs="dashboard-split"],
+  [data-rs="alert-distribution"],
+  [data-rs="risk-snapshot"],
+  [data-rs="rule-form"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  [data-rs="list-grid"] {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  main {
+    padding-inline: 14px;
+  }
+
+  [data-rs="three-col"],
+  [data-rs="detail-grid"],
+  [data-rs="risk-flags"],
+  [data-rs="compact-grid"],
+  [data-rs="watchlist-header"],
+  [data-rs="watchlist-row"],
+  [data-rs="rule-row"],
+  [data-rs="alert-row"],
+  [data-rs="notification-row"],
+  [data-rs="recent-row"],
+  [data-rs="position-row"],
+  [data-rs="intelligence-row"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  [data-rs="actions-wrap"] {
+    justify-content: flex-start !important;
+  }
+
+  [data-rs="scroll-x"] {
+    overflow-x: auto;
+  }
+
+  [data-rs="hero-title"] {
+    font-size: 30px !important;
+    line-height: 1.1 !important;
+  }
+
+  [data-rs="panel-pad"] {
+    padding: 16px !important;
+  }
+}

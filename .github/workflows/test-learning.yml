@@ -1,0 +1,30 @@
+name: Test — Learning App
+
+on:
+  push:
+    paths:
+      - "apps/learning/**"
+      - ".github/workflows/test-learning.yml"
+  pull_request:
+    paths:
+      - "apps/learning/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest apps/learning/tests/ -q --tb=short

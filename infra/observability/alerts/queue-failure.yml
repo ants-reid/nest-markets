@@ -1,0 +1,27 @@
+groups:
+  - name: queue-failure
+    rules:
+      - alert: JobQueueDepthHigh
+        expr: market_hunter_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Job queue {{ $labels.queue }} depth is high"
+          description: >
+            Queue {{ $labels.queue }} has {{ $value }} pending jobs.
+            Workers may be overwhelmed or blocked.
+
+      - alert: JobFailureRateHigh
+        expr: rate(market_hunter_job_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: data
+        annotations:
+          summary: "High job failure rate in {{ $labels.job }}"
+          description: >
+            Job {{ $labels.job }} is failing at {{ $value | humanize }} failures/s.
+            Check worker logs for errors.
+          runbook_url: "https://docs.internal/runbooks/provider-failure"

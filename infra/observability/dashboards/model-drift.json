@@ -1,0 +1,36 @@
+{
+  "title": "Market Hunter — Model Drift",
+  "description": "Monitor feature and scoring model drift over time",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Feature Drift Score by Feature",
+      "targets": [
+        {
+          "expr": "market_hunter_feature_drift_score",
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Score Distribution (rolling 7d)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, market_hunter_score_distribution_bucket)",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, market_hunter_score_distribution_bucket)",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    }
+  ]
+}

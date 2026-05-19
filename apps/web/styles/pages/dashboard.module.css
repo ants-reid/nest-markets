@@ -1,0 +1,338 @@
+.shell {
+  min-height: 100vh;
+  padding: 32px 20px 64px;
+  background: var(--app-shell-bg);
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+}
+
+.content {
+  width: 100%;
+  max-width: 1160px;
+  min-width: 0;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+.statePanel {
+  display: grid;
+  gap: 12px;
+}
+
+.stateMessage {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+}
+
+.errorMessage {
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-soft);
+  color: var(--state-danger);
+}
+
+.emptyMessage {
+  border-style: dashed;
+}
+
+.splitGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1.25fr 1fr;
+}
+
+.twoColumnGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 20px;
+}
+
+.panelLink {
+  color: var(--state-info);
+  font-size: 12px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.linkGroup {
+  display: flex;
+  gap: 10px;
+}
+
+.stack {
+  display: grid;
+  gap: 8px;
+}
+
+.positionRow {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 0.8fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.monoId {
+  color: var(--state-info);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.assetText {
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+.sideBuy {
+  color: var(--state-success);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.sideSell {
+  color: var(--state-danger);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.notionalText {
+  color: var(--state-warning);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mutedTiny {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.pnlGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.miniStat {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  display: grid;
+  gap: 6px;
+}
+
+.miniLabel {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.miniValue {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.valueWarning {
+  color: var(--state-warning);
+  font-size: 20px;
+}
+
+.valueSuccess {
+  color: var(--state-success);
+  font-size: 18px;
+}
+
+.valueDanger {
+  color: var(--state-danger);
+  font-size: 18px;
+}
+
+.statsList {
+  display: grid;
+  gap: 8px;
+}
+
+.statsRow {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+.statsValueWarning {
+  color: var(--state-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+.statsValueDanger {
+  color: var(--state-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.statsValueSuccess {
+  color: var(--state-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.tradeButtonGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.tradeAutoControls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+.controlLabel {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tradeSelect {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-body);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tradeStatusCard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.tradeActionButton,
+.tradeActionButtonSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tradeActionButton {
+  color: var(--app-shell-bg);
+  background: var(--state-success);
+  border-color: var(--state-success-border);
+}
+
+.tradeActionButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.tradeActionButtonSecondary {
+  color: var(--text-body);
+  background: var(--surface-soft);
+}
+
+.statusMessage {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.riskGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.bodyText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.bodyTextStrong {
+  color: var(--text-body);
+}
+
+.recentRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.notePanel {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 960px) {
+  .splitGrid,
+  .twoColumnGrid,
+  .riskGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 24px 14px 48px;
+  }
+
+  .positionRow,
+  .recentRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tradeAutoControls {
+    grid-template-columns: 1fr;
+  }
+
+  .pnlGrid {
+    grid-template-columns: 1fr;
+  }
+}

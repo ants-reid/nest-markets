@@ -1,0 +1,26 @@
+groups:
+  - name: provider-outage
+    rules:
+      - alert: ProviderIngestionStopped
+        expr: increase(market_hunter_ingestion_records_total[10m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: data
+        annotations:
+          summary: "Provider ingestion has stopped for {{ $labels.provider }}"
+          description: >
+            No records ingested from {{ $labels.provider }} for more than 5 minutes.
+            Check provider connectivity and credentials.
+          runbook_url: "https://docs.internal/runbooks/provider-failure"
+
+      - alert: ProviderHighLag
+        expr: market_hunter_ingestion_lag_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "High ingestion lag for {{ $labels.provider }}"
+          description: >
+            Ingestion lag for {{ $labels.provider }} is {{ $value }}s (threshold: 300s).

@@ -1,0 +1,256 @@
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 80ch;
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.filterLabel {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.4rem;
+}
+
+.filterSelect {
+  background: var(--input-bg, #0f172a);
+  color: var(--text-body);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.refreshButton {
+  background: var(--button-bg, #1f2937);
+  color: var(--button-fg, #f9fafb);
+  border: 1px solid var(--button-border, #374151);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refreshTimestamp {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.advisory {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: rgba(96, 165, 250, 0.06);
+  border-left: 3px solid #60a5fa;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.driftLockNotice {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border-left: 3px solid #fbbf24;
+  padding: 0.4rem 0.75rem;
+  background: rgba(251, 191, 36, 0.06);
+  border-radius: 0 6px 6px 0;
+}
+
+.retention {
+  display: grid;
+  gap: 0.4rem;
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.retentionRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.88rem;
+}
+
+.retentionLabel {
+  width: 7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+}
+
+.retentionValue {
+  color: var(--text-body);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.retentionOk {
+  color: #34d399;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.retentionWarn {
+  color: #fbbf24;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.totals {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0 0.5rem;
+}
+
+.totalsLabel {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.errorBanner {
+  background: #4c0519;
+  color: #fecdd3;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  background: var(--card-bg, #111827);
+  border: 1px dashed var(--card-border, #1f2937);
+  border-radius: 10px;
+}
+
+.tableWrap {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--card-border, #1f2937);
+  position: sticky;
+  top: 0;
+}
+
+.row td {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--card-border, #1f2937);
+  vertical-align: top;
+}
+
+.cellTime {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.cellMono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  color: var(--text-body);
+}
+
+.cellMessage {
+  max-width: 32rem;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badgeOk,
+.badgeError,
+.badgeNeutral {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid currentColor;
+}
+
+.badgeOk {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.badgeError {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.badgeNeutral {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+}

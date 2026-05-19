@@ -1,0 +1,19 @@
+.shell {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+}
+
+/* Content area: offset left for sidebar, top for topbar */
+.main {
+  margin-left: 240px;
+  padding-top: 56px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Mobile: no left offset, only topbar top padding */
+@media (max-width: 767px) {
+  .main {
+    margin-left: 0;
+  }
+}

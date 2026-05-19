@@ -1,0 +1,37 @@
+name: Deploy — Web App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install and build
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Docker image
+        run: |
+          docker build -f infra/docker/Dockerfile.web -t market-hunter-web:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          echo "Push step — configure registry credentials in environment secrets"
+          # docker push market-hunter-web:${{ github.sha }}

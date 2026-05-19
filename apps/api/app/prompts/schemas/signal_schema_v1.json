@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "signal_schema_v1.json",
+  "title": "SignalSchemaV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asset",
+    "timeframe",
+    "direction",
+    "regime",
+    "setup_type",
+    "entry_zone",
+    "stop_price",
+    "target_price",
+    "confidence",
+    "horizon_label",
+    "catalyst_type",
+    "catalyst_score",
+    "catalyst_summary",
+    "thesis",
+    "invalidators",
+    "signal_score",
+    "should_trade"
+  ],
+  "properties": {
+    "asset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timeframe": {
+      "type": "string",
+      "enum": ["15m", "1h", "4h", "1d"]
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["long", "short", "flat"]
+    },
+    "regime": {
+      "type": "string",
+      "enum": ["trend", "range", "breakout", "high_volatility", "low_volatility", "risk_on", "risk_off"]
+    },
+    "setup_type": {
+      "type": "string",
+      "enum": ["trend_pullback", "breakout_confirmation", "news_continuation", "none"]
+    },
+    "entry_zone": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "stop_price": {
+      "type": "number",
+      "minimum": 0
+    },
+    "target_price": {
+      "type": "number",
+      "minimum": 0
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "horizon_label": {
+      "type": "string",
+      "enum": ["intraday", "1_3_days", "3_10_days"]
+    },
+    "catalyst_type": {
+      "type": "string",
+      "enum": ["none", "macro", "earnings", "sector_news", "commodity_move", "central_bank", "geopolitics"]
+    },
+    "catalyst_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "catalyst_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "thesis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "invalidators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "signal_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "should_trade": {
+      "type": "boolean"
+    }
+  }
+}

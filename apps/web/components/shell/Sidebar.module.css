@@ -1,0 +1,137 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  background: var(--surface-fill);
+  border-right: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 40;
+  transition: transform 0.22s ease;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
+}
+
+.logoMark {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: var(--surface-soft);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.logoName {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 24px;
+  flex: 1;
+}
+
+/* SidebarSection styles (used by SidebarSection.tsx) */
+.section {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0 4px;
+}
+
+.sectionLabel {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 16px;
+  user-select: none;
+}
+
+.sectionLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 4px;
+}
+
+.link {
+  display: block;
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  margin: 0 8px;
+  border-left: 3px solid transparent;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link:hover {
+  background: var(--surface-soft);
+  color: var(--text-strong);
+}
+
+.active {
+  background: var(--surface-soft);
+  color: var(--text-strong);
+  font-weight: 700;
+  border-left-color: var(--accent-secondary);
+  padding-left: 15px;
+}
+
+/* Overlay: hidden on desktop */
+.overlay {
+  display: none;
+}
+
+/* Mobile: sidebar becomes a slide-in drawer */
+@media (max-width: 767px) {
+  .sidebar {
+    transform: translateX(-100%);
+    z-index: 200;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .open {
+    transform: translateX(0);
+  }
+
+  .overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: var(--overlay-backdrop);
+    z-index: 190;
+    cursor: pointer;
+  }
+}

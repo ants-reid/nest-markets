@@ -1,0 +1,31 @@
+groups:
+  - name: model-drift
+    rules:
+      - alert: FeatureDriftCritical
+        expr: market_hunter_feature_drift_score > 0.5
+        for: 15m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "Critical feature drift detected in {{ $labels.feature }}"
+          description: >
+            Feature {{ $labels.feature }} drift score {{ $value }} exceeds 0.5.
+            Model predictions may be unreliable. Consider retraining.
+          runbook_url: "https://docs.internal/runbooks/model-rollback"
+
+      - alert: ScoreDistributionShift
+        expr: |
+          abs(
+            histogram_quantile(0.5, market_hunter_score_distribution_bucket offset 7d)
+            - histogram_quantile(0.5, market_hunter_score_distribution_bucket)
+          ) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Score distribution has shifted significantly"
+          description: >
+            The median score has shifted by more than 10 percentage points
+            compared to 7 days ago. Investigate feature changes.

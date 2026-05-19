@@ -1,0 +1,395 @@
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.badge {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.note {
+  border: 1px solid var(--state-warning-border);
+  background: var(--state-warning-soft);
+  color: var(--text-body);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.info {
+  border: 1px solid var(--state-info-border);
+  background: var(--state-info-soft);
+  color: var(--text-body);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.jobLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 1rem;
+}
+
+.select {
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--control-text);
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+}
+
+.input {
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--control-text);
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.card {
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+  padding: 0.85rem 1rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.cardLabel {
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cardValue {
+  color: var(--text-strong);
+  font-size: 1.7rem;
+  line-height: 1.1;
+  font-weight: 750;
+}
+
+.cardMeta {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.panel {
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-fill);
+  box-shadow: var(--surface-shadow);
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.panelTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.panelSub {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+}
+
+.th {
+  text-align: left;
+  padding: 0.58rem 0.78rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--surface-border);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.td {
+  padding: 0.55rem 0.78rem;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 0.86rem;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.asset {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid var(--surface-border);
+}
+
+.inlineActions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.smallBtn,
+.actionBtn,
+.primaryBtn {
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.smallBtn,
+.actionBtn {
+  border: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--text-body);
+}
+
+.primaryBtn {
+  border: 1px solid var(--state-info-border);
+  background: var(--state-info-soft);
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.smallBtn:disabled,
+.actionBtn:disabled,
+.primaryBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.formGrid {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.95rem;
+}
+
+.formCard {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.formTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-body);
+}
+
+.detailCard {
+  margin: 0 0.95rem 0.95rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 0.9rem;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem;
+}
+
+.detailGrid > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.detailLabel {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.approved {
+  color: var(--state-success);
+  background: var(--state-success-soft);
+  border-color: var(--state-success-border);
+}
+
+.rejected {
+  color: var(--state-danger);
+  background: var(--state-danger-soft);
+  border-color: var(--state-danger-border);
+}
+
+.neutral {
+  color: var(--text-muted);
+  background: var(--surface-soft);
+}
+
+.warning {
+  color: var(--state-warning);
+  background: var(--state-warning-soft);
+  border-color: var(--state-warning-border);
+}
+
+.loading,
+.empty,
+.error {
+  padding: 1rem;
+  font-size: 0.92rem;
+}
+
+.loading,
+.empty {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--state-danger);
+}
+
+.disabledBtn {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 860px) {
+  .container {
+    padding: 1.2rem 0.8rem;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .jobLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* MH-13 quality alert card */
+.qualityAlert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 6px;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  color: #fbbf24;
+  margin-bottom: 0.75rem;
+}
+
+.qualityAlertLink {
+  color: #fbbf24;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}

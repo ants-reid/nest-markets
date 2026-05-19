@@ -1,0 +1,34 @@
+name: Deploy — Learning Pipelines
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/learning/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run tests before deploy
+        run: |
+          pip install pytest
+          python -m pytest apps/learning/tests/ -q --tb=short
+
+      - name: Build Docker image
+        run: |
+          docker build -f infra/docker/Dockerfile.learning -t market-hunter-learning:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          echo "Push step — configure registry credentials in environment secrets"
+          # docker push market-hunter-learning:${{ github.sha }}

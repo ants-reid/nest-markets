@@ -1,0 +1,44 @@
+{
+  "title": "Market Hunter — API Latency",
+  "description": "Monitor API endpoint response times",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Request Latency p95 by Route",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"market-hunter-api\"}[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Request Rate (req/s)",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"market-hunter-api\"}[1m])",
+          "legendFormat": "{{method}} {{route}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error Rate (5xx)",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"market-hunter-api\",status=~\"5..\"}[1m])",
+          "legendFormat": "5xx errors"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+.DS_Store
+*.log
+
+.tmp.driveupload/
+exports/
+apps/api/.local/
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+node_modules/
+.next/
+test-results/
+playwright-report/
+logs/
+dist/
+build/

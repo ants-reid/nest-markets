@@ -1,0 +1,49 @@
+name: Test — API
+
+on:
+  push:
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/test-api.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: markethunter
+          POSTGRES_PASSWORD: markethunter
+          POSTGRES_DB: markethunter_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://markethunter:markethunter@localhost:5432/markethunter_test
+        run: python -m pytest tests/ -q --tb=short

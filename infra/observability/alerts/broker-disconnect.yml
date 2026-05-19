@@ -1,0 +1,27 @@
+groups:
+  - name: broker-disconnect
+    rules:
+      - alert: BrokerDisconnected
+        expr: market_hunter_broker_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "Broker {{ $labels.broker }} is disconnected"
+          description: >
+            Connection to {{ $labels.broker }} has been lost for more than 1 minute.
+            No orders can be placed. Check network and broker credentials.
+          runbook_url: "https://docs.internal/runbooks/provider-failure"
+
+      - alert: OrderSubmissionLatencyHigh
+        expr: market_hunter_order_latency_ms > 2000
+        for: 2m
+        labels:
+          severity: warning
+          team: trading
+        annotations:
+          summary: "High order submission latency for {{ $labels.broker }}"
+          description: >
+            Order submission latency to {{ $labels.broker }} is {{ $value }}ms.
+            Check broker connection quality.

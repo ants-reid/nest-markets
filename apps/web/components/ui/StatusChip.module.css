@@ -1,0 +1,83 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  line-height: 1.6;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Variants */
+.success {
+  background: var(--state-success-soft);
+  color: var(--state-success);
+  border-color: var(--state-success-border);
+}
+.success .dot { background: var(--state-success); }
+
+.warning {
+  background: var(--state-warning-soft);
+  color: var(--state-warning);
+  border-color: var(--state-warning-border);
+}
+.warning .dot { background: var(--state-warning); }
+
+.danger {
+  background: var(--state-danger-soft);
+  color: var(--state-danger);
+  border-color: var(--state-danger-border);
+}
+.danger .dot { background: var(--state-danger); }
+
+.info {
+  background: var(--state-info-soft);
+  color: var(--state-info);
+  border-color: var(--state-info-border);
+}
+.info .dot { background: var(--state-info); }
+
+.muted {
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  border-color: var(--surface-border);
+}
+.muted .dot { background: var(--text-muted); }
+
+.accent {
+  background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
+  color: var(--accent-secondary);
+  border-color: color-mix(in oklab, var(--accent-secondary) 40%, var(--surface-border));
+}
+.accent .dot { background: var(--accent-secondary); }
+
+/* Sizes */
+.sm {
+  font-size: 10px;
+  padding: 1px 6px 1px 5px;
+}
+.sm .dot {
+  width: 5px;
+  height: 5px;
+}
+
+.lg {
+  font-size: 12px;
+  padding: 3px 10px 3px 7px;
+}
+.lg .dot {
+  width: 7px;
+  height: 7px;
+}

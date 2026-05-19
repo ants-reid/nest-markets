@@ -1,0 +1,540 @@
+/* Risk page styles */
+
+/* ── Asset Matrix Table ──────────────────────────────────────────────────── */
+.matrixRow {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.matrixRow:hover td {
+  background: color-mix(in oklab, var(--surface-soft) 70%, transparent);
+}
+
+.matrixRowActive td {
+  background: color-mix(in oklab, var(--state-info-soft) 55%, transparent);
+}
+
+.matrixRowActive {
+  cursor: default;
+}
+
+.matrixAssetCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.matrixAssetSymbol {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.matrixAssetName {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Learning Model Badge (inline in table) ──────────────────────────────── */
+.learningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: color-mix(in oklab, var(--state-warning) 14%, transparent);
+  border: 1px solid var(--state-warning-border);
+  color: var(--state-warning);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.75); }
+}
+
+.learningPulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--state-warning);
+  animation: pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── Learning Model Update Panel (inside baseline strip) ─────────────────── */
+.learningPanel {
+  border: 1px solid var(--state-warning-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.learningHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: color-mix(in oklab, var(--state-warning) 10%, transparent);
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.learningHeader:hover {
+  background: color-mix(in oklab, var(--state-warning) 16%, transparent);
+}
+
+.learningHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.learningTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--state-warning);
+}
+
+.learningCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.learningChevron {
+  font-size: 10px;
+  color: var(--state-warning);
+}
+
+.learningBody {
+  display: grid;
+  gap: 1px;
+  background: var(--surface-border);
+}
+
+.learningDeltaRow {
+  padding: 12px 14px;
+  background: var(--surface-fill);
+  display: grid;
+  gap: 6px;
+}
+
+.learningDeltaHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.learningDeltaField {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.learningDeltaChange {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.learningOldVal {
+  color: var(--state-danger);
+  font-weight: 600;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.learningArrow {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.learningNewVal {
+  color: var(--state-success);
+  font-weight: 700;
+}
+
+.learningDate {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.learningReason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* ── Decision Banner ─────────────────────────────────────────────────────── */
+.decisionBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: 16px;
+  border: 2px solid var(--surface-border);
+}
+
+.decisionBannerApproved {
+  border-color: var(--state-success-border);
+  background: var(--state-success-soft);
+}
+
+.decisionBannerDenied {
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-soft);
+}
+
+.decisionBadge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.decisionIcon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.decisionLabel {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.decisionLabelApproved {
+  color: var(--state-success);
+}
+
+.decisionLabelDenied {
+  color: var(--state-danger);
+}
+
+.decisionMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── KPI Grid ────────────────────────────────────────────────────────────── */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.kpiCard {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.kpiLabel {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.kpiValue {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Risk Score Bar ──────────────────────────────────────────────────────── */
+.riskScoreWrap {
+  display: grid;
+  gap: 6px;
+}
+
+.riskScoreBar {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--surface-border);
+  overflow: hidden;
+}
+
+.riskScoreFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.riskScoreLow {
+  background: var(--state-success);
+}
+
+.riskScoreMid {
+  background: var(--state-warning);
+}
+
+.riskScoreHigh {
+  background: var(--state-danger);
+}
+
+/* ── Blocked Reasons Pills ───────────────────────────────────────────────── */
+.blockedPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.blockedPill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--state-danger-soft);
+  border: 1px solid var(--state-danger-border);
+  color: var(--state-danger);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Gate Checklist ─────────────────────────────────────────────────────── */
+.gateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.gateItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.gateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gateBadgePass {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--state-success);
+  background: var(--state-success-soft);
+  border: 1px solid var(--state-success-border);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.gateBadgeFail {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--state-danger);
+  background: var(--state-danger-soft);
+  border: 1px solid var(--state-danger-border);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.gateBadgeWarn {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--state-warning);
+  background: var(--state-warning-soft);
+  border: 1px solid var(--state-warning-border);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+/* ── Batch Summary ───────────────────────────────────────────────────────── */
+.batchSummary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.batchApproveCount {
+  color: var(--state-success);
+  font-weight: 700;
+}
+
+.batchDenyCount {
+  color: var(--state-danger);
+  font-weight: 700;
+}
+
+.batchDivider {
+  color: var(--surface-border);
+}
+
+/* ── Panel (shared container) ────────────────────────────────────────────── */
+.panel {
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-shadow);
+  display: grid;
+  gap: 16px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.panelTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.riskTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.riskTable th {
+  text-align: left;
+  padding: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+  border-bottom: 1px solid var(--surface-border);
+  white-space: nowrap;
+}
+
+.riskTable td {
+  padding: 8px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.riskTable tr:hover td {
+  background: color-mix(in oklab, var(--surface-soft) 60%, transparent);
+}
+
+.tdApproved {
+  color: var(--state-success);
+  font-weight: 700;
+}
+
+.tdDenied {
+  color: var(--state-danger);
+  font-weight: 700;
+}
+
+.tdAsset {
+  font-weight: 700;
+}
+
+.tdAsset a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tdMuted {
+  color: var(--text-muted);
+}
+
+/* ── Notes/Reasons list ──────────────────────────────────────────────────── */
+.reasonsBlock {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--state-danger-border);
+  background: var(--state-danger-soft);
+}
+
+.reasonsTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--state-danger);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.reasonsList {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.reasonsItem {
+  color: var(--state-danger);
+  font-size: 12px;
+}
+
+.notesBlock {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.notesTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.notesList {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.notesItem {
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.emptyMsg {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}

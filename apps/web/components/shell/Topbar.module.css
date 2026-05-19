@@ -1,0 +1,215 @@
+/* Topbar spans the area to the right of the sidebar on desktop */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 240px;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--surface-fill);
+  border-bottom: 1px solid var(--surface-border);
+  box-shadow: var(--surface-shadow);
+  z-index: 50;
+  box-sizing: border-box;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.statusStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+  min-width: 0;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.statusLive {
+  color: var(--state-success);
+  border-color: var(--state-success-border);
+  background: var(--state-success-soft);
+}
+
+.statusDown {
+  color: var(--state-danger);
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-soft);
+}
+
+.statusChecking {
+  color: var(--state-warning);
+  border-color: var(--state-warning-border);
+  background: var(--state-warning-soft);
+}
+
+.statusPaper {
+  color: var(--state-info);
+  border-color: var(--state-info-border);
+  background: var(--state-info-soft);
+}
+
+.statusReal {
+  color: var(--state-danger);
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-soft);
+}
+
+.statusInfo {
+  color: var(--state-info);
+  border-color: var(--state-info-border);
+  background: var(--state-info-soft);
+}
+
+.statusMuted {
+  color: var(--text-muted);
+  border-color: var(--surface-border);
+  background: var(--surface-soft);
+}
+
+/* Hamburger: hidden on desktop, shown on mobile */
+.menuButton {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.menuButton:hover {
+  border-color: var(--accent-primary);
+}
+
+.hamburger {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: var(--text-body);
+  border-radius: 2px;
+}
+
+/* Logo: hidden on desktop (shown in sidebar), shown on mobile */
+.logoMark {
+  display: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: var(--surface-soft);
+  user-select: none;
+}
+
+.logoName {
+  display: none;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.topbarBtn {
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: var(--surface-soft);
+  color: var(--text-body);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.topbarBtn:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-strong);
+}
+
+.topbarBtnActive {
+  border-color: var(--state-info);
+  background: color-mix(in oklab, var(--state-info) 18%, var(--surface-soft));
+  color: var(--state-info);
+}
+
+/* Mobile: full-width topbar, logo + hamburger visible */
+@media (max-width: 767px) {
+  .topbar {
+    left: 0;
+    padding: 0 12px;
+  }
+
+  .right {
+    gap: 6px;
+  }
+
+  .statusStrip {
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-right: 0;
+  }
+
+  .statusBadge {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  .menuButton {
+    display: flex;
+  }
+
+  .logoMark,
+  .logoName {
+    display: block;
+  }
+
+  .topbarBtn {
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logoName,
+  .statusAuto,
+  .statusNext {
+    display: none;
+  }
+}

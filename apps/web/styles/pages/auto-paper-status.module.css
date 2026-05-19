@@ -1,0 +1,246 @@
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 70ch;
+}
+
+.refreshButton {
+  background: var(--button-bg, #1f2937);
+  color: var(--button-fg, #f9fafb);
+  border: 1px solid var(--button-border, #374151);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refreshTimestamp {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.advisory {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: rgba(96, 165, 250, 0.06);
+  border-left: 3px solid #60a5fa;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.card {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+  border-left-width: 6px;
+}
+
+.card.ok {
+  border-left-color: #22c55e;
+}
+
+.card.warning {
+  border-left-color: #fbbf24;
+}
+
+.card.blocked {
+  border-left-color: #ef4444;
+}
+
+.cardHeader {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.postureRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.posturePill {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.headline {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.subline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--card-border, #1f2937);
+  background: rgba(148, 163, 184, 0.06);
+  color: var(--text-body);
+}
+
+.chipOff {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.chipOn {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+
+.metaItem {
+  display: grid;
+  gap: 0.15rem;
+  background: rgba(15, 23, 42, 0.35);
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--card-border, #1f2937);
+}
+
+.metaLabel {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaValue {
+  color: var(--text-strong);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.section {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.linkList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.linkRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.linkLabel {
+  color: var(--text-muted);
+}
+
+.linkPath {
+  color: var(--text-strong);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  word-break: break-all;
+}
+
+.errorBanner {
+  background: #4c0519;
+  color: #fecdd3;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.driftLockNotice {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border-left: 3px solid #fbbf24;
+  padding: 0.4rem 0.75rem;
+  background: rgba(251, 191, 36, 0.06);
+  border-radius: 0 6px 6px 0;
+}
+
+.loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

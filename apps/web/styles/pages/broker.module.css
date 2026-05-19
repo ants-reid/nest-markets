@@ -1,0 +1,1982 @@
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  font-family: var(--font-base);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.375rem;
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.accountId {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.refreshButton {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+.refreshButton:hover {
+  color: var(--text-strong);
+  border-color: var(--text-muted);
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 1.75rem;
+}
+
+.sectionNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.sectionNavLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-fill);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.sectionNavLink:hover {
+  color: var(--text-strong);
+  border-color: var(--text-muted);
+}
+
+.pageSection {
+  margin-bottom: 1.5rem;
+}
+
+.sectionHeadingRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.sectionEyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sectionGroupTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.sectionGroupHint {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.overviewStack {
+  display: grid;
+  gap: 1rem;
+}
+
+.readinessPanel {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.readinessHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.readinessHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.readinessSummary {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.readinessCount {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.readinessActionButton {
+  white-space: nowrap;
+}
+
+.readinessCopyState,
+.readinessCopyStateError {
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.readinessCopyState {
+  color: var(--state-success);
+}
+
+.readinessCopyStateError {
+  color: var(--state-danger);
+}
+
+.readinessHistoryPanel {
+  margin-top: 1rem;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.9rem;
+}
+
+.readinessHistoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.readinessHistoryActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.readinessHistoryTitle {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.readinessHistoryMeta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessHistoryEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.readinessHistoryFileInput {
+  display: none;
+}
+
+.backupPackSummaryPanel {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.8rem;
+  background: color-mix(in oklab, var(--surface-soft) 75%, transparent);
+}
+
+.backupPackSummaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.backupPackSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.backupPackSummaryCard {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--surface-soft);
+}
+
+.backupPackSummaryLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.backupPackSummaryValue {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.backupPackSummaryMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.backupPackDetailPanel {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: var(--surface-fill);
+}
+
+.backupPackDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.backupPackDetailDescription {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.backupPackDetailSectionTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+}
+
+.backupPackDetailSectionTab {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.backupPackDetailSectionTabActive {
+  border-color: var(--state-info);
+  color: var(--text-strong);
+  background: color-mix(in oklab, var(--state-info) 12%, transparent);
+}
+
+.backupPackDetailToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.backupPackDetailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.backupPackDetailSectionBody {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.backupPackDetailSnapshotCurrent,
+.backupPackDetailItem {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  background: color-mix(in oklab, var(--surface-soft) 78%, transparent);
+}
+
+.backupPackDetailList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.backupPackDetailItemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.backupPackDetailItemTitle {
+  font-size: 0.8125rem;
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.backupPackDetailItemMeta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.backupPackDetailItemSummary {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-body);
+}
+
+.backupPackReportPanel {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.7rem;
+  background: color-mix(in oklab, var(--surface-soft) 68%, transparent);
+}
+
+.backupPackReportHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.backupPackReportMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.backupPackReportGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+}
+
+.backupPackReportCard {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: var(--surface-fill);
+}
+
+.backupPackReportText {
+  margin: 0.2rem 0 0;
+  color: var(--text-body);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.backupPackReportFooter {
+  margin-top: 0.7rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessHistoryList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.readinessHistoryItem {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  background: color-mix(in oklab, var(--surface-soft) 70%, transparent);
+  cursor: pointer;
+}
+
+.readinessHistoryItemSelected {
+  border-color: var(--state-info);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--state-info) 40%, transparent);
+}
+
+.readinessHistoryItemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.readinessHistoryTimestamp,
+.readinessHistoryReadyCount {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.readinessHistorySummary {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 0.8125rem;
+}
+
+.readinessHistoryTag {
+  display: inline-flex;
+  margin-top: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.readinessComparePanel {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.9rem;
+}
+
+.readinessCompareHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.readinessCompareTitle {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.readinessCompareMeta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessCompareCounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.readinessCompareCountCard {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: var(--surface-soft);
+}
+
+.readinessCompareCountLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.readinessCompareCountValue {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.readinessCompareChanges {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.readinessCompareChangeItem {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  background: color-mix(in oklab, var(--surface-soft) 70%, transparent);
+}
+
+.readinessCompareChangeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.readinessCompareChangeLabel {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.readinessCompareChangeDetail {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessCompareImproved {
+  color: var(--state-success);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.readinessCompareRegressed {
+  color: var(--state-danger);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.readinessTimelinePanel {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.9rem;
+}
+
+.readinessTimelineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.readinessTimelineChartWrap {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  padding: 0.4rem;
+}
+
+.readinessTimelineChart {
+  width: 100%;
+  height: 132px;
+  display: block;
+}
+
+.readinessTimelineAxis {
+  stroke: color-mix(in oklab, var(--surface-border) 85%, transparent);
+  stroke-width: 1;
+}
+
+.readinessTimelineLine {
+  stroke: var(--state-info);
+  stroke-width: 2;
+}
+
+.readinessTimelinePoint {
+  fill: var(--state-info);
+}
+
+.readinessTimelineBars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.readinessTimelineBar {
+  appearance: none;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  width: 100%;
+  min-height: 12px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.readinessTimelineBarSelected {
+  border-color: var(--state-info);
+}
+
+.readinessTimelineBarReady {
+  background: color-mix(in oklab, var(--state-success) 65%, transparent);
+}
+
+.readinessTimelineBarAdvisory {
+  background: color-mix(in oklab, var(--state-warning) 70%, transparent);
+}
+
+.readinessTimelineBarMissing {
+  background: color-mix(in oklab, var(--state-danger) 70%, transparent);
+}
+
+.readinessTimelineDetail {
+  margin-top: 0.6rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: color-mix(in oklab, var(--surface-soft) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.readinessTimelineDetailTitle {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.readinessTimelineDetailText {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessHistoryConfirm {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.readinessHistoryConfirmText {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.readinessList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.65rem;
+}
+
+.readinessItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.readinessItemStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.readinessItemReady {
+  background: color-mix(in oklab, var(--state-success) 16%, transparent);
+  color: var(--state-success);
+}
+
+.readinessItemMissing {
+  background: color-mix(in oklab, var(--state-danger) 12%, transparent);
+  color: var(--state-danger);
+}
+
+.readinessItemAdvisory {
+  background: color-mix(in oklab, var(--state-warning) 14%, transparent);
+  color: var(--state-warning);
+}
+
+.readinessItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.readinessItemLabel {
+  color: var(--text-strong);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.readinessItemDetail {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.loadingMsg {
+  color: var(--text-muted);
+}
+
+.errorMsg {
+  color: var(--state-danger);
+  padding: 0.75rem 1rem;
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+}
+
+/* ---- Account metrics row ---- */
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.metricCard {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 0.375rem;
+}
+
+.metricValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.metricValuePositive {
+  color: var(--state-success);
+}
+
+.metricValueNegative {
+  color: var(--state-danger);
+}
+
+/* ---- Positions table ---- */
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 0.75rem;
+}
+
+.emptyPositions {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+}
+
+.reviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+
+.reviewGridPrimary,
+.reviewGridSecondary {
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.thead {
+  background: var(--surface-soft);
+}
+
+.th {
+  padding: 0.625rem 1rem;
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--surface-border);
+  white-space: nowrap;
+}
+
+.tr {
+  border-bottom: 1px solid var(--surface-border);
+  transition: background 0.1s;
+}
+.tr:last-child {
+  border-bottom: none;
+}
+.tr:hover {
+  background: var(--surface-soft);
+}
+
+.td {
+  padding: 0.75rem 1rem;
+  color: var(--text-body);
+  vertical-align: middle;
+}
+
+.tdTicker {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.tdMuted {
+  padding: 0.75rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.sideBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sideLong {
+  background: color-mix(in srgb, var(--state-success) 12%, transparent);
+  color: var(--state-success);
+}
+
+.sideShort {
+  background: color-mix(in srgb, var(--state-danger) 12%, transparent);
+  color: var(--state-danger);
+}
+
+.pnlPositive {
+  color: var(--state-success);
+  font-weight: 600;
+}
+
+.pnlNegative {
+  color: var(--state-danger);
+  font-weight: 600;
+}
+
+/* ---- Broker health status panel ---- */
+
+.healthPanel {
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.healthPanelReady {
+  background: var(--state-success-soft);
+  border-color: var(--state-success-border);
+}
+
+.healthPanelReady,
+.healthPanelConfigOnly,
+.healthPanelMisconfigured,
+.healthPanelLoading {
+  margin-bottom: 1rem;
+}
+
+.healthPanelConfigOnly {
+  background: var(--state-warning-soft);
+  border-color: color-mix(in oklab, var(--state-warning) 46%, var(--surface-border));
+}
+
+.healthPanelMisconfigured {
+  background: var(--state-danger-soft);
+  border-color: color-mix(in oklab, var(--state-danger) 46%, var(--surface-border));
+}
+
+.healthPanelLoading {
+  background: var(--surface-fill);
+}
+
+.healthBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.healthBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.healthBadgeReady .healthBadgeDot { background: var(--state-success); }
+.healthBadgeReady { color: var(--state-success); }
+
+.healthBadgeConfigOnly .healthBadgeDot { background: var(--state-warning); }
+.healthBadgeConfigOnly { color: var(--state-warning); }
+
+.healthBadgeMisconfigured .healthBadgeDot { background: var(--state-danger); }
+.healthBadgeMisconfigured { color: var(--state-danger); }
+
+.healthBadgeLoading .healthBadgeDot { background: var(--text-muted); }
+.healthBadgeLoading { color: var(--text-muted); }
+
+.healthChecks {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.healthCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.healthCheckPass {
+  background: color-mix(in oklab, var(--state-success) 10%, transparent);
+  border-color: color-mix(in oklab, var(--state-success) 28%, transparent);
+  color: var(--state-success);
+}
+
+.healthCheckFail {
+  background: color-mix(in oklab, var(--state-danger) 10%, transparent);
+  border-color: color-mix(in oklab, var(--state-danger) 28%, transparent);
+  color: var(--state-danger);
+}
+
+.healthCheckWarn {
+  background: color-mix(in oklab, var(--state-warning) 10%, transparent);
+  border-color: color-mix(in oklab, var(--state-warning) 28%, transparent);
+  color: var(--state-warning);
+}
+
+.healthCheckNeutral {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text-muted);
+}
+
+.healthCheckIcon {
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.healthGatewayUrl {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* ---- Trading control panel ---- */
+
+.controlPanel {
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.controlPanelPaper {
+  background: color-mix(in oklab, var(--state-success) 7%, var(--surface-fill));
+  border-color: color-mix(in oklab, var(--state-success) 24%, var(--surface-border));
+}
+
+.controlPanelLive {
+  background: color-mix(in oklab, var(--state-danger) 7%, var(--surface-fill));
+  border-color: color-mix(in oklab, var(--state-danger) 28%, var(--surface-border));
+}
+
+.controlPanelStopped {
+  background: color-mix(in oklab, var(--state-danger) 12%, var(--surface-fill));
+  border-color: color-mix(in oklab, var(--state-danger) 42%, var(--surface-border));
+}
+
+.controlPanelLoading {
+  background: var(--surface-fill);
+}
+
+.controlHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.controlSummary {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0.2rem 0 0;
+  max-width: 760px;
+}
+
+.controlBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.controlBadgePaper {
+  background: color-mix(in oklab, var(--state-success) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--state-success) 28%, transparent);
+  color: var(--state-success);
+}
+
+.controlBadgeLive {
+  background: color-mix(in oklab, var(--state-danger) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--state-danger) 28%, transparent);
+  color: var(--state-danger);
+}
+
+.controlBadgeStopped {
+  background: color-mix(in oklab, var(--state-danger) 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--state-danger) 36%, transparent);
+  color: var(--state-danger);
+}
+
+.controlBadgeLoading {
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+}
+
+.controlGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.controlItem {
+  background: color-mix(in oklab, var(--surface-soft) 75%, white 25%);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.controlLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+}
+
+.controlValueText {
+  font-size: 0.95rem;
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.controlValueBadge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.controlValueAllowed {
+  background: color-mix(in oklab, var(--state-success) 12%, transparent);
+  border-color: color-mix(in oklab, var(--state-success) 28%, transparent);
+  color: var(--state-success);
+}
+
+.controlValueBlocked {
+  background: color-mix(in oklab, var(--state-warning) 12%, transparent);
+  border-color: color-mix(in oklab, var(--state-warning) 30%, transparent);
+  color: var(--state-warning);
+}
+
+.controlValueNeutral {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text-muted);
+}
+
+.controlNotes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.controlNote {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-strong);
+  background: color-mix(in oklab, var(--state-warning) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--state-warning) 28%, transparent);
+  border-radius: 999px;
+  padding: 0.32rem 0.72rem;
+}
+
+.controlReasons {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.85rem;
+}
+
+.controlReasonsTitle {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  margin-bottom: 0.4rem;
+}
+
+.controlReasonsList {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.controlReasonItem,
+.controlReasonFallback {
+  color: var(--text-body);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.controlReasonFallback {
+  margin: 0;
+}
+
+/* ---- Broker audit panel ---- */
+
+.auditPanel {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.provenancePanel {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.provenanceMeta {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.auditHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.auditCount {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.auditEmpty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 0.75rem 0;
+}
+
+.auditTableWrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+}
+
+/* ---- Manual submit panel ---- */
+
+.submitPanel {
+  background: var(--surface-fill);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.submitHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.submitHint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.submitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.submitField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.submitField input,
+.submitField select {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-body);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+}
+
+.submitField input:focus,
+.submitField select:focus {
+  outline: none;
+  border-color: var(--state-info);
+}
+
+.submitActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.primaryButton {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--state-info) 50%, var(--surface-border));
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--state-info) 18%, transparent);
+  color: var(--text-strong);
+}
+
+.primaryButton:disabled,
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submitInfo,
+.submitSuccess,
+.submitError {
+  font-size: 0.8125rem;
+  margin-top: 0.35rem;
+}
+
+.submitInfo {
+  color: var(--text-muted);
+}
+
+.submitSuccess {
+  color: var(--state-success);
+}
+
+.submitError {
+  color: var(--state-danger);
+}
+
+/* ---- Submit field validation errors ---- */
+
+.submitFieldInputError {
+  border-color: var(--state-danger) !important;
+}
+
+.submitFieldError {
+  font-size: 0.75rem;
+  color: var(--state-danger);
+  margin-top: 0.125rem;
+}
+
+/* ---- Submit button states ---- */
+
+.submitBtnReady {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--state-success) 50%, var(--surface-border));
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--state-success) 18%, transparent);
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.submitBtnReady:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submitBtnBlocked {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.submitBtnBlocked:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Dry run result display ---- */
+
+.dryRunResultReady {
+  font-size: 0.8125rem;
+  margin-top: 0.35rem;
+  color: var(--state-success);
+  font-weight: 500;
+}
+
+.dryRunResultInvalid {
+  font-size: 0.8125rem;
+  margin-top: 0.35rem;
+  color: var(--state-danger);
+  font-weight: 500;
+}
+
+.dryRunIssues {
+  margin: 0.25rem 0 0 1rem;
+  padding: 0;
+  font-weight: 400;
+}
+
+.dryRunIssueItem {
+  font-size: 0.75rem;
+  color: var(--state-danger);
+}
+
+.dryRunAdvisoryNote {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+}
+
+/* ---- Daily P&L strip (MH-44) ---- */
+
+.dailyPnlStrip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  background: color-mix(in oklab, var(--surface-fill) 100%, transparent);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  flex-wrap: wrap;
+}
+
+.dailyPnlLabel {
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.dailyPnlPositive {
+  font-weight: 700;
+  color: var(--state-success, #16a34a);
+}
+
+.dailyPnlNegative {
+  font-weight: 700;
+  color: var(--state-danger, #dc2626);
+}
+
+.dailyPnlLoss {
+  font-weight: 600;
+  color: var(--state-danger, #dc2626);
+  font-size: 0.75rem;
+}
+
+.dailyPnlNote {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+/* ---- Preflight context panel (MH-42) ---- */
+
+.preflightPanel {
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  background: color-mix(in oklab, var(--state-info, #3b82f6) 6%, var(--surface-fill));
+  border: 1px solid color-mix(in oklab, var(--state-info, #3b82f6) 25%, var(--surface-border));
+  border-radius: 10px;
+}
+
+.preflightHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.preflightTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preflightAdvisoryBadge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--state-info, #3b82f6) 18%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in oklab, var(--state-info, #3b82f6) 30%, var(--surface-border));
+}
+
+.preflightDisclaimer {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin: 0 0 0.625rem 0;
+  line-height: 1.4;
+}
+
+.preflightGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.375rem 1rem;
+  margin-bottom: 0.625rem;
+}
+
+.preflightItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.preflightLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.preflightValue {
+  font-size: 0.8125rem;
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.preflightSnapshot {
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.preflightSnapshotTitle {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.375rem;
+}
+
+/* ---- Preflight warnings (advisory, visually distinct from issues) ---- */
+
+.preflightWarnings {
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.preflightWarningsTitle {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--state-warning, #f59e0b);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.preflightWarningsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preflightWarningItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--surface-border) 50%, transparent);
+}
+.preflightWarningItem:last-child {
+  border-bottom: none;
+}
+
+.preflightWarningCode {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--state-warning, #f59e0b);
+  font-family: var(--font-mono, monospace);
+}
+
+.preflightWarningMsg {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ---- Submit confirmation panel ---- */
+
+.submitConfirmPanel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: color-mix(in oklab, var(--state-warning) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--state-warning) 35%, var(--surface-border));
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.submitConfirmText {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  flex: 1;
+  min-width: 0;
+}
+
+.submitConfirmActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.confirmBtn {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--state-success) 50%, var(--surface-border));
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--state-success) 18%, transparent);
+  color: var(--text-strong);
+}
+.confirmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.cancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+  .pageHeader,
+  .sectionHeadingRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sectionGroupHint {
+    max-width: none;
+    text-align: left;
+  }
+
+  .readinessHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .readinessHeaderActions {
+    justify-content: flex-start;
+  }
+
+  .readinessHistoryHeader,
+  .readinessHistoryItemHeader,
+  .readinessHistoryActions,
+  .readinessCompareHeader,
+  .readinessCompareChangeHeader,
+  .readinessTimelineHeader,
+  .backupPackSummaryHeader,
+  .backupPackDetailHeader,
+  .backupPackDetailToolbar,
+  .backupPackDetailItemHeader,
+  .backupPackReportHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .controlHeaderRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controlBadge {
+    width: fit-content;
+  }
+}
+
+/* ── MH-49: Provenance filters ──────────────────────────────────────────────── */
+
+.provenanceFilterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.provenanceFilterInput {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: var(--text-body);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8125rem;
+  width: 120px;
+}
+
+.provenanceFilterInput:focus {
+  outline: none;
+  border-color: var(--state-info);
+}
+
+.provenanceFilterCheckLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.provenanceFilterActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.secondaryButton {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.secondaryButton:hover {
+  border-color: var(--state-info);
+  color: var(--text-strong);
+}
+
+.provenanceRow {
+  cursor: pointer;
+}
+
+.provenanceRow:hover td,
+.provenanceRow:hover th {
+  background: color-mix(in oklab, var(--state-info) 6%, transparent);
+}
+
+/* ── MH-49: Provenance event detail drawer ─────────────────────────────────── */
+
+.provenanceDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.provenanceDrawer {
+  background: var(--surface-fill);
+  border-left: 1px solid var(--surface-border);
+  width: min(420px, 100vw);
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.provenanceDrawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.provenanceDrawerTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.provenanceDrawerClose {
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0.2rem 0.55rem;
+  line-height: 1.4;
+}
+
+.provenanceDrawerClose:hover {
+  border-color: var(--state-danger);
+  color: var(--state-danger);
+}
+
+.provenanceDrawerFields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.375rem 1rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.provenanceDrawerFields dt {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.provenanceDrawerFields dd {
+  color: var(--text-body);
+  margin: 0;
+  word-break: break-all;
+}
+
+.provenanceDrawerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.provenanceDrawerCopyState {
+  font-size: 0.75rem;
+  color: var(--state-success);
+}
+
+.provenanceDrawerCopyStateError {
+  font-size: 0.75rem;
+  color: var(--state-danger);
+}
+
+.provenanceDrawerReconPanel {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.75rem;
+}
+
+.provenanceDrawerReconTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 700;
+}
+
+.provenanceDrawerReconList {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-body);
+}
+
+@media (max-width: 760px) {
+  .provenanceFilterActions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media print {
+  .sectionNav,
+  .refreshButton,
+  .readinessActionButton,
+  .provenanceDrawerOverlay,
+  .backupPackSummaryPanel,
+  .backupPackDetailSectionTabs,
+  .backupPackDetailToolbar,
+  .backupPackDetailSectionBody,
+  .readinessHistoryList,
+  .readinessComparePanel,
+  .readinessTimelinePanel {
+    display: none !important;
+  }
+
+  .page,
+  .container {
+    background: white !important;
+    color: black !important;
+  }
+
+  .readinessPanel {
+    break-inside: avoid;
+    border-color: #d1d5db;
+  }
+
+  .backupPackReportPanel,
+  .backupPackDetailPanel {
+    border-color: #d1d5db;
+    background: white !important;
+    color: black !important;
+    break-inside: avoid;
+  }
+
+  .backupPackReportCard {
+    border-color: #d1d5db;
+    background: white !important;
+  }
+
+  .backupPackReportFooter {
+    border-top-color: #d1d5db;
+    color: #4b5563 !important;
+  }
+}
+

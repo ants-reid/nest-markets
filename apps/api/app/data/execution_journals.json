@@ -1,0 +1,262 @@
+{
+  "0c6da655-2df7-44f2-8096-93189e02e0e7": {
+    "execution_id": "0c6da655-2df7-44f2-8096-93189e02e0e7",
+    "note": "Visual seed journal entry 12 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.089465+00:00"
+  },
+  "120a5728-551d-4c0a-8f76-5cf1fbaf7ec1": {
+    "execution_id": "120a5728-551d-4c0a-8f76-5cf1fbaf7ec1",
+    "note": "Visual seed journal entry 17 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.091144+00:00"
+  },
+  "2bb5ba58-687e-46b7-843b-9d4572c41c77": {
+    "execution_id": "2bb5ba58-687e-46b7-843b-9d4572c41c77",
+    "note": "Visual seed journal entry 20 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.091974+00:00"
+  },
+  "2c2e8833-d1bc-4a2f-a3aa-79cd94a843df": {
+    "execution_id": "2c2e8833-d1bc-4a2f-a3aa-79cd94a843df",
+    "note": "Visual seed journal entry 13 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.089851+00:00"
+  },
+  "35d37568-ce16-4b28-b663-4299f5ccebe0": {
+    "execution_id": "35d37568-ce16-4b28-b663-4299f5ccebe0",
+    "note": "Visual seed journal entry 1 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.085341+00:00"
+  },
+  "4bbcd189-3ae5-4b07-90e5-463534ce8f7b": {
+    "execution_id": "4bbcd189-3ae5-4b07-90e5-463534ce8f7b",
+    "note": "Visual seed journal entry 9 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.088184+00:00"
+  },
+  "50fbdd77-7da5-46dd-af9e-b12398d9d1d6": {
+    "execution_id": "50fbdd77-7da5-46dd-af9e-b12398d9d1d6",
+    "note": "Visual seed journal entry 14 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.090309+00:00"
+  },
+  "562a3ce8-ac38-4f6b-ab83-eb8935187a26": {
+    "execution_id": "562a3ce8-ac38-4f6b-ab83-eb8935187a26",
+    "note": "Visual seed journal entry 6 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.087121+00:00"
+  },
+  "6fb7dc3e-117a-4141-94ec-99c43a36ba2c": {
+    "execution_id": "6fb7dc3e-117a-4141-94ec-99c43a36ba2c",
+    "note": "Visual seed journal entry 18 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.091485+00:00"
+  },
+  "927d7ec7-d73c-4049-b7fb-a968f0870132": {
+    "execution_id": "927d7ec7-d73c-4049-b7fb-a968f0870132",
+    "note": "Visual seed journal entry 15 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.090574+00:00"
+  },
+  "9343bdca-7fde-4535-8e8c-68ebfab47b8a": {
+    "execution_id": "9343bdca-7fde-4535-8e8c-68ebfab47b8a",
+    "note": "Visual seed journal entry 16 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.090834+00:00"
+  },
+  "96d04ba2-8405-40d5-b272-45155d645411": {
+    "execution_id": "96d04ba2-8405-40d5-b272-45155d645411",
+    "note": "Visual seed journal entry 2 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.085872+00:00"
+  },
+  "9ad20165-928a-48e7-b761-d563fc2bae5d": {
+    "execution_id": "9ad20165-928a-48e7-b761-d563fc2bae5d",
+    "note": "Visual seed journal entry 19 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.091720+00:00"
+  },
+  "a456192d-aa3b-4daf-93f8-de9cfc396eae": {
+    "execution_id": "a456192d-aa3b-4daf-93f8-de9cfc396eae",
+    "note": "Visual seed journal entry 7 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.087481+00:00"
+  },
+  "a45e0ec3-c4a4-4a4b-98e4-f9d1ada400af": {
+    "execution_id": "a45e0ec3-c4a4-4a4b-98e4-f9d1ada400af",
+    "note": "Visual seed journal entry 4 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.086646+00:00"
+  },
+  "aa86381c-72f7-401b-af82-d5aa3444b1f8": {
+    "execution_id": "aa86381c-72f7-401b-af82-d5aa3444b1f8",
+    "note": "Visual seed journal entry 3 for design preview.",
+    "outcome_tag": "stopped_out",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.086082+00:00"
+  },
+  "dab73d58-2c8e-4b9e-8147-b6c333de699f": {
+    "execution_id": "dab73d58-2c8e-4b9e-8147-b6c333de699f",
+    "note": "Visual seed journal entry 11 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.088904+00:00"
+  },
+  "e428708d-f876-4fd4-8682-c9a7e11a1e26": {
+    "execution_id": "e428708d-f876-4fd4-8682-c9a7e11a1e26",
+    "note": "Visual seed journal entry 10 for design preview.",
+    "outcome_tag": "worked",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.088500+00:00"
+  },
+  "f8ac4872-7319-41a7-b5e6-f39ed73f72c4": {
+    "execution_id": "f8ac4872-7319-41a7-b5e6-f39ed73f72c4",
+    "note": "Visual seed journal entry 5 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.086873+00:00"
+  },
+  "faa873fa-9dad-4396-9bfb-91f25101ed3b": {
+    "execution_id": "faa873fa-9dad-4396-9bfb-91f25101ed3b",
+    "note": "Visual seed journal entry 8 for design preview.",
+    "outcome_tag": "partial",
+    "tags": [
+      "visual_seed",
+      "demo",
+      "exclude_from_reporting",
+      "exclude_from_learning",
+      "exclude_from_live_metrics"
+    ],
+    "updated_at": "2026-04-26T08:07:47.087756+00:00"
+  }
+}

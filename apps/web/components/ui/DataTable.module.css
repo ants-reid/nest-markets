@@ -1,0 +1,241 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  overflow: hidden;
+}
+
+/* ─── Toolbar ─────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  flex-wrap: wrap;
+}
+
+.searchWrap {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  font-size: 13px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 6px 10px 6px 30px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--control-text);
+  font-size: 13px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.searchInput:focus {
+  border-color: var(--accent-primary);
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.rowCount {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Table scroll container ──────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* ─── Table ───────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text-body);
+  table-layout: auto;
+}
+
+/* ─── Headers ─────────────────────────────────────────── */
+.thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface-soft);
+}
+
+.th {
+  padding: 9px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--surface-border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.th.right {
+  text-align: right;
+}
+
+.th.center {
+  text-align: center;
+}
+
+.sortable {
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.sortable:hover {
+  color: var(--text-strong);
+}
+
+.sortActive {
+  color: var(--accent-primary);
+}
+
+.sortIcon {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ─── Body rows ───────────────────────────────────────── */
+.tr {
+  border-bottom: 1px solid var(--surface-border);
+  transition: background 0.1s ease;
+}
+
+.tr:last-child {
+  border-bottom: none;
+}
+
+.tr:hover {
+  background: color-mix(in oklab, var(--accent-primary) 5%, transparent);
+}
+
+.td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  color: var(--text-body);
+}
+
+.td.right {
+  text-align: right;
+}
+
+.td.center {
+  text-align: center;
+}
+
+/* ─── Loading / Empty states ──────────────────────────── */
+.stateRow {
+  padding: 32px 14px;
+  text-align: center;
+}
+
+.loadingRow {
+  color: var(--text-muted);
+  font-size: 13px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.emptyRow {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ─── Pagination ─────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paginationInfo {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pageBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--control-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  background: color-mix(in oklab, var(--accent-primary) 12%, var(--control-bg));
+}
+
+.pageBtn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.pageBtnActive {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}

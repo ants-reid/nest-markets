@@ -1,0 +1,28 @@
+FROM python:3.12-slim AS base
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
+COPY apps/learning/requirements*.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+FROM base AS runner
+COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
+
+RUN adduser --system --no-create-home --uid 1001 appuser
+
+COPY apps/learning/ ./apps/learning/
+COPY apps/api/ ./apps/api/
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+CMD ["python", "-m", "apps.learning.jobs.backfill_bars_job"]

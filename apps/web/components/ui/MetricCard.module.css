@@ -1,0 +1,40 @@
+.metricCard {
+  display: grid;
+  gap: 10px;
+  min-height: 150px;
+}
+
+.link {
+  text-decoration: none;
+  display: block;
+}
+
+.title {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  font-weight: 700;
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.value {
+  color: var(--accent-highlight);
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.description {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-size: 13px;
+}

@@ -1,0 +1,34 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "Market Hunter — Ingestion Lag",
+  "description": "Monitor data ingestion lag per provider",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Ingestion Lag by Provider (seconds)",
+      "targets": [
+        {
+          "expr": "market_hunter_ingestion_lag_seconds",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Max Lag (last 5m)",
+      "targets": [
+        {
+          "expr": "max(market_hunter_ingestion_lag_seconds)",
+          "legendFormat": "Max lag"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 4 }
+    }
+  ]
+}

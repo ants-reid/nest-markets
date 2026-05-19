@@ -1,0 +1,17 @@
+# Market Hunter MVP - First VS Code Prompt
+
+Initial setup and guidance for the Market Hunter MVP project.
+
+## Getting Started
+
+(To be documented)
+
+## Project Goals
+
+(To be documented)
+
+## Key Resources
+
+- See docs/architecture.md for system design
+- See docs/coding-rules.md for development standards
+- See docs/build-order.md for setup instructions
