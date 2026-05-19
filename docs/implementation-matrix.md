@@ -26,7 +26,7 @@ As of 2026-05-19, the current local validation baseline is:
 - responsive verification is green: `46 passed`
 - visual verification is green after snapshot rebaseline: `48 passed`
 - full Playwright verification is green: `272 passed`, `0 failed`
-- MH-RESTART-004 reconciles the live Gate 1 surface to 39 active backend route modules, 81 active backend service modules, 46 frontend route modules, and 49 shared TSX component modules; support files are catalogued separately below
+- MH-RESTART-004 plus MH-FEED-MONITOR-001 reconcile the live Gate 1 surface to 40 active backend route modules, 82 active backend service modules, 47 frontend route modules, and 49 shared TSX component modules; support files are catalogued separately below
 - Gate 1 is green when the live route/service/page/component inventory still matches this file after the inventory diff checks recorded in the release-control pass
 
 Status values:
@@ -101,6 +101,7 @@ Documentation values:
 | API-RX24 | `app/api/routes/scoring.py` | scoring route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX25 | `app/api/routes/strategy_lab.py` | strategy lab route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX26 | `app/api/routes/trading_halt.py` | trading halt route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-RX27 | `app/api/routes/monitor_feeds.py` | monitor feeds route surface | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a read-only `/monitor/feeds` aggregator over provider probes plus broker gateway runtime reachability. |
 
 ## Backend Clients
 
@@ -217,6 +218,7 @@ Documentation values:
 | API-SX75 | `app/services/runtime/scoring_config_service.py` | scoring config service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX76 | `app/services/runtime/scoring_service.py` | scoring service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX77 | `app/services/runtime/signal_generation_service.py` | signal generation service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-SX78 | `app/services/feed_monitor_service.py` | feed monitor service | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001; consolidates feeds-in, feeds-out, and broker gateway runtime posture without mutating any provider or trading control. |
 
 ## Backend Persistence Services
 
@@ -279,6 +281,7 @@ Documentation values:
 | WEB-PX28 | `app/providers/page.tsx` | `/providers` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX29 | `app/broker/page.tsx` | `/broker` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX30 | `app/news/page.tsx` | `/news` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| WEB-PX31 | `app/monitor/feeds/page.tsx` | `/monitor/feeds` | implemented | unverified | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a filterable operator-facing page over the new read-only feed monitor API. |
 
 ## Shared Frontend Foundations
 

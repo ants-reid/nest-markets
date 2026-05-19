@@ -1,0 +1,250 @@
+.page {
+  min-height: 100vh;
+  background: var(--app-shell-bg);
+  color: var(--text-body);
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 72ch;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.refreshButton {
+  background: var(--button-bg, #1f2937);
+  color: var(--button-fg, #f9fafb);
+  border: 1px solid var(--button-border, #374151);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refreshTimestamp,
+.sectionSubtext {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.advisory {
+  background: rgba(96, 165, 250, 0.06);
+  border-left: 3px solid #60a5fa;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-body);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.summaryCard,
+.actionsCard,
+.tableCard,
+.filters {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 10px;
+}
+
+.summaryCard {
+  padding: 0.8rem 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.summaryValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.summaryStatusRow {
+  display: flex;
+  align-items: center;
+}
+
+.filters {
+  padding: 0.9rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.filterField {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filterLabel {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filterInput,
+.filterSelect {
+  background: var(--input-bg, #0f172a);
+  color: var(--text-body);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.92rem;
+}
+
+.actionsCard,
+.tableCard {
+  padding: 1rem 1.15rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.actionList {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-body);
+}
+
+.actionList li + li {
+  margin-top: 0.45rem;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--card-border, #1f2937);
+  vertical-align: top;
+}
+
+.table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.feedCell {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.feedName {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.feedTarget,
+.detailCell,
+.actionCell {
+  color: var(--text-muted);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.statusBadge {
+  display: inline-flex;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statusOk { background: #064e3b; color: #d1fae5; }
+.statusDegraded { background: #78350f; color: #fef3c7; }
+.statusDown { background: #7f1d1d; color: #fee2e2; }
+.statusUnknown { background: #1f2937; color: #d1d5db; }
+.statusError { background: #4c0519; color: #fecdd3; }
+
+.driftLockNotice {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border-left: 3px solid #fbbf24;
+  padding: 0.4rem 0.75rem;
+  background: rgba(251, 191, 36, 0.06);
+  border-radius: 0 6px 6px 0;
+}
+
+.errorBanner {
+  background: #4c0519;
+  color: #fecdd3;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.loading,
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .tableCard {
+    overflow-x: auto;
+  }
+}

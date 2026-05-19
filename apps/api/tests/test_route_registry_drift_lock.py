@@ -101,6 +101,7 @@ EXPECTED_ROUTES: set[tuple[str, str]] = {
     ("GET", "/models"),
     ("GET", "/models/active"),
     ("GET", "/models/{model_version_id}"),
+    ("GET", "/monitor/feeds"),
     ("GET", "/monitor/health-history"),
     ("GET", "/monitor/incidents"),
     ("GET", "/monitor/worker-run-log/overview"),

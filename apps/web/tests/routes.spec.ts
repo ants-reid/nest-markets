@@ -23,6 +23,7 @@ const ROUTES: { id: string; path: string; heading: RegExp | string }[] = [
   { id: "QA-R16", path: "/data-centre", heading: /data centre/i },
   { id: "QA-R17", path: "/strategy-lab", heading: /strategy lab/i },
   { id: "QA-R19", path: "/data-quality", heading: /data quality review/i },
+  { id: "QA-R20", path: "/monitor/feeds", heading: /feed monitor/i },
 ];
 
 for (const route of ROUTES) {

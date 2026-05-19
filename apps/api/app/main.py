@@ -32,6 +32,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.llm_logs import router as llm_logs_router
 from app.api.routes.market_data import router as market_data_router
 from app.api.routes.markets import router as markets_router
+from app.api.routes.monitor_feeds import router as monitor_feeds_router
 from app.api.routes.monitor_health_history import router as monitor_health_history_router
 from app.api.routes.monitor_worker_run_log import router as monitor_worker_run_log_router
 from app.api.routes.cockpit_notifications import router as cockpit_notifications_router
@@ -252,6 +253,7 @@ def create_app() -> FastAPI:
     app.include_router(markets_router)
     app.include_router(asset_cards_router)
     app.include_router(monitor_incidents_router)
+    app.include_router(monitor_feeds_router)
     app.include_router(monitor_health_history_router)
     app.include_router(monitor_worker_run_log_router)
     app.include_router(cockpit_notifications_router)

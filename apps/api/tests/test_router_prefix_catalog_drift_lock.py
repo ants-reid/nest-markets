@@ -53,6 +53,7 @@ EXPECTED_ROUTER_CATALOG: dict[str, tuple[str, tuple[str, ...]]] = {
     "app.api.routes.market_data":             ("/market-data", ("market-data",)),
     "app.api.routes.markets":                 ("/markets", ("markets",)),
     "app.api.routes.models":                  ("/models", ("models",)),
+    "app.api.routes.monitor_feeds":          ("/monitor", ("monitor",)),
     "app.api.routes.monitor_health_history":  ("/monitor", ("monitor",)),
     "app.api.routes.monitor_incidents":       ("/monitor", ("monitor",)),
     "app.api.routes.monitor_worker_run_log":  ("/monitor", ("monitor",)),

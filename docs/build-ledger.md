@@ -15047,3 +15047,58 @@ a distinct silent-drift mode that prior cycles could not catch:
 
 ### Next Phase
 → Release candidate handoff and operator decision
+
+---
+
+## MH-FEED-MONITOR-001 — API and Data Feed Monitor
+
+**Date**: 2026-05-19  
+**Status**: ✅ Complete
+
+### What Was Built
+- Added a new read-only backend route, `GET /monitor/feeds`, to consolidate feeds-in probe posture, feeds-out dependency posture, and lightweight IBKR gateway runtime reachability into one operator-facing contract.
+- Added `app/services/feed_monitor_service.py` and `app/schemas/feed_monitor.py` so the new monitor surface has a dedicated service and typed response model rather than overloading the existing health endpoints.
+- Added a new frontend operator page at `/monitor/feeds` with search and category/status filters, summary cards, operator-action callouts, and a row-level view over feed posture.
+- Extended the existing route smoke inventory to include `/monitor/feeds` and updated drift-lock tests so the new monitor route is catalogued explicitly.
+- Updated implementation and QA control documents so the new route/service/page are part of the active inventory and linked to build and API regression coverage.
+
+### Files Changed
+
+| File | Action |
+|---|---|
+| `apps/api/app/api/routes/monitor_feeds.py` | Created |
+| `apps/api/app/services/feed_monitor_service.py` | Created |
+| `apps/api/app/schemas/feed_monitor.py` | Created |
+| `apps/api/app/main.py` | Updated — registered `monitor_feeds_router` |
+| `apps/api/tests/test_feed_monitor_service.py` | Created |
+| `apps/api/tests/test_monitor_feeds_route.py` | Created |
+| `apps/api/tests/test_router_prefix_catalog_drift_lock.py` | Updated |
+| `apps/api/tests/test_route_registry_drift_lock.py` | Updated |
+| `apps/web/lib/api/feedMonitor.ts` | Created |
+| `apps/web/app/monitor/feeds/page.tsx` | Created |
+| `apps/web/styles/pages/feed-monitor.module.css` | Created |
+| `apps/web/lib/api/index.ts` | Updated |
+| `apps/web/tests/routes.spec.ts` | Updated |
+| `docs/implementation-matrix.md` | Updated |
+| `docs/regression-qa-matrix.md` | Updated |
+| `docs/build-ledger.md` | Updated |
+
+### Migrations Added
+- None
+
+### Tests Run
+- `cd apps/api && .venv/bin/pytest tests/test_feed_monitor_service.py tests/test_monitor_feeds_route.py tests/test_router_prefix_catalog_drift_lock.py tests/test_route_registry_drift_lock.py -q`
+- `cd apps/web && ./node_modules/.bin/eslint app/monitor/feeds/page.tsx lib/api/feedMonitor.ts tests/routes.spec.ts`
+- `cd apps/web && npm run build`
+
+### Test Results
+- Backend targeted pytest: **10/10 passed**
+- Frontend targeted ESLint: **pass**
+- Frontend production build: **pass**
+
+### Known Limitations
+- `/monitor/feeds` is currently configuration-and-runtime posture only; it does not yet chart historical feed incidents or provider latency over time.
+- The frontend route was added to the route smoke inventory, but a dedicated Playwright rerun for `/monitor/feeds` was not executed in this change set.
+
+### Next Phase
+→ Extend feed monitor evidence with historical incident overlays or dedicated Playwright route coverage when broader observability work resumes

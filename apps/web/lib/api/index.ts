@@ -17,6 +17,7 @@ export * from "./newsArticles";
 export * from "./markets";
 export * from "./assetCards";
 export * from "./healthHistory";
+export * from "./feedMonitor";
 export * from "./cockpitNotifications";
 export * from "./workerRunLog";
 export * from "./cockpitAutoPaperStatus";
