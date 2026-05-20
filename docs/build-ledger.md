@@ -138,6 +138,58 @@ Existing test suite not regressed.
 | `apps/api/app/api/routes/research_data.py` | Updated — added POST /import, GET /import-runs |
 | `apps/api/app/tests/test_historical_import.py` | Created |
 
+---
+
+## MH-COCKPIT-03 — Market Cockpit mode selector
+
+- **Date:** 2026-05-20
+- **Bucket:** 2 (Cockpit operator surface)
+- **Depends On:** MH-COCKPIT-01, MH-MON-04
+- **Status:** ✅ Complete
+- **Scope:** Added a safe cockpit mode selector that exposes Learning, Manual, and Auto Paper as selectable operator-intent modes while keeping Assisted Live, Live / Real Money, and Auto Live visible but locked. The backend now serves `GET /cockpit/mode` and `POST /cockpit/mode` over an advisory-only in-memory selector layered on top of existing trading-control state. The `/cockpit` page now renders current mode context, safety-state summary cards, selectable and locked mode cards, backend safety notes, and the existing cockpit navigation links. No existing broker, risk, or worker execution path was relaxed.
+- **Files Changed:**
+  - `apps/api/app/api/routes/cockpit_mode.py` (new)
+  - `apps/api/app/schemas/cockpit_mode.py` (new)
+  - `apps/api/app/services/cockpit_mode_service.py` (new)
+  - `apps/api/app/main.py` (registered router)
+  - `apps/api/tests/test_cockpit_mode_service.py` (new)
+  - `apps/api/tests/test_cockpit_mode_route.py` (new)
+  - `apps/api/tests/test_route_registry_drift_lock.py` (updated route catalog)
+  - `apps/api/tests/test_router_prefix_catalog_drift_lock.py` (updated router catalog)
+  - `apps/web/app/cockpit/page.tsx` (rewritten as mode selector surface)
+  - `apps/web/lib/api/cockpitMode.ts` (new typed client)
+  - `apps/web/styles/pages/cockpit-hub.module.css` (expanded mode-selector layout)
+  - `apps/web/tests/cockpit-mode-selector.spec.ts` (new)
+  - `apps/web/tests/routes.spec.ts` (added `/cockpit` route coverage)
+  - `apps/web/tests/responsive.spec.ts` (added `/cockpit` responsive coverage)
+  - `apps/web/tests/smoke.spec.ts` (added cockpit smoke coverage)
+  - `docs/build-matrix.md`
+  - `docs/implementation-matrix.md`
+  - `docs/regression-qa-matrix.md`
+  - `docs/build-ledger.md`
+- **Verification:**
+  - `cd apps/api && .venv/bin/ruff check app tests` → clean
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_cockpit_mode_service.py tests/test_cockpit_mode_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q` → `16 passed`
+  - `cd apps/web && npm run lint` → clean
+  - `cd apps/web && npm run build` → passed
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3104 PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:8103 ./node_modules/.bin/playwright test tests/cockpit-mode-selector.spec.ts --reporter=line` → `4 passed`
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3104 PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:8103 ./node_modules/.bin/playwright test tests/smoke.spec.ts --grep 'cockpit page loads mode selector and locked live modes' --reporter=line` → `1 passed`
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3104 PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:8103 ./node_modules/.bin/playwright test tests/routes.spec.ts --grep 'QA-R18A' --reporter=line` → `1 passed`
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3104 PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:8103 ./node_modules/.bin/playwright test tests/responsive.spec.ts --grep 'cockpit.*390px' --reporter=line` → `1 passed`
+- **Known Limitations:**
+  - Selected cockpit mode is process-local and resets with API restart; this phase intentionally avoids durable persistence decisions.
+  - The selector is advisory-only. Existing trading-control, broker-mode, and auto-trading guards remain the true enforcement boundary.
+  - Browser mocks were used for the cockpit page smoke and selector interaction tests so validation does not depend on the compiled public API host in the Next.js client bundle.
+- **Drift-Lock Confirmation:**
+  - Auto-paper enforcement remains OFF
+  - Auto trading remains OFF
+  - Live trading remains OFF
+  - `live_trading_enabled`, `auto_live_enabled`, and `real_money_enabled` stay `false` in the cockpit-mode payload
+  - Locked live modes are rejected server-side with `403 cockpit_mode_locked`
+  - `trading_control_service.py`, `broker_mode_guard.py`, and worker execution paths remain unchanged
+- **Next Phase:**
+  - MH-COCKPIT-05 or the next cockpit operator-facing read-only slice that builds on the same safety boundary
+
 ### Migrations Added
 - `b3c4d5e6f7a8_add_mh02_tables.py` — creates `provider_asset_coverage`; adds `batch_id` to `market_data_import_runs`; adds `quality_score`, `approved_for_backtest` to `market_data_quality_reports`
 

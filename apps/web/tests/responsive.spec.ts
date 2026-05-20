@@ -26,6 +26,7 @@ const ROUTES = [
   { path: "/alerts", name: "alerts" },
   { path: "/notifications", name: "notifications" },
   { path: "/analytics", name: "analytics" },
+  { path: "/cockpit", name: "cockpit" },
   { path: "/monitor/feeds", name: "feed-monitor" },
 ];
 

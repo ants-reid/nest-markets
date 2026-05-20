@@ -44,6 +44,7 @@ EXPECTED_ROUTER_CATALOG: dict[str, tuple[str, tuple[str, ...]]] = {
     "app.api.routes.broker":                  ("/broker", ("broker",)),
     "app.api.routes.broker_submit_decisions": ("/broker", ("broker-submit-decisions",)),
     "app.api.routes.cockpit_auto_paper_status": ("/cockpit", ("cockpit",)),
+    "app.api.routes.cockpit_mode":           ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_notifications":   ("/cockpit", ("cockpit",)),
     "app.api.routes.evals":                   ("/evals", ("evals",)),
     "app.api.routes.execution":               ("/execution", ("execution",)),

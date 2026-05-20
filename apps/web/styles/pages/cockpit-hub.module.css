@@ -12,6 +12,10 @@
   gap: 1.5rem;
 }
 
+.container > * {
+  min-width: 0;
+}
+
 .header {
   display: flex;
   align-items: flex-start;
@@ -41,6 +45,198 @@
   padding: 0.5rem 0.85rem;
   background: rgba(251, 191, 36, 0.06);
   border-radius: 0 6px 6px 0;
+}
+
+.errorBanner,
+.successBanner,
+.loadingState,
+.notePanel,
+.modePanel {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+}
+
+.errorBanner {
+  color: var(--state-danger);
+}
+
+.successBanner {
+  color: var(--state-success);
+}
+
+.loadingState {
+  color: var(--text-muted);
+}
+
+.modePanel,
+.modeSection,
+.notePanel,
+.sectionHeader {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.modePanelHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.modePanelTitle,
+.modeTitle {
+  margin: 0;
+  color: var(--text-strong);
+}
+
+.modePanelTitle {
+  font-size: 1.2rem;
+}
+
+.modePanelSubtitle,
+.summaryBody,
+.sectionBody,
+.modeReason,
+.safetyValue {
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.modePanelSubtitle {
+  margin: 0.45rem 0 0;
+}
+
+.currentModeSummary,
+.safetyItem,
+.modeCard {
+  min-width: 0;
+  border: 1px solid var(--card-border, #1f2937);
+  background: var(--card-bg, #111827);
+}
+
+.currentModeSummary {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem;
+  border-radius: 14px;
+}
+
+.summaryLabel,
+.modeStatus,
+.safetyLabel,
+.listTitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.summaryValue {
+  color: var(--text-strong);
+  font-size: 1.1rem;
+}
+
+.safetyStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.safetyItem {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+}
+
+.modeGrid,
+.modeLists {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.modeGrid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.modeLists {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modeCard {
+  display: grid;
+  gap: 0.65rem;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+}
+
+.modeCardActive {
+  border-color: var(--state-info, #60a5fa);
+}
+
+.modeCardLocked {
+  opacity: 0.88;
+}
+
+.modeCardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.modeTitle {
+  font-size: 1.05rem;
+}
+
+.modePill {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--state-info, #60a5fa);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.riskLead {
+  margin: 0;
+  color: var(--text-strong);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.actionList {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-body);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.modeButton {
+  border: 1px solid var(--state-info, #60a5fa);
+  background: transparent;
+  color: var(--text-strong);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modeButton:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.modeButtonLocked {
+  border-color: var(--card-border, #1f2937);
+  color: var(--text-muted);
 }
 
 .section {
@@ -122,4 +318,18 @@
 
 .linkPath {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+@media (max-width: 700px) {
+  .modePanelHeader,
+  .safetyStrip,
+  .modeLists,
+  .modeGrid,
+  .tileGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding-inline: 1rem;
+  }
 }

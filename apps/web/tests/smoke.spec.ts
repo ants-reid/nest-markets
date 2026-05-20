@@ -6,6 +6,108 @@ function apiUrl(path: string) {
   return new URL(path, API_BASE_URL).toString();
 }
 
+function buildCockpitModeState() {
+  return {
+    current_mode: "learning",
+    selectable_modes: ["learning", "manual", "auto_paper"],
+    locked_modes: ["assisted_live", "live", "auto_live"],
+    modes: [
+      {
+        id: "learning",
+        label: "Learning",
+        status: "active",
+        selectable: true,
+        locked: false,
+        reason: "No orders are placed. This mode is for learning, explanations, and observation only.",
+        risk_note: "Risk first: no paper or live orders are submitted from Learning mode.",
+        allowed_actions: ["Read explanations and market context"],
+        blocked_actions: ["Paper order automation", "Live broker submission"],
+        safety_gates: ["No order path is enabled by mode selection"],
+      },
+      {
+        id: "manual",
+        label: "Manual",
+        status: "available",
+        selectable: true,
+        locked: false,
+        reason: "Nothing is submitted unless the operator explicitly chooses to act.",
+        risk_note: "Risk first: recommendations stay advisory until a human reviews and confirms the next step.",
+        allowed_actions: ["Review recommendations and reasoning"],
+        blocked_actions: ["Automatic paper trading", "Real-money submission"],
+        safety_gates: ["Existing trading_control_service rules still apply"],
+      },
+      {
+        id: "auto_paper",
+        label: "Auto Paper",
+        status: "available",
+        selectable: true,
+        locked: false,
+        reason: "Simulation only. This mode signals paper-only operator intent and keeps real money out of scope.",
+        risk_note: "Risk first: selecting Auto Paper does not enable live trading and does not bypass paper-boundary checks.",
+        allowed_actions: ["View auto-paper readiness and status surfaces"],
+        blocked_actions: ["Real broker order routing", "Auto live trading"],
+        safety_gates: ["Backend live flags remain false"],
+      },
+      {
+        id: "assisted_live",
+        label: "Assisted Live",
+        status: "locked",
+        selectable: false,
+        locked: true,
+        reason: "Locked until a future live-readiness checklist, per-trade approval flow, and explicit unlock phase exist.",
+        risk_note: "Risk first: assisted live stays unavailable because current protections are not sufficient for real-money routing.",
+        allowed_actions: ["Review future product direction only"],
+        blocked_actions: ["Mode selection", "Live order submission"],
+        safety_gates: ["Rejected server-side if requested"],
+      },
+      {
+        id: "live",
+        label: "Live / Real Money",
+        status: "locked",
+        selectable: false,
+        locked: true,
+        reason: "Locked until future live arming, emergency-stop, and release-checklist phases are complete.",
+        risk_note: "Risk first: real-money trading remains blocked even if a client edits the frontend.",
+        allowed_actions: ["Review future product direction only"],
+        blocked_actions: ["Mode selection", "Real-money trading"],
+        safety_gates: ["live_trading_enabled remains false"],
+      },
+      {
+        id: "auto_live",
+        label: "Auto Live",
+        status: "locked",
+        selectable: false,
+        locked: true,
+        reason: "Locked until long paper evidence, positive expectancy review, safety sign-off, and explicit unlock exist.",
+        risk_note: "Risk first: auto live is intentionally blocked because the current build does not permit automated real-money execution.",
+        allowed_actions: ["Review future product direction only"],
+        blocked_actions: ["Mode selection", "Automatic live trading"],
+        safety_gates: ["auto_live_enabled remains false"],
+      },
+    ],
+    global_safety_state: {
+      live_trading_enabled: false,
+      auto_live_enabled: false,
+      real_money_enabled: false,
+      paper_order_submission_allowed: true,
+      live_order_submission_allowed: false,
+      auto_trading_allowed: false,
+      emergency_stop_active: false,
+      trading_mode: "paper",
+      execution_control: "manual",
+      arming_state: "armed",
+      reasons: [],
+    },
+    live_trading_enabled: false,
+    auto_live_enabled: false,
+    real_money_enabled: false,
+    notes: [
+      "Mode selection is advisory and does not replace backend trading guards.",
+      "Live and real-money modes stay blocked in this phase even if a client submits them directly.",
+    ],
+  };
+}
+
 test("home page shows dashboard surface", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What Needs Attention Now" })).toBeVisible();
@@ -159,4 +261,24 @@ test("feed monitor page loads heading and filter controls", async ({ page }) => 
   await expect(page.locator('section[aria-label="Feed monitor filters"]')).toBeVisible();
   await expect(page.getByRole("button", { name: /refresh/i })).toBeVisible();
   await expect(page.getByText(/drift lock active/i)).toBeVisible();
+});
+
+test("cockpit page loads mode selector and locked live modes", async ({ page }) => {
+  await page.route("**/cockpit/mode", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildCockpitModeState()),
+    });
+  });
+
+  await page.goto("/cockpit");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByRole("heading", { name: "Cockpit", exact: true })).toBeVisible();
+  await expect(page.getByTestId("cockpit-mode-selector")).toBeVisible();
+  await expect(page.getByTestId("cockpit-current-mode-summary")).toContainText(/learning/i);
+  await expect(page.getByText(/risk first: mode selection changes operator intent only/i)).toBeVisible();
+  await expect(page.getByTestId("cockpit-select-assisted_live")).toBeDisabled();
+  await expect(page.getByTestId("cockpit-select-live")).toBeDisabled();
+  await expect(page.getByTestId("cockpit-select-auto_live")).toBeDisabled();
 });

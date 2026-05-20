@@ -149,7 +149,7 @@ These guards apply to ALL phases unless explicitly overridden by a phase spec:
 | MH-MON-10       | Operator `POST /monitor/test/{service}` endpoint | ⏳ Pending | MH-MON-01           | Auth-gated, dry probes only |
 | MH-COCKPIT-01   | Markets-open snapshot endpoint                 | ✅ Complete | —                      | Read-only |
 | MH-COCKPIT-02   | Asset cards + market quality                   | ✅ Complete | MH-COCKPIT-01         | Read-only |
-| MH-COCKPIT-03   | Mode selector (Learning / Manual / Auto Paper) | ⏳ Pending | MH-COCKPIT-01, MH-MON-04 | Live modes disabled in UI |
+| MH-COCKPIT-03   | Mode selector (Learning / Manual / Auto Paper) | ✅ Complete | MH-COCKPIT-01, MH-MON-04 | Live modes remain disabled in backend and UI |
 | MH-COCKPIT-04   | Plain-English explainer                        | ✅ Complete | MH-150                | Reads decision audit only |
 | MH-COCKPIT-05   | EOD report                                     | ⏳ Pending | MH-155                | Paper scope |
 | MH-COCKPIT-06   | Notifications surface                          | ✅ Complete | MH-MON-05             | In-app only initially |

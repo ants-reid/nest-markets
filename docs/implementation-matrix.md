@@ -80,6 +80,7 @@ Documentation values:
 | API-RX03 | `app/api/routes/broker.py` | broker route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX04 | `app/api/routes/broker_submit_decisions.py` | broker submit decisions route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX05 | `app/api/routes/cockpit_auto_paper_status.py` | cockpit auto paper status route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-RX05A | `app/api/routes/cockpit_mode.py` | cockpit mode selector route surface | implemented | tested | documented | WS-01 | Added 2026-05-20 during MH-COCKPIT-03 as a safe `/cockpit/mode` GET/POST surface. Validation includes focused backend pytest and router drift-lock coverage. |
 | API-RX06 | `app/api/routes/cockpit_notifications.py` | cockpit notifications route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX07 | `app/api/routes/governance.py` | governance route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX08 | `app/api/routes/llm_logs.py` | llm logs route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
@@ -150,6 +151,7 @@ Documentation values:
 | API-SX07 | `app/services/broker_service.py` | broker service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX08 | `app/services/broker_trade_event_service.py` | broker trade event service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX09 | `app/services/cockpit_auto_paper_status_service.py` | cockpit auto paper status service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-SX09A | `app/services/cockpit_mode_service.py` | cockpit mode selector service | implemented | tested | documented | WS-01 | Added 2026-05-20 during MH-COCKPIT-03 as an advisory-only selector layered on top of trading-control state; locked live modes are rejected server-side and live flags stay false. |
 | API-SX10 | `app/services/commission_tracking_service.py` | commission tracking service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX11 | `app/services/contract_resolution_service.py` | contract resolution service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX12 | `app/services/correlation_context.py` | correlation context service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
@@ -264,7 +266,7 @@ Documentation values:
 | WEB-PX05 | `app/system-health/page.tsx` | `/system-health` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX06 | `app/strategy-lab/page.tsx` | `/strategy-lab` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX07 | `app/cockpit/notifications/page.tsx` | `/cockpit/notifications` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| WEB-PX08 | `app/cockpit/page.tsx` | `/cockpit` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| WEB-PX08 | `app/cockpit/page.tsx` | `/cockpit` | implemented | tested | documented | WS-01 | Updated 2026-05-20 during MH-COCKPIT-03 from a static hub into an operator-facing mode selector with selectable Learning / Manual / Auto Paper states, locked live-mode cards, backend safety notes, and preserved cockpit links. Exact route, smoke, responsive, and dedicated mocked Playwright coverage passed. |
 | WEB-PX09 | `app/cockpit/auto-paper-status/page.tsx` | `/cockpit/auto-paper-status` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX10 | `app/cockpit/news/page.tsx` | `/cockpit/news` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX11 | `app/cockpit/audit/page.tsx` | `/cockpit/audit` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
