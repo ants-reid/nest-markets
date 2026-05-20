@@ -5,6 +5,9 @@
 # Audit logs (append-only, never commit)
 logs/
 
+# Generated worker runtime data
+app/data/*.jsonl
+
 # Python
 __pycache__/
 *.py[cod]
