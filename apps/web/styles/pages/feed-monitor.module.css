@@ -1,10 +1,13 @@
 .page {
   min-height: 100vh;
+  min-width: 0;
   background: var(--app-shell-bg);
   color: var(--text-body);
 }
 
 .container {
+  width: 100%;
+  min-width: 0;
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
@@ -137,6 +140,11 @@
   padding: 1rem 1.15rem;
 }
 
+.tableCard {
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .sectionTitle {
   margin: 0;
   font-size: 1.05rem;
@@ -164,6 +172,7 @@
 }
 
 .table {
+  min-width: 960px;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
@@ -243,8 +252,3 @@
   font-style: italic;
 }
 
-@media (max-width: 900px) {
-  .tableCard {
-    overflow-x: auto;
-  }
-}

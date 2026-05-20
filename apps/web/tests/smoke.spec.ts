@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+function apiUrl(path: string) {
+  return new URL(path, API_BASE_URL).toString();
+}
+
 test("home page shows dashboard surface", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What Needs Attention Now" })).toBeVisible();
@@ -103,7 +109,7 @@ test("execution page loads execution list", async ({ page }) => {
 });
 
 test("live execution guard returns disabled sentinel via API", async ({ request }) => {
-  const response = await request.post("http://127.0.0.1:8000/execution/live", {
+  const response = await request.post(apiUrl("/execution/live"), {
     data: {
       asset: "AAPL",
       side: "buy",
@@ -144,4 +150,13 @@ test("data quality filter bar has asset, provider, timeframe inputs", async ({ p
   await expect(page.getByTestId("dq-filter-asset")).toBeVisible();
   await expect(page.getByTestId("dq-filter-provider")).toBeVisible();
   await expect(page.getByTestId("dq-filter-timeframe")).toBeVisible();
+});
+
+test("feed monitor page loads heading and filter controls", async ({ page }) => {
+  await page.goto("/monitor/feeds");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByRole("heading", { name: /feed monitor/i })).toBeVisible();
+  await expect(page.locator('section[aria-label="Feed monitor filters"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: /refresh/i })).toBeVisible();
+  await expect(page.getByText(/drift lock active/i)).toBeVisible();
 });

@@ -1,6 +1,6 @@
 # Implementation Matrix
 
-Date: 2026-05-19
+Date: 2026-05-20
 
 ## How To Use This Matrix
 
@@ -17,15 +17,15 @@ Every tracked item gets:
 
 ## Restart Stabilisation Rebaseline
 
-As of 2026-05-19, the current local validation baseline is:
+As of 2026-05-20, the current local validation baseline is:
 
-- backend full suite: `2301 passed` against a migrated local `market_hunter` Postgres database
+- backend full suite: `2303 passed` against a migrated local `market_hunter` Postgres database
 - learning suite: `99 passed` via `scripts/test/test-learning.sh`
 - frontend build-ready evidence remains green from the same stabilisation pass
-- smoke verification is green on the rebuilt web app with API running: `20 passed`
-- responsive verification is green: `46 passed`
+- smoke verification is green on the rebuilt web app with API running
+- responsive verification is green
 - visual verification is green after snapshot rebaseline: `48 passed`
-- full Playwright verification is green: `272 passed`, `0 failed`
+- full Playwright verification is green: `280 passed`, `0 failed`
 - MH-RESTART-004 plus MH-FEED-MONITOR-001 reconcile the live Gate 1 surface to 40 active backend route modules, 82 active backend service modules, 47 frontend route modules, and 49 shared TSX component modules; support files are catalogued separately below
 - Gate 1 is green when the live route/service/page/component inventory still matches this file after the inventory diff checks recorded in the release-control pass
 
@@ -231,6 +231,12 @@ Documentation values:
 | API-P05 | `app/services/persistence_paper_execution_service.py` | paper execution persistence | implemented | tested | documented | WS-01 | list, get, fill, close paper orders from DB; _to_service_status maps OrderStatus enum/string to service vocabulary; owned by /execution/paper endpoints; documented 2026-04-24 |
 | API-P06 | `app/services/persistence_signal_outcome.py` | signal outcome persistence | implemented | unverified | partial | WS-06 | Inventoried 2026-05-19 during MH-RESTART-004. |
 
+## Backend Schemas
+
+| ID | File | Purpose | Status | Validation | Documentation | Workstream | Notes |
+|---|---|---|---|---|---|---|---|
+| API-H01 | `app/schemas/feed_monitor.py` | feed monitor response schemas | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001; defines the typed read-only `/monitor/feeds` response contract consumed by the route and browser surface. |
+
 ## Frontend Routes
 
 | ID | File | Route | Status | Validation | Documentation | Workstream | Notes |
@@ -281,7 +287,7 @@ Documentation values:
 | WEB-PX28 | `app/providers/page.tsx` | `/providers` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX29 | `app/broker/page.tsx` | `/broker` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX30 | `app/news/page.tsx` | `/news` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| WEB-PX31 | `app/monitor/feeds/page.tsx` | `/monitor/feeds` | implemented | unverified | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a filterable operator-facing page over the new read-only feed monitor API. |
+| WEB-PX31 | `app/monitor/feeds/page.tsx` | `/monitor/feeds` | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a filterable operator-facing page over the new read-only feed monitor API; dedicated route, smoke, responsive, and mocked browser coverage landed on 2026-05-20, and the final full visual (`48/48`) plus full Playwright (`280/280`) gates were recovered during MH-FEED-MONITOR-005. |
 
 ## Shared Frontend Foundations
 

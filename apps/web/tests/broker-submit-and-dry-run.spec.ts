@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Request } from "@playwright/test";
 
 import {
   ACCOUNT_RESPONSE,
@@ -8,6 +8,11 @@ import {
   RICH_DRY_RUN_RESPONSE,
   installBrokerMocks,
 } from "./broker-test-helpers";
+
+function isBrokerApiRequest(request: Request) {
+  const url = new URL(request.url());
+  return !request.isNavigationRequest() && url.pathname.startsWith("/broker/");
+}
 
 test("MH-33: manual submit flow runs dry-run then submits order", async ({ page }) => {
   await installBrokerMocks(page, {
@@ -211,7 +216,12 @@ test("MH-34: form resets after successful submit", async ({ page }) => {
 test("MH-42: dry-run sends advisory context when account/positions are loaded", async ({ page }) => {
   let capturedBody: unknown = null;
 
-  await page.route("http://127.0.0.1:8000/broker/**", async (route) => {
+  await page.route("**/broker/**", async (route) => {
+    if (!isBrokerApiRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
     const url = new URL(route.request().url());
     if (url.pathname === "/broker/account") {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ACCOUNT_RESPONSE) });
@@ -451,7 +461,12 @@ test("MH-44: dry-run payload includes daily_pnl and daily_loss when data availab
     },
   });
 
-  await page.route("http://127.0.0.1:8000/broker/orders/dry-run", async (route) => {
+  await page.route("**/broker/orders/dry-run", async (route) => {
+    if (!isBrokerApiRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
     capturedBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
     await route.fulfill({
       status: 200,
@@ -482,7 +497,12 @@ test("MH-44: dry-run payload includes daily_pnl and daily_loss when data availab
 test("MH-44: dry-run payload omits daily_pnl when no snapshots", async ({ page }) => {
   let capturedBody: Record<string, unknown> = {};
 
-  await page.route("http://127.0.0.1:8000/broker/orders/dry-run", async (route) => {
+  await page.route("**/broker/orders/dry-run", async (route) => {
+    if (!isBrokerApiRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
     capturedBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
     await route.fulfill({
       status: 200,

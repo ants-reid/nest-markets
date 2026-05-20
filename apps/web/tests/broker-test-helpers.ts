@@ -1,4 +1,15 @@
-import { type Page } from "@playwright/test";
+import { type Page, type Request } from "@playwright/test";
+
+const API_BASE_URL = (process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+
+function brokerApiGlob() {
+  return `${API_BASE_URL}/broker/**`;
+}
+
+function isBrokerApiRequest(request: Request) {
+  const url = new URL(request.url());
+  return !request.isNavigationRequest() && url.pathname.startsWith("/broker/");
+}
 
 type BrokerHealthPayload = {
   status: "paper_ready" | "paper_config_only" | "live_ready" | "live_config_only" | "misconfigured";
@@ -152,7 +163,7 @@ export async function installBrokerMocks(
     },
   },
 ) {
-  await page.route("http://127.0.0.1:8000/broker/**", async (route) => {
+  await page.route(brokerApiGlob(), async (route) => {
     const url = new URL(route.request().url());
 
     if (url.pathname === "/broker/account") {

@@ -6,6 +6,7 @@
 
 .panel {
   display: grid;
+  min-width: 0;
   gap: 12px;
   padding: 18px;
   border-radius: 18px;
@@ -51,13 +52,13 @@
 .splitGrid {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1.25fr 1fr;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 }
 
 .twoColumnGrid {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .panelHeader {
@@ -281,7 +282,7 @@
 .riskGrid {
   display: grid;
   gap: 10px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .bodyText {
@@ -314,7 +315,7 @@
   .splitGrid,
   .twoColumnGrid,
   .riskGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

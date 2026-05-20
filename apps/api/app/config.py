@@ -42,6 +42,9 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
         ]
     )
+    cors_allowed_origin_regex: str | None = Field(
+        default=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+    )
 
     # IBKR Broker Integration (Phase 15)
     ibkr_account_id: str = Field(default="")

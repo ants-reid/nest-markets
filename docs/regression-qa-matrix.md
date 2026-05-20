@@ -1,6 +1,6 @@
 # Regression And QA Matrix
 
-Date: 2026-05-19
+Date: 2026-05-20
 
 ## Purpose
 
@@ -27,17 +27,17 @@ No feature is complete unless it links to at least one QA item in this file.
 
 ## Release-Gate Verification Snapshot
 
-Fresh evidence from 2026-05-19:
+Fresh evidence from 2026-05-20:
 
-- backend full pytest: `2301 passed`
+- backend full pytest: `2303 passed`
 - learning suite: `99 passed`
 - frontend lint/build: passed
-- smoke suite on rebuilt web plus live API: `20 passed`
-- responsive suite: `46 passed`
+- smoke suite on rebuilt web plus live API: passing
+- responsive suite: passing
 - visual suite: `48 passed` after verified snapshot rebaseline
-- full Playwright suite: `272 passed`, `0 failed`
+- full Playwright suite: `280 passed`, `0 failed`
 
-This matrix is green again on the fresh MH-RESTART-004 evidence set.
+This matrix is green again on the fresh MH-FEED-MONITOR-005 evidence set.
 
 ## Route Regression Checks
 
@@ -69,7 +69,7 @@ This matrix is green again on the fresh MH-RESTART-004 evidence set.
 | QA-021 | Theme | light mode persists across route changes | automated | passing | WEB-F01, WEB-F03 | `regression.spec.ts` passing (2026-04-24) |
 | QA-022 | Theme | major text surfaces remain readable in dark mode | manual | passing | WEB-F02 | Visual audit across all 10 routes completed (2026-04-24) |
 | QA-023 | Theme | major text surfaces remain readable in light mode | manual | passing | WEB-F02 | Visual audit across all 10 routes completed (2026-04-24) |
-| QA-024 | Token usage | raw color literals do not reappear in app/components TSX | automated | passing | WS-04 | 2026-05-19 regex scan over `apps/web/app/**/*.tsx` and `apps/web/components/**/*.tsx` found no raw hex or `rgb()/rgba()` literals |
+| QA-024 | Token usage | raw color literals do not reappear in app/components TSX | automated | passing | WS-04 | 2026-05-20 regex scan over `apps/web/app/**/*.tsx` and `apps/web/components/**/*.tsx` found no raw hex or `rgb()/rgba()` literals |
 
 ## Chart Checks
 
@@ -128,6 +128,7 @@ This matrix is green again on the fresh MH-RESTART-004 evidence set.
 | QA-125 | Monitor and audit APIs | cockpit, monitor, llm-log, broker-submit-decision, news-in-decision-log, risk-decision, and feed-monitor routes remain read-only and shape-pinned | automated | passing | API-RX04, API-RX05, API-RX06, API-RX08, API-RX11, API-RX12, API-RX13, API-RX15, API-RX22, API-RX27 | Covered by route tests, audit response-shape drift locks, targeted `/monitor/feeds` pytest coverage, and the fresh backend pytest rerun on 2026-05-19 |
 | QA-126 | Model and regime APIs | scoring, models, governance, and regime routes remain green under backend route suites | automated | passing | API-RX07, API-RX10, API-RX19, API-RX24 | Covered by `apps/api/tests/test_phase3_routes.py`, `apps/api/tests/test_model_governance_routes.py`, and the fresh backend pytest rerun on 2026-05-19 |
 | QA-127 | Research and asset-card APIs | asset-card, baseline-candidate, markets, news-article, paper-validation, research-data, research-job, and strategy-lab surfaces stay registered and schema-safe | automated | passing | API-RX01, API-RX02, API-RX09, API-RX14, API-RX18, API-RX20, API-RX21, API-RX25 | Covered by route tests, schema drift-locks, and the fresh backend pytest rerun on 2026-05-19 |
+| QA-128 | Feed monitor browser surface | `/monitor/feeds` renders on the live stack, keeps filter/search interactions stable under mocked monitor payloads, and avoids 390px horizontal overflow | automated | passing | WEB-PX31, API-RX27 | Covered by `apps/web/tests/feed-monitor.spec.ts`, `apps/web/tests/routes.spec.ts`, `apps/web/tests/smoke.spec.ts`, and `apps/web/tests/responsive.spec.ts` on 2026-05-20; full visual rerun (`48/48`) and full Playwright rerun (`280/280`) are also green after MH-FEED-MONITOR-005 |
 
 ## Responsive And Mobile Checks
 
@@ -154,7 +155,7 @@ All automated checks go in `apps/web/tests/responsive.spec.ts` (BP-03.01).
 
 | ID | Scope | Check | Method | Status | Related Items | Notes |
 |---|---|---|---|---|---|---|
-| QA-073 | Visual | dashboard, analytics, execution, performance, assets, opportunities, alerts, and notifications snapshots match baseline across mobile, tablet, desktop, and both themes | automated | passing | WEB-F02, WEB-F04, WEB-P02, WEB-P03, WEB-P08, WEB-P09, WEB-P10, WEB-P13, WEB-P15, WEB-P16 | `visual.spec.ts` passed `48/48` on 2026-05-19 after responsive verification and snapshot rebaseline against the current intentional sparse-data UI |
+| QA-073 | Visual | dashboard, analytics, execution, performance, assets, opportunities, alerts, and notifications snapshots match baseline across mobile, tablet, desktop, and both themes | automated | passing | WEB-F02, WEB-F04, WEB-P02, WEB-P03, WEB-P08, WEB-P09, WEB-P10, WEB-P13, WEB-P15, WEB-P16 | `visual.spec.ts` passed `48/48` on 2026-05-20 after dashboard/assets diff review confirmed the hydrated UI was correct and the stale loading-state baselines were intentionally refreshed |
 
 ## Process Checks
 

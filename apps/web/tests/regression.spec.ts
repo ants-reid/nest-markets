@@ -8,6 +8,12 @@
 
 import { expect, test } from "@playwright/test";
 
+const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+function apiUrl(path: string) {
+  return new URL(path, API_BASE_URL).toString();
+}
+
 // ---------------------------------------------------------------------------
 // Route regression checks
 // ---------------------------------------------------------------------------
@@ -261,7 +267,7 @@ test("QA-042 empty and loading states render without a crash", async ({ page }) 
 
 // QA-009 (moved from smoke — kept here for completeness with the registry ID)
 test("QA-009-b live execution guard returns disabled sentinel", async ({ request }) => {
-  const response = await request.post("http://127.0.0.1:8000/execution/live", {
+  const response = await request.post(apiUrl("/execution/live"), {
     data: {
       asset: "AAPL",
       side: "buy",

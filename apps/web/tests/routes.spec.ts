@@ -4,6 +4,11 @@
 
 import { expect, test } from "@playwright/test";
 
+function isStrategyLabApiRequest(request: import("@playwright/test").Request) {
+  const url = new URL(request.url());
+  return !request.isNavigationRequest() && url.pathname.startsWith("/strategy-lab/");
+}
+
 const ROUTES: { id: string; path: string; heading: RegExp | string }[] = [
   { id: "QA-R01", path: "/", heading: /what needs attention/i },
   { id: "QA-R02", path: "/dashboard", heading: /snapshot|P&L|risk|approval/i },
@@ -117,7 +122,12 @@ async function mockStrategyLabResearchApi(
   const empty = Boolean(options?.empty);
   const failOverview = Boolean(options?.failOverview);
 
-  await page.route("http://127.0.0.1:8000/strategy-lab/**", async (route) => {
+  await page.route("**/strategy-lab/**", async (route) => {
+    if (!isStrategyLabApiRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();

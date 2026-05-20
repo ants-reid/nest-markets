@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+function apiUrl(path: string) {
+  return new URL(path, API_BASE_URL).toString();
+}
+
 // ---------------------------------------------------------------------------
 // Navigation flows
 // ---------------------------------------------------------------------------
@@ -65,7 +71,7 @@ test.describe("Signal generation flow", () => {
   });
 
   test("mock generate signal via API returns valid shape", async ({ request }) => {
-    const response = await request.post("http://127.0.0.1:8000/signals/mock-generate", {
+    const response = await request.post(apiUrl("/signals/mock-generate"), {
       data: { asset: "EURUSD" },
     });
     expect(response.status()).toBe(200);
@@ -90,7 +96,7 @@ test.describe("Risk evaluation flow", () => {
   });
 
   test("risk evaluation via API returns decision field", async ({ request }) => {
-    const response = await request.post("http://127.0.0.1:8000/risk/evaluate", {
+    const response = await request.post(apiUrl("/risk/evaluate"), {
       data: {
         signal: {
           asset: "EURUSD",
@@ -167,7 +173,7 @@ test.describe("Paper execution flow", () => {
   });
 
   test("paper execution via API creates and retrieves order", async ({ request }) => {
-    const createRes = await request.post("http://127.0.0.1:8000/execution/paper", {
+    const createRes = await request.post(apiUrl("/execution/paper"), {
       data: {
         asset: "EURUSD",
         direction: "long",
@@ -182,7 +188,7 @@ test.describe("Paper execution flow", () => {
   });
 
   test("live execution guard via API returns disabled sentinel", async ({ request }) => {
-    const response = await request.post("http://127.0.0.1:8000/execution/live", {
+    const response = await request.post(apiUrl("/execution/live"), {
       data: { asset: "AAPL", side: "buy", qty: 1.0, notional: 150.0, stop_price: 145.0, target_price: 160.0 },
     });
     const body = await response.json() as { reason: string };
@@ -218,7 +224,7 @@ test.describe("Analytics and performance retrieval", () => {
   });
 
   test("performance stats via API returns breakdown structure", async ({ request }) => {
-    const response = await request.get("http://127.0.0.1:8000/performance-stats");
+    const response = await request.get(apiUrl("/performance-stats"));
     expect(response.status()).toBe(200);
     const body = await response.json() as Record<string, unknown>;
     expect(typeof body.total_trades).toBe("number");
@@ -227,7 +233,7 @@ test.describe("Analytics and performance retrieval", () => {
   });
 
   test("opportunities via API returns items array", async ({ request }) => {
-    const response = await request.get("http://127.0.0.1:8000/opportunities?limit=10");
+    const response = await request.get(apiUrl("/opportunities?limit=10"));
     expect(response.status()).toBe(200);
     const body = await response.json() as Record<string, unknown>;
     expect(Array.isArray(body.items)).toBe(true);
@@ -253,7 +259,7 @@ test.describe("Alerts and notifications display", () => {
   });
 
   test("alerts API returns list", async ({ request }) => {
-    const response = await request.get("http://127.0.0.1:8000/approvals/alerts");
+    const response = await request.get(apiUrl("/approvals/alerts"));
     expect([200, 404]).toContain(response.status());
     if (response.status() === 200) {
       const body = await response.json() as unknown;
@@ -262,7 +268,7 @@ test.describe("Alerts and notifications display", () => {
   });
 
   test("notifications API returns list", async ({ request }) => {
-    const response = await request.get("http://127.0.0.1:8000/approvals/notifications");
+    const response = await request.get(apiUrl("/approvals/notifications"));
     expect([200, 404]).toContain(response.status());
     if (response.status() === 200) {
       const body = await response.json() as unknown;
