@@ -15323,7 +15323,7 @@ a distinct silent-drift mode that prior cycles could not catch:
 ## MH-FEED-MONITOR-005 — Intentional Visual Baseline Refresh And Commit Decision
 
 **Date**: 2026-05-20
-**Status**: ✅ Validation complete, scoped commit approved
+**Status**: ✅ Validation complete, scoped local commit created
 
 ### Summary
 - Started from the MH-FEED-MONITOR-004 end state: **268 passed / 12 failed**, with all remaining failures isolated to `dashboard` and `assets` visual baselines.
@@ -15380,8 +15380,8 @@ a distinct silent-drift mode that prior cycles could not catch:
 - Token gate: **pass**
 
 ### Commit Decision
-- A scoped local commit is justified for the validated feed-monitor/browser-stabilisation/docs/snapshot slice.
-- Unrelated pre-existing workspace edits remain outside the intended commit scope, most notably `apps/api/.env.example` and `apps/api/app/data/worker_run_log.jsonl`, so they must remain unstaged.
+- Created local commit `dcb3009` (`MH-FEED-MONITOR-005 stabilize feed monitor browser coverage`) from the validated feed-monitor/browser-stabilisation/docs/snapshot slice only.
+- Unrelated pre-existing workspace edits remain outside the commit scope, most notably `apps/api/.env.example` and `apps/api/app/data/worker_run_log.jsonl`, and were intentionally left unstaged.
 
 ### Next Phase
-→ Create the scoped local commit from the validated feed-monitor/browser-recovery files only, leaving unrelated pre-existing workspace edits untouched.
+→ Revisit the unrelated API env/example and worker-log workspace edits separately; the feed-monitor/browser recovery slice is now committed.
