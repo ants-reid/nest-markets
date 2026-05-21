@@ -73,7 +73,9 @@
 .modePanel,
 .modeSection,
 .notePanel,
-.sectionHeader {
+.sectionHeader,
+.statusSummaryPanel,
+.statusSummaryHeader {
   display: grid;
   gap: 0.75rem;
 }
@@ -258,6 +260,64 @@
   gap: 0.85rem;
 }
 
+.statusSummaryPanel {
+  background: var(--card-bg, #111827);
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+}
+
+.statusSummaryHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.summaryLink {
+  color: var(--state-info, #60a5fa);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.summaryLink:hover {
+  text-decoration: underline;
+}
+
+.statusCallout {
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  background: rgba(96, 165, 250, 0.08);
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-body);
+}
+
+.statusSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.statusSummaryItem {
+  border: 1px solid var(--card-border, #1f2937);
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.statusNextAction,
+.statusSafetyNote {
+  margin: 0;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.statusSafetyNote {
+  color: var(--text-muted);
+}
+
 .tile {
   display: grid;
   gap: 0.5rem;
@@ -325,7 +385,8 @@
   .safetyStrip,
   .modeLists,
   .modeGrid,
-  .tileGrid {
+  .tileGrid,
+  .statusSummaryHeader {
     grid-template-columns: 1fr;
   }
 

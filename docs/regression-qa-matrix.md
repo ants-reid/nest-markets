@@ -1,6 +1,6 @@
 # Regression And QA Matrix
 
-Date: 2026-05-20
+Date: 2026-05-21
 
 ## Purpose
 
@@ -27,17 +27,18 @@ No feature is complete unless it links to at least one QA item in this file.
 
 ## Release-Gate Verification Snapshot
 
-Fresh evidence from 2026-05-20:
+Fresh evidence from 2026-05-21:
 
-- backend full pytest: `2303 passed`
+- backend Ruff: failing with `11` existing issues
+- backend full pytest: `2475 passed`, `167 failed`, `50 errors`
 - learning suite: `99 passed`
 - frontend lint/build: passed
-- smoke suite on rebuilt web plus live API: passing
-- responsive suite: passing
-- visual suite: `48 passed` after verified snapshot rebaseline
-- full Playwright suite: `280 passed`, `0 failed`
+- smoke suite on rebuilt web plus live API: `22 passed`
+- responsive suite: `52 passed`
+- visual suite: `48 passed`
+- full Playwright suite: `292 passed`, `0 failed`
 
-This matrix is green again on the fresh MH-FEED-MONITOR-005 evidence set.
+The browser matrix is green again on the fresh MH-BROWSER-STABILITY-001 evidence set, but the broader repo release gate remains blocked by unrelated backend baseline failures.
 
 ## Route Regression Checks
 
@@ -128,7 +129,7 @@ This matrix is green again on the fresh MH-FEED-MONITOR-005 evidence set.
 | QA-125 | Monitor and audit APIs | cockpit, monitor, llm-log, broker-submit-decision, news-in-decision-log, risk-decision, feed-monitor, and cockpit-mode routes remain read-only or safely pinned | automated | passing | API-RX04, API-RX05, API-RX05A, API-RX06, API-RX08, API-RX11, API-RX12, API-RX13, API-RX15, API-RX22, API-RX27 | Covered by route tests, audit response-shape drift locks, targeted `/monitor/feeds` pytest coverage, and the focused backend rerun on 2026-05-20 including `tests/test_cockpit_mode_service.py`, `tests/test_cockpit_mode_route.py`, and router drift locks |
 | QA-126 | Model and regime APIs | scoring, models, governance, and regime routes remain green under backend route suites | automated | passing | API-RX07, API-RX10, API-RX19, API-RX24 | Covered by `apps/api/tests/test_phase3_routes.py`, `apps/api/tests/test_model_governance_routes.py`, and the fresh backend pytest rerun on 2026-05-19 |
 | QA-127 | Research and asset-card APIs | asset-card, baseline-candidate, markets, news-article, paper-validation, research-data, research-job, and strategy-lab surfaces stay registered and schema-safe | automated | passing | API-RX01, API-RX02, API-RX09, API-RX14, API-RX18, API-RX20, API-RX21, API-RX25 | Covered by route tests, schema drift-locks, and the fresh backend pytest rerun on 2026-05-19 |
-| QA-128 | Feed monitor browser surface | `/monitor/feeds` renders on the live stack, keeps filter/search interactions stable under mocked monitor payloads, and avoids 390px horizontal overflow | automated | passing | WEB-PX31, API-RX27 | Covered by `apps/web/tests/feed-monitor.spec.ts`, `apps/web/tests/routes.spec.ts`, `apps/web/tests/smoke.spec.ts`, and `apps/web/tests/responsive.spec.ts` on 2026-05-20; full visual rerun (`48/48`) and full Playwright rerun (`280/280`) are also green after MH-FEED-MONITOR-005 |
+| QA-128 | Feed monitor browser surface | `/monitor/feeds` renders on the live stack, keeps filter/search interactions stable under mocked monitor payloads, and avoids 390px horizontal overflow | automated | passing | WEB-PX31, API-RX27 | Covered by `apps/web/tests/feed-monitor.spec.ts`, `apps/web/tests/routes.spec.ts`, `apps/web/tests/smoke.spec.ts`, and `apps/web/tests/responsive.spec.ts`; the refreshed MH-BROWSER-STABILITY-001 browser reruns on 2026-05-21 kept full visual coverage green (`48/48`) and restored the full Playwright gate to `292/292`, and the 2026-05-22 reboot recovery rerun re-confirmed the targeted feed-monitor slice (`3/3` plus `5/5`) on the restored local stack while broader full-suite failures remained clustered outside this feature slice. |
 | QA-129 | Cockpit mode selector surface | `/cockpit` renders safe selectable modes, keeps assisted/live/auto-live visibly locked, accepts only safe mode changes, and avoids 390px overflow | automated | passing | WEB-PX08, API-RX05A, API-SX09A | Covered by `apps/web/tests/cockpit-mode-selector.spec.ts` plus exact `routes.spec.ts`, `smoke.spec.ts`, and `responsive.spec.ts` cockpit reruns on 2026-05-20; backend contract and drift-lock coverage passed in focused pytest (`16 passed`) |
 
 ## Responsive And Mobile Checks
@@ -205,6 +206,7 @@ All rows below are `pending` until implemented. Status updates to `passing` only
 | QA-213 | Auto trader scheduler | auto_paper_trader job registered; inactive under APP_ENV=test | automated | pending | API-W04, API-W02 | BP3-04.03 |
 | QA-214 | Position cap | AutoPaperTraderWorker refuses to open trade N+1 when cap is reached | automated | pending | API-W04 | BP3-04.04 |
 | QA-215 | Close worker | AutoPaperCloseWorker closes horizon-expired positions and records final PnL | automated | pending | API-W05 | BP3-04.05 |
+| QA-215A | Auto Paper cockpit status | `/cockpit/auto-paper-status` and the `/cockpit` Auto Paper summary render simulation-only messaging, operator next action, and locked live/auto-live notes from mocked status payloads | automated | passing | API-RX05, API-SX09, WEB-PX08, WEB-PX09 | Added 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001; covered by `apps/web/tests/auto-paper-status.spec.ts`. |
 
 ### BP3 Section 5 — Result Capture
 

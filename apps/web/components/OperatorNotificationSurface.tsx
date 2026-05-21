@@ -244,14 +244,19 @@ export function OperatorNotificationSurface({
                 }}
                 disabled={notification.is_read || actionId !== null}
                 style={{
+                  alignItems: "center",
                   border: "1px solid var(--surface-border)",
                   borderRadius: 8,
                   background: "var(--surface-soft)",
                   color: "var(--text-muted)",
+                  display: "inline-flex",
                   fontWeight: 700,
-                  padding: "4px 10px",
+                  justifyContent: "center",
+                  minHeight: 32,
+                  padding: "6px 10px",
                   cursor: notification.is_read || actionId !== null ? "not-allowed" : "pointer",
                   fontSize: 11,
+                  lineHeight: 1.2,
                 }}
               >
                 {actionId === notification.notification_id ? "Marking..." : "Mark read"}

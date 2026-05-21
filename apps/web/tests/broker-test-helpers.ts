@@ -1,12 +1,10 @@
 import { type Page, type Request } from "@playwright/test";
 
-const API_BASE_URL = (process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
-
 const DEFAULT_CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const DEFAULT_CORS_ALLOW_HEADERS = "Content-Type, Authorization, X-Correlation-ID";
 
 function brokerApiGlob() {
-  return `${API_BASE_URL}/broker/**`;
+  return "**/broker/**";
 }
 
 function corsHeaders(request: Request): Record<string, string> {

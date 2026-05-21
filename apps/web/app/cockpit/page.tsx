@@ -10,6 +10,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  getAutoPaperStatusCard,
+  type AutoPaperStatusCard,
+} from "../../lib/api/cockpitAutoPaperStatus";
+import {
   getCockpitMode,
   updateCockpitMode,
   type CockpitModeId,
@@ -65,9 +69,12 @@ const SECTIONS: ReadonlyArray<{
 
 export default function CockpitHubPage() {
   const [modeState, setModeState] = useState<CockpitModeResponse | null>(null);
+  const [autoPaperStatus, setAutoPaperStatus] = useState<AutoPaperStatusCard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [updatingMode, setUpdatingMode] = useState<CockpitModeId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const loadModeState = useCallback(async () => {
@@ -87,9 +94,27 @@ export default function CockpitHubPage() {
     }
   }, []);
 
+  const loadAutoPaperStatus = useCallback(async () => {
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      const response = await getAutoPaperStatusCard();
+      setAutoPaperStatus(response);
+    } catch (fetchError) {
+      setStatusError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to load Auto Paper summary.",
+      );
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadModeState();
-  }, [loadModeState]);
+    void loadAutoPaperStatus();
+  }, [loadAutoPaperStatus, loadModeState]);
 
   const handleSelectMode = useCallback(async (modeId: CockpitModeId) => {
     setUpdatingMode(modeId);
@@ -359,6 +384,66 @@ export default function CockpitHubPage() {
                   ))}
                 </ul>
               </section>
+            </>
+          )}
+        </section>
+
+        <section className={styles.statusSummaryPanel} data-testid="cockpit-auto-paper-summary">
+          <div className={styles.statusSummaryHeader}>
+            <div>
+              <h2 className={styles.modePanelTitle}>Auto Paper summary</h2>
+              <p className={styles.modePanelSubtitle}>
+                Concise read-only summary of Auto Paper posture, latest decision,
+                and operator next action. Live trading remains locked.
+              </p>
+            </div>
+            <Link href="/cockpit/auto-paper-status" className={styles.summaryLink}>
+              Open full Auto Paper status
+            </Link>
+          </div>
+
+          {statusError && <div className={styles.errorBanner}>{statusError}</div>}
+          {statusLoading && <div className={styles.loadingState}>Loading Auto Paper summary...</div>}
+
+          {autoPaperStatus && (
+            <>
+              <div className={styles.statusCallout}>
+                <strong>{autoPaperStatus.headline}</strong>
+                <span>{autoPaperStatus.subline}</span>
+              </div>
+
+              <div className={styles.statusSummaryGrid}>
+                <div className={styles.statusSummaryItem}>
+                  <span className={styles.summaryLabel}>Mode</span>
+                  <strong className={styles.summaryValue}>{autoPaperStatus.mode}</strong>
+                </div>
+                <div className={styles.statusSummaryItem}>
+                  <span className={styles.summaryLabel}>Last decision</span>
+                  <strong className={styles.summaryValue}>{autoPaperStatus.last_decision}</strong>
+                </div>
+                <div className={styles.statusSummaryItem}>
+                  <span className={styles.summaryLabel}>Open positions</span>
+                  <strong className={styles.summaryValue}>
+                    {autoPaperStatus.open_paper_positions_count} / {autoPaperStatus.max_open_paper_positions}
+                  </strong>
+                </div>
+                <div className={styles.statusSummaryItem}>
+                  <span className={styles.summaryLabel}>Live / Auto-live</span>
+                  <strong className={styles.summaryValue}>
+                    {autoPaperStatus.live_trading_locked && autoPaperStatus.auto_live_locked
+                      ? "locked"
+                      : "review"}
+                  </strong>
+                </div>
+              </div>
+
+              <p className={styles.statusNextAction}>
+                <strong>Next action:</strong> {autoPaperStatus.operator_next_action}
+              </p>
+
+              <p className={styles.statusSafetyNote}>
+                Simulation only. No real money orders can be placed from Auto Paper.
+              </p>
             </>
           )}
         </section>

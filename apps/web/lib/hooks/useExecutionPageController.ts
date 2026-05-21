@@ -157,6 +157,10 @@ export function useExecutionPageController(): ExecutionPageState & ExecutionPage
 
   // Sync filter+selection → URL
   useEffect(() => {
+    if (pathname !== "/execution") {
+      return;
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     if (statusFilter) {
       params.set("status", statusFilter);
@@ -169,6 +173,7 @@ export function useExecutionPageController(): ExecutionPageState & ExecutionPage
       if (selected?.asset) params.set("asset", selected.asset);
     } else {
       params.delete("executionId");
+      params.delete("asset");
     }
     const nextQuery = params.toString();
     const currentQuery = searchParams.toString();

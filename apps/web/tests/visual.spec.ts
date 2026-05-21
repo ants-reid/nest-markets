@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const FIXED_NOW_ISO = "2026-05-21T03:00:00.000Z";
+const PERFORMANCE_FIXED_NOW_ISO = "2026-05-21T07:13:12.000Z";
 const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 const VIEWPORTS = [
@@ -269,6 +270,32 @@ const STABLE_ASSETS = {
   ],
 };
 
+const EMPTY_EXECUTIONS: typeof STABLE_EXECUTIONS = [];
+const EMPTY_ACTIVE_ALERTS: typeof STABLE_ACTIVE_ALERTS = [];
+const EMPTY_ALERT_RULES: typeof STABLE_ALERT_RULES = [];
+const EMPTY_NOTIFICATIONS: typeof STABLE_NOTIFICATIONS = [];
+
+const EMPTY_PERFORMANCE_STATS = {
+  total_trades: 0,
+  total_wins: 0,
+  overall_win_rate: 0,
+  by_setup: [],
+  by_asset: [],
+  by_catalyst: [],
+  by_regime: [],
+};
+
+const STABLE_MARKET_DATA_STATUS = {
+  items: [
+    {
+      asset_symbol: "EURUSD",
+      timeframe: "1h",
+      last_bar_ts: "2026-05-18T00:00:00Z",
+      bar_count: 120,
+    },
+  ],
+};
+
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
@@ -286,8 +313,12 @@ async function fulfillJson(route: Parameters<Parameters<typeof test>[0]>[0]["rou
   });
 }
 
-async function installStableClientState(pw: Parameters<Parameters<typeof test>[0]>[0]["page"]) {
-  await pw.addInitScript(({ fixedNowIso }) => {
+async function installStableClientState(
+  pw: Parameters<Parameters<typeof test>[0]>[0]["page"],
+  fixedNowIso = FIXED_NOW_ISO,
+  themeMode: "dark" | "light" | null = "dark",
+) {
+  await pw.addInitScript(({ fixedNowIso, themeMode }) => {
     const fixedNow = new Date(fixedNowIso).valueOf();
     const NativeDate = Date;
 
@@ -314,25 +345,31 @@ async function installStableClientState(pw: Parameters<Parameters<typeof test>[0
     window.Date = FixedDate;
 
     window.localStorage.clear();
-    window.localStorage.setItem("mh-theme", "dark");
+    if (themeMode) {
+      window.localStorage.setItem("mh-theme", themeMode);
+    }
     window.localStorage.setItem(
       "dashboard:autoPaperSettings:v2",
       JSON.stringify({ autoEnabled: false, intervalMinutes: 15 }),
     );
     window.localStorage.removeItem("dashboard:autoPaperNextRunAt:v1");
     window.localStorage.setItem("dashboard:globalExecutionMode:v1", "paper");
-  }, { fixedNowIso: FIXED_NOW_ISO });
+  }, { fixedNowIso, themeMode });
+}
+
+function usesDarkThemeSnapshots(pageName: string) {
+  return pageName === "dashboard" || pageName === "assets";
 }
 
 function requiresStableVisualHarness(pageName: string) {
-  return pageName === "dashboard" || pageName === "assets";
+  return ["dashboard", "analytics", "execution", "performance", "assets", "alerts", "notifications"].includes(pageName);
 }
 
 async function installStableVisualMocks(
   pw: Parameters<Parameters<typeof test>[0]>[0]["page"],
   pageName: string,
 ) {
-  if (pageName !== "dashboard" && pageName !== "assets") {
+  if (!requiresStableVisualHarness(pageName)) {
     return;
   }
 
@@ -385,6 +422,61 @@ async function installStableVisualMocks(
       }
     }
 
+    if (pageName === "analytics") {
+      if (url.pathname === "/execution/paper") {
+        await fulfillJson(route, EMPTY_EXECUTIONS);
+        return;
+      }
+      if (url.pathname === "/market-data/status") {
+        await fulfillJson(route, STABLE_MARKET_DATA_STATUS);
+        return;
+      }
+    }
+
+    if (pageName === "execution") {
+      if (url.pathname === "/execution/paper") {
+        await fulfillJson(route, EMPTY_EXECUTIONS);
+        return;
+      }
+      if (url.pathname === "/execution/positions") {
+        await fulfillJson(route, []);
+        return;
+      }
+      if (url.pathname === "/approvals/alerts/notifications") {
+        await fulfillJson(route, EMPTY_NOTIFICATIONS);
+        return;
+      }
+    }
+
+    if (pageName === "performance" && url.pathname === "/performance-stats") {
+      await fulfillJson(route, EMPTY_PERFORMANCE_STATS);
+      return;
+    }
+
+    if (pageName === "alerts") {
+      if (url.pathname === "/execution/paper") {
+        await fulfillJson(route, EMPTY_EXECUTIONS);
+        return;
+      }
+      if (url.pathname === "/approvals/alerts/active") {
+        await fulfillJson(route, EMPTY_ACTIVE_ALERTS);
+        return;
+      }
+      if (url.pathname === "/approvals/alerts/notifications") {
+        await fulfillJson(route, EMPTY_NOTIFICATIONS);
+        return;
+      }
+      if (url.pathname === "/approvals/alerts/rules") {
+        await fulfillJson(route, EMPTY_ALERT_RULES);
+        return;
+      }
+    }
+
+    if (pageName === "notifications" && url.pathname === "/approvals/alerts/notifications") {
+      await fulfillJson(route, EMPTY_NOTIFICATIONS);
+      return;
+    }
+
     if (pageName === "assets" && url.pathname === "/assets") {
       await fulfillJson(route, STABLE_ASSETS);
       return;
@@ -409,7 +501,57 @@ async function waitForVisualReady(
     await pw.getByRole("heading", { name: "Asset Universe" }).waitFor({ state: "visible" });
     await pw.getByText("Loading assets…").waitFor({ state: "hidden" });
     await pw.locator("table").first().waitFor({ state: "visible" });
+    return;
   }
+
+  if (pageName === "analytics") {
+    await pw.getByRole("heading", { name: "Analytics" }).waitFor({ state: "visible" });
+    await pw.getByText("Loading analytics...").waitFor({ state: "hidden" });
+    return;
+  }
+
+  if (pageName === "execution") {
+    await pw.getByRole("heading", { name: "Execution List" }).waitFor({ state: "visible" });
+    await pw.getByText("Loading notifications...").waitFor({ state: "hidden" });
+    await pw.getByText("Loading executions...").waitFor({ state: "hidden" });
+    await pw.getByText("Loading positions...").waitFor({ state: "hidden" });
+    return;
+  }
+
+  if (pageName === "performance") {
+    await pw.getByRole("heading", { name: "Performance" }).waitFor({ state: "visible" });
+    await pw.getByText("Loading performance data…").waitFor({ state: "hidden" });
+    return;
+  }
+
+  if (pageName === "alerts") {
+    await pw.getByRole("heading", { name: "Alerts & Watchlist" }).waitFor({ state: "visible" });
+    return;
+  }
+
+  if (pageName === "notifications") {
+    await pw.getByRole("heading", { name: "Notifications" }).first().waitFor({ state: "visible" });
+    await pw.getByText("Loading notifications...").waitFor({ state: "hidden" });
+  }
+}
+
+async function hideVisualNoise(
+  pw: Parameters<Parameters<typeof test>[0]>[0]["page"],
+) {
+  await pw.addStyleTag({
+    content: `
+      nextjs-portal,
+      [data-next-badge-root],
+      [data-nextjs-dev-tools-button] {
+        display: none !important;
+      }
+    `,
+  });
+  await pw.getByRole("button", { name: "Open Next.js Dev Tools" }).evaluateAll((nodes) => {
+    for (const node of nodes) {
+      (node as HTMLElement).style.display = "none";
+    }
+  });
 }
 
 for (const viewport of VIEWPORTS) {
@@ -419,12 +561,17 @@ for (const viewport of VIEWPORTS) {
     for (const page of PAGES) {
       test(`${page.name} — dark theme`, async ({ page: pw }) => {
         if (requiresStableVisualHarness(page.name)) {
-          await installStableClientState(pw);
+          await installStableClientState(
+            pw,
+            page.name === "performance" ? PERFORMANCE_FIXED_NOW_ISO : FIXED_NOW_ISO,
+            usesDarkThemeSnapshots(page.name) ? "dark" : null,
+          );
         }
         await installStableVisualMocks(pw, page.name);
         await pw.goto(page.url);
         await pw.waitForLoadState("networkidle");
         await waitForVisualReady(pw, page.name);
+        await hideVisualNoise(pw);
         await pw.waitForTimeout(500);
         await expect(pw).toHaveScreenshot(`${page.name}-${viewport.name}-dark.png`, {
           fullPage: true,
@@ -434,12 +581,17 @@ for (const viewport of VIEWPORTS) {
 
       test(`${page.name} — light theme`, async ({ page: pw }) => {
         if (requiresStableVisualHarness(page.name)) {
-          await installStableClientState(pw);
+          await installStableClientState(
+            pw,
+            page.name === "performance" ? PERFORMANCE_FIXED_NOW_ISO : FIXED_NOW_ISO,
+            usesDarkThemeSnapshots(page.name) ? "dark" : null,
+          );
         }
         await installStableVisualMocks(pw, page.name);
         await pw.goto(page.url);
         await pw.waitForLoadState("networkidle");
         await waitForVisualReady(pw, page.name);
+        await hideVisualNoise(pw);
         await pw.waitForTimeout(500);
         await pw.evaluate(() => {
           document.documentElement.setAttribute("data-theme", "light");

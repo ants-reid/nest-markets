@@ -384,12 +384,15 @@
 }
 
 .assetButton {
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--state-info);
   font-weight: 700;
   cursor: pointer;
-  padding: 0;
+  min-height: 32px;
+  padding: 6px 0;
 }
 
 .actionLinks {
@@ -421,6 +424,7 @@
 }
 
 .sweepButton {
+  min-height: 32px;
   border: 0;
   border-radius: 10px;
   background: var(--state-success);
@@ -481,7 +485,8 @@
 }
 
 .chartWindowBtn {
-  padding: 3px 10px;
+  min-height: 32px;
+  padding: 6px 10px;
   border-radius: 20px;
   border: 1px solid var(--surface-border);
   background: transparent;

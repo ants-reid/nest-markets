@@ -46,13 +46,18 @@ function inputStyle(): React.CSSProperties {
 
 function tagPillStyle(active: boolean): React.CSSProperties {
   return {
+    alignItems: "center",
     borderRadius: 999,
     border: `1px solid ${active ? "var(--state-success-border)" : "var(--control-border)"}`,
     background: active ? "var(--state-success-soft)" : "var(--control-bg)",
     color: active ? "var(--state-success)" : "var(--text-body)",
-    padding: "5px 9px",
+    display: "inline-flex",
+    justifyContent: "center",
+    minHeight: 32,
+    padding: "7px 10px",
     fontSize: 11,
     fontWeight: 700,
+    lineHeight: 1.2,
     cursor: "pointer",
   };
 }

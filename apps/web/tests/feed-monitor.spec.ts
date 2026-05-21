@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 const FEED_MONITOR_PATH = "/monitor/feeds";
-const API_BASE_URL = (process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 
 function isFeedMonitorApiRequest(request: import("@playwright/test").Request) {
   const url = new URL(request.url());
@@ -9,7 +8,7 @@ function isFeedMonitorApiRequest(request: import("@playwright/test").Request) {
 }
 
 function feedMonitorApiUrl() {
-  return `${API_BASE_URL}${FEED_MONITOR_PATH}`;
+  return `**${FEED_MONITOR_PATH}`;
 }
 
 function buildFeedMonitorPayload(overrides?: Partial<Record<string, unknown>>) {
@@ -93,6 +92,11 @@ async function mockFeedMonitor(
 ) {
   const responseStatus = options?.status ?? 200;
   await page.route(feedMonitorApiUrl(), async (route) => {
+    if (!isFeedMonitorApiRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
     await route.fulfill({
       status: responseStatus,
       contentType: "application/json",

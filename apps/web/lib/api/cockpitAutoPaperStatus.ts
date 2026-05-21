@@ -41,14 +41,56 @@ export interface AutoPaperStatusRunLogSummary {
 
 export type AutoPaperStatusPosture = "ok" | "warning" | "blocked";
 
+export type AutoPaperLastDecision =
+  | "accepted"
+  | "blocked"
+  | "skipped"
+  | "errored"
+  | "unknown";
+
+export interface AutoPaperStatusRiskGateItem {
+  label: string;
+  status: "passing" | "warning" | "blocked";
+  detail: string;
+}
+
+export interface AutoPaperStatusLatestPaperOrder {
+  order_type: string | null;
+  status: string | null;
+  side: string | null;
+  direction: string | null;
+  qty: number | null;
+  notional: number | null;
+  submitted_at: string | null;
+  signal_id: string | null;
+  asset_id: string | null;
+  broker_order_id: number | null;
+}
+
 export interface AutoPaperStatusCard {
   advisory: string;
+  mode: string;
+  auto_paper_selectable: boolean;
+  auto_paper_active: boolean;
+  auto_paper_armed: boolean;
+  live_trading_locked: boolean;
+  auto_live_locked: boolean;
   posture: AutoPaperStatusPosture;
   headline: string;
   subline: string;
+  last_check_at: string | null;
+  last_action_at: string | null;
+  last_decision: AutoPaperLastDecision;
+  last_block_reason: string | null;
+  open_paper_positions_count: number;
+  max_open_paper_positions: number;
+  risk_gate_summary: AutoPaperStatusRiskGateItem[];
+  safety_notes: string[];
+  operator_next_action: string;
   enforcement: AutoPaperStatusEnforcement;
   trading_control: AutoPaperStatusTradingControl;
   latest_run: AutoPaperStatusLatestRun | null;
+  latest_paper_order: AutoPaperStatusLatestPaperOrder | null;
   run_log_summary: AutoPaperStatusRunLogSummary;
   links: Record<string, string>;
 }

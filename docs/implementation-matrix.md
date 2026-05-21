@@ -1,6 +1,6 @@
 # Implementation Matrix
 
-Date: 2026-05-20
+Date: 2026-05-21
 
 ## How To Use This Matrix
 
@@ -17,17 +17,18 @@ Every tracked item gets:
 
 ## Restart Stabilisation Rebaseline
 
-As of 2026-05-20, the current local validation baseline is:
+As of 2026-05-21, the current local validation baseline is:
 
-- backend full suite: `2303 passed` against a migrated local `market_hunter` Postgres database
+- backend Ruff is currently red with `11` existing issues
+- backend full suite is currently red: `2475 passed`, `167 failed`, `50 errors`
 - learning suite: `99 passed` via `scripts/test/test-learning.sh`
-- frontend build-ready evidence remains green from the same stabilisation pass
-- smoke verification is green on the rebuilt web app with API running
-- responsive verification is green
-- visual verification is green after snapshot rebaseline: `48 passed`
-- full Playwright verification is green: `280 passed`, `0 failed`
+- frontend build-ready evidence remains green
+- smoke verification is green on the rebuilt web app with API running: `22 passed`
+- responsive verification is green: `52 passed`
+- visual verification is green: `48 passed`
+- full Playwright verification is green: `292 passed`, `0 failed`
 - MH-RESTART-004 plus MH-FEED-MONITOR-001 reconcile the live Gate 1 surface to 40 active backend route modules, 82 active backend service modules, 47 frontend route modules, and 49 shared TSX component modules; support files are catalogued separately below
-- Gate 1 is green when the live route/service/page/component inventory still matches this file after the inventory diff checks recorded in the release-control pass
+- Browser Gate 1 is green when the live route/service/page/component inventory still matches this file after the inventory diff checks recorded in the release-control pass, but the broader repo release gate remains blocked until the unrelated backend baseline is repaired
 
 Status values:
 
@@ -79,7 +80,7 @@ Documentation values:
 | API-RX02 | `app/api/routes/baseline_candidates.py` | baseline candidates route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX03 | `app/api/routes/broker.py` | broker route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX04 | `app/api/routes/broker_submit_decisions.py` | broker submit decisions route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| API-RX05 | `app/api/routes/cockpit_auto_paper_status.py` | cockpit auto paper status route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-RX05 | `app/api/routes/cockpit_auto_paper_status.py` | cockpit auto paper status route surface | implemented | tested | documented | WS-01 | Updated 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001. The read-only `/cockpit/auto-paper/status` surface now returns richer operator posture fields for mode/selectable/armed state, last check/action, risk summaries, open-position cap, and locked live/auto-live notes. |
 | API-RX05A | `app/api/routes/cockpit_mode.py` | cockpit mode selector route surface | implemented | tested | documented | WS-01 | Added 2026-05-20 during MH-COCKPIT-03 as a safe `/cockpit/mode` GET/POST surface. Validation includes focused backend pytest and router drift-lock coverage. |
 | API-RX06 | `app/api/routes/cockpit_notifications.py` | cockpit notifications route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX07 | `app/api/routes/governance.py` | governance route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
@@ -150,7 +151,7 @@ Documentation values:
 | API-SX06 | `app/services/broker_mode_guard.py` | broker mode guard service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX07 | `app/services/broker_service.py` | broker service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX08 | `app/services/broker_trade_event_service.py` | broker trade event service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| API-SX09 | `app/services/cockpit_auto_paper_status_service.py` | cockpit auto paper status service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-SX09 | `app/services/cockpit_auto_paper_status_service.py` | cockpit auto paper status service | implemented | tested | documented | WS-01 | Updated 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001 as a read-only aggregator over trading-control state, worker-run logs, and persisted paper order/position reads. Focused backend pytest and Ruff coverage passed; execution authority remains unchanged. |
 | API-SX09A | `app/services/cockpit_mode_service.py` | cockpit mode selector service | implemented | tested | documented | WS-01 | Added 2026-05-20 during MH-COCKPIT-03 as an advisory-only selector layered on top of trading-control state; locked live modes are rejected server-side and live flags stay false. |
 | API-SX10 | `app/services/commission_tracking_service.py` | commission tracking service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX11 | `app/services/contract_resolution_service.py` | contract resolution service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
@@ -266,8 +267,8 @@ Documentation values:
 | WEB-PX05 | `app/system-health/page.tsx` | `/system-health` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX06 | `app/strategy-lab/page.tsx` | `/strategy-lab` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX07 | `app/cockpit/notifications/page.tsx` | `/cockpit/notifications` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| WEB-PX08 | `app/cockpit/page.tsx` | `/cockpit` | implemented | tested | documented | WS-01 | Updated 2026-05-20 during MH-COCKPIT-03 from a static hub into an operator-facing mode selector with selectable Learning / Manual / Auto Paper states, locked live-mode cards, backend safety notes, and preserved cockpit links. Exact route, smoke, responsive, and dedicated mocked Playwright coverage passed. |
-| WEB-PX09 | `app/cockpit/auto-paper-status/page.tsx` | `/cockpit/auto-paper-status` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| WEB-PX08 | `app/cockpit/page.tsx` | `/cockpit` | implemented | tested | documented | WS-01 | Updated again on 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001 to add a compact Auto Paper summary panel with last decision, position-cap snapshot, operator next action, and explicit simulation-only messaging. |
+| WEB-PX09 | `app/cockpit/auto-paper-status/page.tsx` | `/cockpit/auto-paper-status` | implemented | tested | documented | WS-01 | Updated 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001 into a richer read-only operator surface with simulation-only lock messaging, last decision/block reason, risk-gate summaries, latest persisted paper action, and mobile-safe layout. Dedicated mocked Playwright coverage passed. |
 | WEB-PX10 | `app/cockpit/news/page.tsx` | `/cockpit/news` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX11 | `app/cockpit/audit/page.tsx` | `/cockpit/audit` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX12 | `app/cockpit/audit/broker-submit-decisions/page.tsx` | `/cockpit/audit/broker-submit-decisions` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
@@ -289,7 +290,7 @@ Documentation values:
 | WEB-PX28 | `app/providers/page.tsx` | `/providers` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX29 | `app/broker/page.tsx` | `/broker` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | WEB-PX30 | `app/news/page.tsx` | `/news` | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| WEB-PX31 | `app/monitor/feeds/page.tsx` | `/monitor/feeds` | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a filterable operator-facing page over the new read-only feed monitor API; dedicated route, smoke, responsive, and mocked browser coverage landed on 2026-05-20, and the final full visual (`48/48`) plus full Playwright (`280/280`) gates were recovered during MH-FEED-MONITOR-005. |
+| WEB-PX31 | `app/monitor/feeds/page.tsx` | `/monitor/feeds` | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a filterable operator-facing page over the new read-only feed monitor API; dedicated route, smoke, responsive, and mocked browser coverage landed on 2026-05-20, MH-BROWSER-STABILITY-001 re-confirmed the full visual (`48/48`) plus full Playwright (`292/292`) gates on 2026-05-21, and the 2026-05-22 reboot recovery rerun re-confirmed the targeted feed-monitor slice (`3/3` mocked plus `5/5` route/smoke/responsive) on the restored local stack even though the broader full Playwright gate remained red outside this slice. |
 
 ## Shared Frontend Foundations
 
