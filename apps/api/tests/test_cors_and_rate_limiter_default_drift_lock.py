@@ -16,7 +16,7 @@ import inspect
 from app import main as app_main
 
 EXPECTED_ALLOW_METHODS: frozenset[str] = frozenset(
-    {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+    {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 )
 EXPECTED_ALLOW_HEADERS: frozenset[str] = frozenset(
     {"Content-Type", "Authorization", "X-Correlation-ID"}

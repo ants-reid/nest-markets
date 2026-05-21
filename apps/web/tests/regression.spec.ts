@@ -36,11 +36,8 @@ test("QA-003 analytics route loads and key panels render", async ({ page }) => {
   await expect(page.locator("main").first()).toBeVisible();
   const nav = page.locator("nav");
   await expect(nav).toBeVisible();
-  // Analytics page contains a line chart or summary panel
-  // Check the SVG chart canvas or at least the outer container exists
-  await page.waitForTimeout(800); // let React hydrate
-  const svgCount = await page.locator("svg").count();
-  expect(svgCount).toBeGreaterThan(0);
+  await expect(page.getByText("Loading analytics...")).toHaveCount(0);
+  await expect(page.locator("svg").first()).toBeVisible({ timeout: 10000 });
 });
 
 // QA-010

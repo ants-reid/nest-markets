@@ -2,8 +2,42 @@ import { type Page, type Request } from "@playwright/test";
 
 const API_BASE_URL = (process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 
+const DEFAULT_CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+const DEFAULT_CORS_ALLOW_HEADERS = "Content-Type, Authorization, X-Correlation-ID";
+
 function brokerApiGlob() {
   return `${API_BASE_URL}/broker/**`;
+}
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers()["origin"] ?? "*";
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": DEFAULT_CORS_ALLOW_METHODS,
+    "access-control-allow-headers": DEFAULT_CORS_ALLOW_HEADERS,
+    vary: "Origin",
+  };
+}
+
+async function fulfillJson(route: Parameters<Page["route"]>[1] extends (route: infer T, ...args: never[]) => unknown ? T : never, body: unknown, status = 200) {
+  const request = route.request();
+  await route.fulfill({
+    status,
+    contentType: "application/json",
+    headers: corsHeaders(request),
+    body: JSON.stringify(body),
+  });
+}
+
+async function fulfillPreflight(route: Parameters<Page["route"]>[1] extends (route: infer T, ...args: never[]) => unknown ? T : never) {
+  await route.fulfill({
+    status: 204,
+    headers: {
+      ...corsHeaders(route.request()),
+      "access-control-max-age": "600",
+      "content-length": "0",
+    },
+  });
 }
 
 function isBrokerApiRequest(request: Request) {
@@ -164,68 +198,73 @@ export async function installBrokerMocks(
   },
 ) {
   await page.route(brokerApiGlob(), async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await fulfillPreflight(route);
+      return;
+    }
+
     const url = new URL(route.request().url());
 
     if (url.pathname === "/broker/account") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ACCOUNT_RESPONSE) });
+      await fulfillJson(route, ACCOUNT_RESPONSE);
       return;
     }
 
     if (url.pathname === "/broker/positions") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(POSITIONS_RESPONSE) });
+      await fulfillJson(route, POSITIONS_RESPONSE);
       return;
     }
 
     if (url.pathname === "/broker/health") {
       if (healthPayload === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(healthPayload) });
+        await fulfillJson(route, healthPayload);
       }
       return;
     }
 
     if (url.pathname === "/broker/control") {
       if (controlPayload === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(controlPayload) });
+        await fulfillJson(route, controlPayload);
       }
       return;
     }
 
     if (url.pathname === "/broker/orders/audit") {
       if (auditPayload === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(auditPayload) });
+        await fulfillJson(route, auditPayload);
       }
       return;
     }
 
     if (url.pathname === "/broker/trades/normalized") {
       if (provenancePayload === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(provenancePayload) });
+        await fulfillJson(route, provenancePayload);
       }
       return;
     }
 
     if (url.pathname === "/broker/orders/dry-run") {
       if (orderMocks.dryRunResponse === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(orderMocks.dryRunResponse) });
+        await fulfillJson(route, orderMocks.dryRunResponse);
       }
       return;
     }
 
     if (url.pathname === "/broker/orders" && route.request().method() === "POST") {
       if (orderMocks.submitResponse === null) {
-        await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ detail: "blocked" }) });
+        await fulfillJson(route, { detail: "blocked" }, 403);
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(orderMocks.submitResponse) });
+        await fulfillJson(route, orderMocks.submitResponse);
       }
       return;
     }
@@ -233,27 +272,23 @@ export async function installBrokerMocks(
     if (url.pathname === "/broker/daily-pnl") {
       const payload = orderMocks.dailyPnlResponse;
       if (payload === null) {
-        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "error" }) });
+        await fulfillJson(route, { detail: "error" }, 500);
       } else if (payload === undefined) {
         // Default: no snapshots (empty state)
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            date: new Date().toISOString().slice(0, 10),
-            daily_pnl: null,
-            daily_loss: null,
-            closed_pnl: null,
-            open_pnl: null,
-            total_pnl: null,
-            latest_snapshot_ts: null,
-            snapshot_count: 0,
-            source: "pnl_snapshots",
-            note: "No snapshots today",
-          }),
+        await fulfillJson(route, {
+          date: new Date().toISOString().slice(0, 10),
+          daily_pnl: null,
+          daily_loss: null,
+          closed_pnl: null,
+          open_pnl: null,
+          total_pnl: null,
+          latest_snapshot_ts: null,
+          snapshot_count: 0,
+          source: "pnl_snapshots",
+          note: "No snapshots today",
         });
       } else {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+        await fulfillJson(route, payload);
       }
       return;
     }

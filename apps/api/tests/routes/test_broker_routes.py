@@ -1,5 +1,6 @@
 """Integration tests for /broker endpoints."""
 import pytest
+import httpx
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
@@ -80,6 +81,36 @@ async def test_get_positions(client, mock_service):
         assert len(data) == 1
         assert data[0]["ticker"] == "AAPL"
         assert data[0]["quantity"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_get_account_returns_empty_snapshot_when_gateway_unreachable_in_paper_mode(client, mock_service):
+    """GET /broker/account must degrade safely when paper gateway is unreachable."""
+    with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
+        mock_service.get_account_info = AsyncMock(side_effect=httpx.ConnectError("All connection attempts failed"))
+        mock_get_service.return_value = mock_service
+
+        response = client.get("/broker/account")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["net_liquidation"] == 0.0
+    assert data["cash_balance"] == 0.0
+    assert data["buying_power"] == 0.0
+    assert data["broker_mode"]["mode"] == "paper"
+
+
+@pytest.mark.asyncio
+async def test_get_positions_returns_empty_list_when_gateway_unreachable_in_paper_mode(client, mock_service):
+    """GET /broker/positions must degrade safely when paper gateway is unreachable."""
+    with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
+        mock_service.get_positions = AsyncMock(side_effect=httpx.ConnectError("All connection attempts failed"))
+        mock_get_service.return_value = mock_service
+
+        response = client.get("/broker/positions")
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,8 @@
 """Broker endpoints — order execution, account, positions."""
+import logging
 from decimal import Decimal
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app.clients.broker.broker_interface import OrderRequest
@@ -48,6 +50,7 @@ from app.services.trading_control_service import (
 )
 
 router = APIRouter(prefix="/broker", tags=["broker"])
+_logger = logging.getLogger(__name__)
 
 # Global broker service instance (in production, use dependency injection)
 _broker_service: BrokerService | None = None
@@ -59,6 +62,24 @@ def get_broker_service() -> BrokerService:
     if _broker_service is None:
         _broker_service = BrokerService()
     return _broker_service
+
+
+def _is_broker_transport_error(exc: Exception) -> bool:
+    return isinstance(exc, httpx.TransportError)
+
+
+def _paper_fallback_account_info() -> AccountInfoSchema:
+    meta = get_broker_mode_metadata()
+    return AccountInfoSchema(
+        net_liquidation=0.0,
+        cash_balance=0.0,
+        buying_power=0.0,
+        currency="USD",
+        excess_liquidity=0.0,
+        margin=0.0,
+        unrealized_pnl=0.0,
+        broker_mode=BrokerModeSchema(**meta),
+    )
 
 
 @router.get("/mode", response_model=BrokerModeSchema)
@@ -158,10 +179,13 @@ async def get_account():
             unrealized_pnl=float(info.unrealized_pnl),
             broker_mode=BrokerModeSchema(**meta),
         )
+    except Exception as exc:
+        if not is_live_mode_enabled() and _is_broker_transport_error(exc):
+            _logger.info("Broker account unavailable in paper mode; returning empty snapshot: %s", exc)
+            return _paper_fallback_account_info()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/positions", response_model=list[PositionInfoSchema])
@@ -185,10 +209,13 @@ async def get_positions():
             )
             for p in positions
         ]
+    except Exception as exc:
+        if not is_live_mode_enabled() and _is_broker_transport_error(exc):
+            _logger.info("Broker positions unavailable in paper mode; returning empty list: %s", exc)
+            return []
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/daily-pnl", response_model=BrokerDailyPnlSchema)

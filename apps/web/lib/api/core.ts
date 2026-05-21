@@ -16,13 +16,17 @@ export function notifyJournalSubscribers() {
 }
 
 export async function apiRequest<TResponse>(path: string, init: RequestInit): Promise<TResponse> {
+  const headers = new Headers(init.headers ?? undefined);
+  const hasBody = init.body !== undefined && init.body !== null;
+
+  if (hasBody && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (!response.ok) {

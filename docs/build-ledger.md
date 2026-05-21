@@ -5,6 +5,23 @@
 
 ---
 
+## MH-COCKPIT-04 — Functional Stabilisation Commit
+
+- **Date:** 2026-05-21
+- **Status:** ✅ Ready for local functional stabilisation commit
+- **Scope:** Remaining browser/runtime stabilisation around CORS handling, API-base/test-helper alignment, broker paper-mode safety behaviour, and regression/browser readiness checks.
+- **Validation:**
+  - Full Playwright rerun: **289/289 passed**.
+  - Web lint: passed.
+  - Focused backend Ruff on `app/main.py`, `app/api/routes/broker.py`, `tests/routes/test_broker_routes.py`, and `tests/test_cors_and_rate_limiter_default_drift_lock.py`: passed.
+  - Focused backend pytest on `tests/routes/test_broker_routes.py` and `tests/test_cors_and_rate_limiter_default_drift_lock.py`: **33/33 passed**.
+- **Safety Confirmation:**
+  - No live trading enabled.
+  - No broker safety gates weakened.
+  - Changes remain advisory/paper-safe only.
+- **Known Separate Blocker:** Full backend pytest remains a separate pre-existing baseline issue and is still not release-green because of unrelated backend DB/state failures including `audit_logs` and `broker_submit_decisions` surfaces.
+- **Commit Decision:** Safe to commit locally when the staged set excludes runtime/generated files such as `apps/api/app/data/worker_run_log.jsonl`, `test-results`, `playwright-report`, `.next`, and similar artifacts.
+
 ## MH-00 — Repo Audit & Build Control
 
 **Date**: 2026-04-27  
