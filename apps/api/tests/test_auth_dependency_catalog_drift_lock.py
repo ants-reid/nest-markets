@@ -31,6 +31,7 @@ API_ROOT = Path(__file__).resolve().parent.parent / "app"
 # removal of the import is the first step toward removing the Depends().
 EXPECTED_AUTH_IMPORTING_FILES: set[str] = {
     "app/api/routes/execution.py",
+    "app/api/routes/monitor_test.py",
     "app/api/routes/workflow.py",
 }
 
@@ -40,6 +41,9 @@ EXPECTED_AUTH_IMPORTING_FILES: set[str] = {
 SAFETY_AUTH_REQUIRED_ROUTES: dict[str, set[str]] = {
     "app/api/routes/execution.py": {
         '@router.post("/paper", response_model=PaperExecutionResponse)',
+    },
+    "app/api/routes/monitor_test.py": {
+        '@router.post("/test/{service_id}", response_model=MonitorDryProbeResponseSchema)',
     },
     "app/api/routes/workflow.py": {
         '@router.post("/run", response_model=WorkflowRunResponse)',

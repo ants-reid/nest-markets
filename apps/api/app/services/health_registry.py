@@ -75,6 +75,19 @@ def list_registered() -> List[str]:
     return sorted(_REGISTRY.keys())
 
 
+def run_registered(name: str) -> ServiceHealth:
+    """Run exactly one registered probe by name.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not a registered probe id.
+    """
+    if name not in _REGISTRY:
+        raise KeyError(name)
+    return _run_one(name, _REGISTRY[name])
+
+
 def _run_one(name: str, probe: ProbeFn) -> ServiceHealth:
     start = time.perf_counter()
     try:

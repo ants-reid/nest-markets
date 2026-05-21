@@ -12503,3 +12503,80 @@ still 100% green.
 ### Next Phase
 
 → Stage only the validated workspace changes, exclude generated runtime artifacts, and create the local-only recovery commit without pushing.
+
+---
+
+## MH-MON-10 — Operator Dry-Probe Endpoint Readiness Block
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-MON-01
+
+### Scope
+
+- Added an auth-gated operator endpoint for safe monitor dry probes:
+  `POST /monitor/test/{service_id}`.
+- Implemented a service-layer dry-probe runner that executes exactly one known
+  registered probe, rejects unknown probe IDs, and returns a typed,
+  operator-safe response.
+- Added schema coverage and backend tests for happy-path, unknown service,
+  auth behavior, degraded/error probe outcomes, and evidence scrubbing.
+- Updated route/auth drift-lock catalogs for the new route module and route
+  registration surface.
+
+### Files Changed
+
+- `apps/api/app/api/routes/monitor_test.py`
+- `apps/api/app/schemas/monitor_test.py`
+- `apps/api/app/services/monitor_test_service.py`
+- `apps/api/app/services/health_registry.py`
+- `apps/api/app/main.py`
+- `apps/api/tests/test_monitor_test_route.py`
+- `apps/api/tests/test_monitor_test_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/api/tests/test_auth_dependency_catalog_drift_lock.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Commands Run
+
+- `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests && .venv/bin/python -m pytest tests/test_monitor_test_service.py tests/test_monitor_test_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py tests/test_auth_dependency_catalog_drift_lock.py -q`
+- `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests && .venv/bin/python -m pytest tests/ -q && cd ../web && npm run lint && npm run build && cd ../.. && scripts/test/test-learning.sh`
+
+### Validation Results
+
+- Focused backend checks: **21 passed**
+- Backend Ruff: **pass**
+- Backend full pytest: **2324 passed**
+- Web lint: **pass**
+- Web build: **pass**
+- Learning suite: **99 passed**
+
+### Safety Notes
+
+- Route is auth-gated with `Depends(api_key_auth)`.
+- In environments where `API_KEY` is configured, missing/invalid bearer tokens
+  are rejected with 401.
+- In development where auth is intentionally disabled (`API_KEY` empty), the
+  existing project auth placeholder behavior remains unchanged and is now
+  documented by this phase.
+- Endpoint is dry-probe only and never calls broker submit/live execution
+  paths.
+- Unknown `service_id` values fail closed with a 404.
+- Secret-like evidence keys (`api_key`, `secret`, `token`, `password`) are
+  scrubbed from responses.
+
+### Known Limitations
+
+- Current auth gating depends on the existing API-key middleware configuration;
+  there is no role/permission layer beyond this in MH-MON-10.
+- Endpoint response is intentionally operator-facing and advisory only; it does
+  not modify any monitor, trading, or broker control state.
+
+### Next Recommended Phase
+
+-> MH-MON-09 — Backend test-service POST endpoint hardening.
+
