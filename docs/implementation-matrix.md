@@ -104,7 +104,7 @@ Documentation values:
 | API-RX25 | `app/api/routes/strategy_lab.py` | strategy lab route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX26 | `app/api/routes/trading_halt.py` | trading halt route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX27 | `app/api/routes/monitor_feeds.py` | monitor feeds route surface | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001 as a read-only `/monitor/feeds` aggregator over provider probes plus broker gateway runtime reachability. |
-| API-RX28 | `app/api/routes/monitor_test.py` | monitor operator dry-probe route surface | implemented | tested | documented | WS-01 | Added 2026-05-22 during MH-MON-10 as auth-gated `POST /monitor/test/{service_id}`. Route executes one known registered dry probe, rejects unknown service IDs, and never mutates trading state. |
+| API-RX28 | `app/api/routes/monitor_test.py` | monitor operator dry-probe route surface | implemented | tested | documented | WS-01 | Added 2026-05-22 during MH-MON-10 and hardened 2026-05-22 during MH-MON-09 as auth-gated `POST /monitor/test/{service_id}` with fail-closed unknown/unsupported handling plus cooldown-aware abuse resistance. Route remains dry-probe-only and never mutates trading state. |
 
 ## Backend Clients
 
@@ -223,7 +223,7 @@ Documentation values:
 | API-SX76 | `app/services/runtime/scoring_service.py` | scoring service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX77 | `app/services/runtime/signal_generation_service.py` | signal generation service | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-SX78 | `app/services/feed_monitor_service.py` | feed monitor service | implemented | tested | partial | WS-01 | Added 2026-05-19 during MH-FEED-MONITOR-001; consolidates feeds-in, feeds-out, and broker gateway runtime posture without mutating any provider or trading control. |
-| API-SX79 | `app/services/monitor_test_service.py` | monitor dry-probe execution service | implemented | tested | documented | WS-01 | Added 2026-05-22 during MH-MON-10. Fail-closed for unknown service IDs, maps probe status to operator-safe status vocabulary, and scrubs secret-like evidence keys before returning payloads. |
+| API-SX79 | `app/services/monitor_test_service.py` | monitor dry-probe execution service | implemented | tested | documented | WS-01 | Added 2026-05-22 during MH-MON-10 and hardened in MH-MON-09 with per-service cooldown, timeout boundary, recursive secret scrubbing, safe non-leaky error messaging, and append-only incident logging for operator dry-probe attempts. |
 
 ## Backend Persistence Services
 

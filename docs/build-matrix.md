@@ -160,7 +160,7 @@ These guards apply to ALL phases unless explicitly overridden by a phase spec:
 |-----------------|------------------------------------------------|----------|------------------------|------------|
 | MH-161          | `BrokerService` split (refactor)               | ⏳ Pending | Bucket 1 green        | No behaviour change |
 | MH-162          | Post-lock simulation regression suite          | ⏳ Pending | MH-161                | Test-only |
-| MH-MON-09       | Backend test-service POST endpoint hardening   | ⏳ Pending | MH-MON-10             | Auth + rate-limit |
+| MH-MON-09       | Backend test-service POST endpoint hardening   | ✅ Complete | MH-MON-10             | Auth + rate-limit |
 | MH-COCKPIT-07   | In-flight adjustments view                     | ⏳ Pending | MH-COCKPIT-05         | Paper scope |
 | MH-COCKPIT-08   | Trade-close explanations                       | ⏳ Pending | MH-150                | Audit-driven |
 | MH-COCKPIT-09   | Daily scoreboard                               | ⏳ Pending | MH-157                | Read-only |

@@ -12580,3 +12580,76 @@ still 100% green.
 
 -> MH-MON-09 — Backend test-service POST endpoint hardening.
 
+---
+
+## MH-MON-09 — Backend Test-Service POST Endpoint Hardening
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-MON-10
+
+### Scope
+
+- Hardened `POST /monitor/test/{service_id}` while keeping it strictly dry-probe-only.
+- Added fail-closed service allow-list enforcement on top of registration checks.
+- Added per-service cooldown guard to reduce abuse pressure.
+- Added timeout boundary handling for slow probes with safe down-status response.
+- Hardened error messaging so probe exceptions do not leak raw traceback-like details.
+- Upgraded evidence scrubbing to recursive key/value sanitization with expanded secret-like key coverage.
+- Added append-only incident-log audit events for operator dry-probe attempts using existing `incident_log_service`.
+
+### Hardening Added
+
+- **Allow-list gate**: registered but unsupported probe IDs now return explicit safe rejection.
+- **Cooldown**: repeated probes against the same service within cooldown window return `429` with retry hint.
+- **Failure boundary**: probe timeouts and probe exceptions return safe payloads; no 500 from probe runtime errors.
+- **Recursive scrubbing**: strips nested keys matching `api_key`, `token`, `secret`, `password`, `authorization`, `cookie`, `access_token`, `refresh_token`.
+- **Auditability**: each probe attempt records append-only incident metadata best-effort without breaking endpoint availability.
+
+### Files Changed
+
+- `apps/api/app/services/monitor_test_service.py`
+- `apps/api/app/api/routes/monitor_test.py`
+- `apps/api/tests/test_monitor_test_service.py`
+- `apps/api/tests/test_monitor_test_route.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Tests Run
+
+- Focused hardening tests and drift locks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests && .venv/bin/python -m pytest tests/test_monitor_test_service.py tests/test_monitor_test_route.py tests/test_auth_dependency_catalog_drift_lock.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q`
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+
+### Validation Results
+
+- Focused hardening checks: **28/28 passed**.
+- Backend Ruff: **pass**.
+- Backend full pytest: **2331/2331 passed**.
+- Web lint/build: **pass/pass**.
+- Learning suite: **99/99 passed**.
+
+### Safety Notes
+
+- Endpoint remains auth-gated via `Depends(api_key_auth)`; dev-mode pass-through behavior remains unchanged when `API_KEY` is empty.
+- Endpoint remains dry-probe-only and does not call broker submit or live execution paths.
+- Unknown services fail closed; unsupported registered services fail safely.
+- Incident logging reuses existing append-only monitor pattern and is best-effort only.
+
+### Known Limitations
+
+- Cooldown state is in-process memory only; it resets on API process restart.
+- Timeout enforcement uses thread-based execution around sync probes and is not a distributed limiter.
+- API-key middleware remains coarse-grained auth; role-based operator authorization is still deferred.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-05 — EOD report surface (paper scope, read-focused visibility).
+
