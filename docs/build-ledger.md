@@ -11818,6 +11818,37 @@ The normalizer accepts both the bare `{"items": [...], "citations": [...]}` shap
 - **Skipped Work:**
   - Cycle-30 full-suite DB pollution diagnostics — still highest-priority deferred item.
   - Did not lock catalog-level CHECK constraints on `paper_validation_evidence.{confidence,result,source_type}` or `paper_recommendation.status` (application-side String columns; can be added via `pg_get_constraintdef` follow-up if DB CHECKs exist in migrations).
+
+---
+
+## Cycle 46 — MH-VISUAL-STABILITY-001 Dashboard/Assets Snapshot Stabilisation
+
+- **Date:** 2026-05-21
+- **Bucket:** Stabilisation / pre-commit validation
+- **Depends On:** Existing cockpit Playwright suite and visual baselines
+- **Status:** ✅ Complete
+- **Scope:** Root-cause stabilisation of dashboard/assets visual snapshot drift without weakening coverage or changing production trading behaviour.
+- **Root Cause:**
+  - Dashboard and assets screenshots were reading mutable API data and timer/localStorage-driven UI state, so full-page snapshots drifted even when the app was functionally correct.
+  - Dashboard also rendered `JournalAttentionWidget` noise when fake execution IDs hit the real journal endpoint and produced visible error UI.
+- **Files Changed:**
+  - `apps/web/tests/visual.spec.ts`
+  - `apps/web/tests/visual.spec.ts-snapshots/dashboard-*-darwin.png`
+  - `apps/web/tests/visual.spec.ts-snapshots/assets-*-darwin.png`
+- **Implementation:**
+  - Added deterministic dashboard/assets-only visual fixtures, frozen client time, seeded localStorage, mocked mutable API responses, and page-specific readiness waits in `visual.spec.ts`.
+  - Switched fake execution IDs to UUID-like values and intercepted `/execution/paper/<id>/journal` with `404` responses so the journal widget stays visually stable.
+  - Scoped the stable client-state harness back to dashboard/assets only so the broader visual suite retained its pre-existing behavior.
+- **Verification:**
+  - Dashboard/assets subset before snapshot refresh: repeated twice with the same 12 failures, proving stable output.
+  - Snapshot refresh: `playwright test tests/visual.spec.ts --grep 'dashboard|assets' --update-snapshots` → 12/12 passed.
+  - Post-update subset verification: repeated twice, both runs 12/12 passed.
+  - Full Playwright rerun after scoping the harness: **289/289 passed**.
+  - Web validation: `cd apps/web && npm run lint` → passed.
+  - Focused API validation: Ruff on broker/CORS slice → passed.
+  - Focused API pytest: `tests/routes/test_broker_routes.py` + `tests/test_cors_and_rate_limiter_default_drift_lock.py` → **33/33 passed**.
+- **Known Separate Blocker:** Full backend pytest remains broadly red from pre-existing baseline/environment issues (for example `audit_logs`, `broker_submit_decisions` and related DB-state failures). That blocker is unchanged by this stabilisation and was not addressed in this cycle.
+- **Commit Decision:** Safe to commit the visual-stability slice locally once the staged set is limited to the harness change, the six dashboard/assets snapshots, and this ledger update.
   - `news_items.headline` is `Text` (no length cap) — this is the current model shape; not asserting a length. If a future migration tightens it, that is an additive narrowing and should be re-locked.
 - **Drift-Lock Confirmation:**
   - Auto-paper enforcement remains **OFF**.
