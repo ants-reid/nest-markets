@@ -15,3 +15,4 @@ playwright-report/
 logs/
 dist/
 build/
+apps/api/app/data/worker_run_log.jsonl
