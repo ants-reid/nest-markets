@@ -978,7 +978,7 @@ def test_get_auto_paper_readiness_contract_snapshots_key_fields(client, monkeypa
                 "issues": [],
                 "warnings": [],
                 "preflight_decision": {
-                    "decision_status": "clear",
+                    "decision_status": "allowed",
                     "submit_gate": "not_applied",
                     "advisory_count": 0,
                     "would_block_count": 0,
@@ -1092,7 +1092,7 @@ def test_get_auto_paper_readiness_contract_snapshots_key_fields(client, monkeypa
             "request_valid": True,
             "estimated_notional": 100.0,
             "preflight_decision": {
-                "decision_status": "clear",
+                "decision_status": "allowed",
                 "submit_gate": "not_applied",
                 "advisory_count": 0,
                 "would_block_count": 0,
@@ -1367,7 +1367,7 @@ def _configure_auto_paper_enablement_dependencies(
                 "issues": [],
                 "warnings": [],
                 "preflight_decision": {
-                    "decision_status": "clear",
+                    "decision_status": "allowed",
                     "submit_gate": "not_applied",
                     "advisory_count": 0,
                     "would_block_count": 0,
@@ -1729,7 +1729,7 @@ def test_get_auto_paper_enablement_preconditions_contract_snapshots_key_fields(c
             "request_valid": True,
             "estimated_notional": 100.0,
             "preflight_decision": {
-                "decision_status": "clear",
+                "decision_status": "allowed",
                 "submit_gate": "not_applied",
                 "advisory_count": 0,
                 "would_block_count": 0,

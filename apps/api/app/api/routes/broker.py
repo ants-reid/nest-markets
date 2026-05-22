@@ -464,7 +464,13 @@ async def dry_run_order(request: OrderDryRunRequestSchema):
         if raw_ctx:
             portfolio_context = raw_ctx
 
-        result = service.dry_run_order(order_request, portfolio_context=portfolio_context)
+        result = service.dry_run_order(
+            order_request,
+            portfolio_context=portfolio_context,
+            persist_decision=True,
+            decision_source="dry_run",
+            intent="manual",
+        )
         audit_log_service.log_broker_order_event(
             action="dry_run",
             ticker=request.ticker,

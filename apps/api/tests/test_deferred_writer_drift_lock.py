@@ -1,19 +1,15 @@
-"""Cycle 32 — Deferred-writer drift-lock tests.
+"""Deferred-writer drift-lock tests.
 
-Three matrix entries ship the *additive column / table* but explicitly
-defer the *writer*:
+Two matrix entries ship additive columns but explicitly defer writers:
 
-    * MH-148-A — ``broker_submit_decisions`` table + model + read route.
-      Writer (MH-148-C) deferred until MH-147 lands.
     * MH-153-A — ``risk_decisions.risk_profile_id`` column.
-      Writer (MH-153-B) deferred until MH-148-C lands.
+            Writer (MH-153-B) remains deferred.
     * MH-154-A — ``risk_decisions.block_reason_code`` column.
-      Writer (MH-154-B) deferred until MH-148-C lands.
+            Writer (MH-154-B) remains deferred.
 
-Until those writers are formally unlocked in the matrix, NO production
-code under ``app/services/`` or ``app/workers/`` may construct
-``BrokerSubmitDecision(...)`` rows or assign to ``risk_profile_id=`` /
-``block_reason_code=`` on ``RiskDecision`` instances.
+Until those writers are formally unlocked in the matrix, NO production code
+under ``app/services/`` or ``app/workers/`` may assign to
+``risk_profile_id=`` / ``block_reason_code=`` on ``RiskDecision`` instances.
 
 These tests use static AST scanning so they:
     * are fast and deterministic,
@@ -33,7 +29,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import app.db.models.broker_submit_decision as broker_submit_decision_module
 import app.db.models.risk_decision as risk_decision_module
 
 
@@ -116,11 +111,6 @@ def test_risk_decision_model_still_exposes_deferred_columns():
     assert "block_reason_code" in cols, "MH-154-A column missing"
 
 
-def test_broker_submit_decision_model_module_importable():
-    """Sanity: MH-148-A model module must remain importable."""
-    assert hasattr(broker_submit_decision_module, "BrokerSubmitDecision")
-
-
 # --------------------------------------------------------------------------- #
 # MH-153-A drift lock — no writer for ``risk_profile_id``.                    #
 # --------------------------------------------------------------------------- #
@@ -170,45 +160,3 @@ def test_no_production_writer_for_block_reason_code():
         "ledger entry and update this test."
     )
 
-
-# --------------------------------------------------------------------------- #
-# MH-148-C drift lock — no writer for ``BrokerSubmitDecision``.               #
-# --------------------------------------------------------------------------- #
-
-
-def test_no_production_writer_constructs_broker_submit_decision():
-    """No service or worker may construct ``BrokerSubmitDecision(...)``
-    rows until MH-148-C is formally unlocked in the matrix."""
-    offenders: list[str] = []
-    for root in SCAN_ROOTS:
-        for path in _iter_python_sources(root):
-            src = path.read_text(encoding="utf-8")
-            if _find_constructor_call(src, "BrokerSubmitDecision"):
-                offenders.append(str(path.relative_to(APPS_API_ROOT)))
-    assert not offenders, (
-        "MH-148-C writer is deferred — no production code in app/services "
-        "or app/workers may construct BrokerSubmitDecision(...) yet. "
-        f"Offenders: {offenders}. To enable, ship MH-148-C as its own "
-        "matrix phase + ledger entry and update this test."
-    )
-
-
-def test_no_production_writer_inserts_into_broker_submit_decisions_table():
-    """No service or worker may reference the bare ``broker_submit_decisions``
-    table name in an INSERT / values context. We approximate this by
-    forbidding any string-literal ``broker_submit_decisions`` in
-    services/workers source — the only legitimate references live in the
-    model definition (db/models/) and read route (api/routes/), neither of
-    which is in SCAN_ROOTS."""
-    offenders: list[str] = []
-    for root in SCAN_ROOTS:
-        for path in _iter_python_sources(root):
-            src = path.read_text(encoding="utf-8")
-            if "broker_submit_decisions" in src:
-                offenders.append(str(path.relative_to(APPS_API_ROOT)))
-    assert not offenders, (
-        "MH-148-C writer is deferred — no production code in app/services "
-        "or app/workers may reference the ``broker_submit_decisions`` "
-        f"table name yet. Offenders: {offenders}. To enable, ship MH-148-C "
-        "as its own matrix phase + ledger entry and update this test."
-    )

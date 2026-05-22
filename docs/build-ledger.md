@@ -13332,3 +13332,41 @@ still 100% green.
 
 -> MH-148-C + MH-147 wiring: persist and enforce broker preflight decisions consistently on submit while preserving live lock.
 
+---
+
+## MH-148-C + MH-147 — Persist Broker Preflight Decisions + Unified Fail-Closed Submit Gate
+
+- **Date:** 2026-05-22
+- **Bucket:** Bucket 1 (submit safety + audit persistence)
+- **Depends On:** MH-145, MH-148-A, MH-148-B
+- **Status:** ✅ Complete
+- **Scope:** Activated the MH-148-C writer path and landed MH-147 fail-closed semantics in `BrokerService`. Dry-run, submit preflight, and submit-attempt decisions now persist append-only `broker_submit_decisions` rows via a dedicated service module, with sanitized/capped reason payloads and no account-balance leakage in persisted JSON. Paper submit now blocks on `would_block` and also fails closed for unknown/error preflight states. Mode-guard blocked submit attempts are persisted as blocked decisions while live lock remains unchanged.
+- **Files Changed:**
+  - `apps/api/app/services/broker_submit_decision_service.py` (new)
+  - `apps/api/app/services/broker_service.py`
+  - `apps/api/app/api/routes/broker.py`
+  - `apps/api/app/api/routes/broker_submit_decisions.py`
+  - `apps/api/app/db/models/broker_submit_decision.py`
+  - `apps/api/app/schemas/broker_schemas.py`
+  - `apps/api/tests/services/test_broker_service.py`
+  - `apps/api/tests/routes/test_broker_dry_run.py`
+  - `apps/api/tests/test_broker_submit_decisions.py`
+  - `apps/api/tests/test_deferred_writer_drift_lock.py`
+  - `apps/api/tests/test_broker_dry_run_order_sha_drift_lock.py`
+  - `apps/api/tests/test_market_data_route.py`
+  - `docs/build-matrix.md`
+  - `docs/implementation-matrix.md`
+  - `docs/regression-qa-matrix.md`
+- **Validation:**
+  - Backend Ruff: `cd apps/api && .venv/bin/ruff check app tests` ✅
+  - Focused backend suite: `136 passed` across broker-service, dry-run route, submit-decisions route, deferred-writer drift-lock, paper-preflight drift-lock, dry-run SHA drift-lock, and market-data route tests ✅
+  - Frontend lint/build: `cd apps/web && npm run lint && npm run build` ✅
+  - Learning suite: `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh` → `99 passed` ✅
+  - Full backend pytest: attempted multiple times (`cd apps/api && .venv/bin/python -m pytest tests/ -q`) but interrupted/terminated in-terminal before completion in this session (`EXIT_CODE:143`).
+- **Drift-Lock Confirmation:**
+  - Auto-paper enforcement remains **OFF**.
+  - Auto trading remains **OFF**.
+  - Live trading remains **OFF** and live submit remains blocked by existing guard chain.
+  - `assert_auto_trading_allowed()` behavior unchanged.
+  - No worker runtime activation or scheduler unlock was introduced.
+

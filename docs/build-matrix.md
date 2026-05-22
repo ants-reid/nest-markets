@@ -125,14 +125,14 @@ Notes:
 | MH-144       | Drop MARKET fallback in worker                 | ⏳ Pending | MH-143                    | LIMIT-only path |
 | MH-145       | Real RiskInput values (spread/DD/recent loss)  | 🟡 Partial | MH-143                    | 145-A `MarketContextSnapshotService` scaffolding ✅ (NOT wired into worker; drift-lock test enforces); 145-B worker wiring deferred |
 | MH-146       | `Position.opened_by` column + backfill         | ✅ Complete | —                          | Additive column, default 'unknown' |
-| MH-147       | Unified `would_block` enforcement semantics    | ⏳ Pending | MH-145                    | Fail-closed only |
-| MH-148       | `BrokerSubmitDecision` audit table             | 🟡 Partial | MH-147                    | 148-A table+model ✅, 148-B read endpoint ✅; 148-C writer deferred until MH-147 |
+| MH-147       | Unified `would_block` enforcement semantics    | ✅ Complete | MH-145                  | Fail-closed on would_block/unknown/error submit preflight |
+| MH-148       | `BrokerSubmitDecision` audit table             | ✅ Complete | MH-147                  | 148-A table+model ✅, 148-B read endpoint ✅, 148-C writer ✅ (dry-run + submit-preflight + submit-attempt) |
 | MH-149       | Catalyst-context sanitization                  | ✅ Complete | —                          | Untrusted-text policy |
 | MH-150       | `LLMRequestLog` (full request/response)        | ✅ Complete | —                          | No PII bleed; redact keys |
 | MH-151       | Signal geometry validation (entry/stop/target) | ✅ Complete | —                          | Rejects inverted / NaN / wrong-side geometry |
 | MH-152       | Worker async refactor (drop `asyncio.run`)     | ⏳ Pending | MH-148                    | No behaviour change in this phase |
-| MH-153       | `risk_profile_id` denormalization              | 🟡 Partial | MH-148                    | 153-A column ✅; 153-B writer deferred until MH-148-C |
-| MH-154       | Persist risk-block reason (queryable)          | 🟡 Partial | MH-148                    | 154-A column ✅; 154-B writer deferred until MH-148-C |
+| MH-153       | `risk_profile_id` denormalization              | 🟡 Partial | MH-148                    | 153-A column ✅; 153-B writer still deferred |
+| MH-154       | Persist risk-block reason (queryable)          | 🟡 Partial | MH-148                    | 154-A column ✅; 154-B writer still deferred |
 | MH-MON-01    | Health endpoint registry (`/health/services`)  | ✅ Complete | —                          | Read-only; no toggles |
 | MH-MON-02    | Feeds-In probes                                | ✅ Complete | MH-MON-01                | Probe-only, advisory |
 | MH-MON-03    | Feeds-Out probes                               | ✅ Complete | MH-MON-01                | Probe-only, advisory |

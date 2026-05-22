@@ -1,8 +1,7 @@
-"""MH-148-B — Read-only endpoint surfacing persisted broker-submit decisions.
+"""MH-148-B — Read endpoint surfacing persisted broker-submit decisions.
 
-Returns the most recent rows from ``broker_submit_decisions`` (the MH-148-A
-audit table). The table is empty until the future MH-148-C writer is wired
-(paired with the MH-147 unified ``would_block`` enforcement semantics phase).
+Returns the most recent rows from ``broker_submit_decisions`` (MH-148-A table,
+written by the MH-148-C suffix).
 
 Drift-lock guarantee:
 * Read-only — no INSERT/UPDATE/DELETE on any table.
@@ -64,8 +63,8 @@ def list_recent_broker_submit_decisions(
     * ``intent``: exact-match on ``intent`` (e.g. ``"auto"``, ``"manual"``).
     * ``would_block``: exact-match on the boolean preflight outcome.
 
-    The endpoint never modifies state. The table may be empty (no writer is
-    wired in the current cycle); the response will then be ``items: []``.
+    The endpoint never modifies state. The table can be empty when no dry-run
+    or submit attempts have been evaluated yet.
     """
 
     with SessionLocal() as session:
@@ -87,8 +86,8 @@ def list_recent_broker_submit_decisions(
             "would_block": would_block,
         },
         "advisory": (
-            "Audit-only table; no production writer is wired yet. The "
-            "MH-148-C suffix (paired with MH-147) will populate this surface."
+            "Audit feed for persisted broker preflight and submit decisions. "
+            "Rows are append-only and emitted by safety enforcement paths."
         ),
         "items": items,
     }

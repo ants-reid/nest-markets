@@ -1,8 +1,7 @@
-"""MH-148-A + MH-148-B — broker_submit_decisions audit table + read endpoint.
+"""MH-148-A + MH-148-B + MH-148-C — broker_submit_decisions audit surface.
 
-The current cycle ships only the table, the ORM model, and a read-only
-endpoint. There is no production writer yet (that is deferred to MH-148-C,
-paired with MH-147 unified ``would_block`` enforcement). These tests verify:
+The cycle ships the table, ORM model, read endpoint, and production writer.
+These tests verify:
 
 * The model can be inserted / queried / deleted (table exists after migration).
 * The endpoint returns an empty list when the table has no rows.
@@ -48,7 +47,7 @@ def fresh_table():
         session.commit()
 
 
-def test_endpoint_returns_empty_when_no_writer_data(fresh_table):
+def test_endpoint_returns_empty_when_no_decisions_yet(fresh_table):
     response = client.get("/broker/submit-decisions/recent")
     assert response.status_code == 200
     body = response.json()
@@ -56,7 +55,7 @@ def test_endpoint_returns_empty_when_no_writer_data(fresh_table):
     assert isinstance(body["items"], list)
     assert body["limit"] == 25
     assert body["filters"] == {"intent": None, "would_block": None}
-    assert "audit-only" in body["advisory"].lower()
+    assert "audit feed" in body["advisory"].lower()
 
 
 def test_endpoint_invalid_limit_rejected(fresh_table):

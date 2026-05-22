@@ -87,7 +87,7 @@ class OrderDryRunPreflightDecisionSchema(BaseModel):
     execution behavior in MH-77.
     """
 
-    decision_status: str  # clear | advisory | would_block | blocked
+    decision_status: str  # allowed | advisory | would_block | blocked
     submit_gate: str  # not_applied
     advisory_count: int
     would_block_count: int

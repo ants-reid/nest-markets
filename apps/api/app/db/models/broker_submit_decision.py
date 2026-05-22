@@ -1,13 +1,7 @@
-"""MH-148-A — ``BrokerSubmitDecision`` ORM model (audit-only, no writers yet).
+"""MH-148-A — ``BrokerSubmitDecision`` ORM model.
 
-A durable record of the preflight decision computed before any broker submit
-attempt. **No production code path writes to this table in this phase.** A
-future suffix (MH-148-C, paired with the MH-147 unified ``would_block``
-enforcement semantics) will wire writes.
-
-Drift-lock guarantee: read-only model in the current cycle. Worker behaviour,
-``BrokerService.submit_auto_order``, and ``assert_auto_trading_allowed()`` are
-all unchanged.
+Durable audit record of broker preflight and submit decisions. Rows are
+persisted by the MH-148-C writer service and exposed via the read route.
 """
 
 from __future__ import annotations

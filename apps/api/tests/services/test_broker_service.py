@@ -13,8 +13,10 @@ from app.clients.broker.broker_interface import (
 )
 from app.clients.broker.gateway_factory import BrokerGatewayFactory
 from app.clients.broker.ibkr_adapter import IBKRAdapter
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
+from app.db.session import SessionLocal
 from app.services.broker_service import BrokerService, PaperPreflightBlockedError
-from app.services.trading_control_service import AutoTradingBlockedError
+from app.services.trading_control_service import AutoTradingBlockedError, LiveTradingNotArmedError
 
 
 class TestBrokerGatewayFactory:
@@ -71,6 +73,16 @@ class TestBrokerService:
     def service(self, mock_broker):
         """Create a BrokerService with a mocked adapter."""
         return BrokerService(broker=mock_broker)
+
+    @pytest.fixture(autouse=True)
+    def clean_broker_submit_decisions(self):
+        with SessionLocal() as session:
+            session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+            session.commit()
+        yield
+        with SessionLocal() as session:
+            session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+            session.commit()
 
     @pytest.mark.asyncio
     async def test_init_with_broker(self, mock_broker):
@@ -219,6 +231,141 @@ class TestBrokerService:
         assert exc_info.value.blocking_reasons[0]["code"] == "emergency_stop_active"
         mock_broker.submit_order.assert_not_called()
 
+        with SessionLocal() as session:
+            rows = (
+                session.query(BrokerSubmitDecision)
+                .order_by(BrokerSubmitDecision.created_at.asc())
+                .all()
+            )
+            assert len(rows) == 2
+            assert rows[0].preflight_json["source"] == "submit_preflight"
+            assert rows[0].would_block is True
+            assert rows[0].preflight_json["allowed_to_submit"] is False
+            assert rows[1].preflight_json["source"] == "submit_attempt"
+            assert rows[1].would_block is True
+            assert rows[1].preflight_json["submit_gate"] == "blocked"
+
+    @pytest.mark.asyncio
+    async def test_submit_order_persists_allowed_submit_attempt(self, service, mock_broker):
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("5"),
+            order_type="MARKET",
+        )
+        mock_broker.get_account_info = AsyncMock(
+            return_value=AccountInfo(
+                net_liquidation=Decimal("100000"),
+                cash_balance=Decimal("50000"),
+                buying_power=Decimal("100000"),
+            )
+        )
+        mock_broker.get_positions = AsyncMock(return_value=[])
+        mock_broker.submit_order = AsyncMock(
+            return_value=OrderResult(broker_order_id="abc-123", status="SUBMITTED")
+        )
+
+        with patch.object(service, "get_daily_pnl", return_value={"daily_pnl": 0.0, "daily_loss": 0.0}), patch.object(
+            service,
+            "_collect_preflight_warnings",
+            return_value=([], {}),
+        ):
+            await service.submit_order(order_request)
+
+        with SessionLocal() as session:
+            rows = (
+                session.query(BrokerSubmitDecision)
+                .order_by(BrokerSubmitDecision.created_at.asc())
+                .all()
+            )
+            assert len(rows) == 2
+            preflight_row = rows[0]
+            submit_row = rows[1]
+            assert preflight_row.preflight_json["source"] == "submit_preflight"
+            assert preflight_row.preflight_json["decision_status"] == "allowed"
+            assert submit_row.preflight_json["source"] == "submit_attempt"
+            assert submit_row.preflight_json["decision_status"] == "allowed"
+            assert submit_row.preflight_json["allowed_to_submit"] is True
+            assert submit_row.preflight_json["submit_gate"] == "allowed"
+            assert submit_row.preflight_json["broker_order_id"] == "abc-123"
+
+    @pytest.mark.asyncio
+    async def test_submit_order_fails_closed_when_preflight_errors(self, service, mock_broker):
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("10"),
+            order_type="LIMIT",
+            limit_price=Decimal("180.5"),
+        )
+        mock_broker.get_account_info = AsyncMock(side_effect=RuntimeError("snapshot unavailable"))
+
+        with pytest.raises(PaperPreflightBlockedError) as exc_info:
+            await service.submit_order(order_request)
+
+        assert exc_info.value.preflight_decision["decision_status"] == "error"
+        assert exc_info.value.preflight_decision["submit_gate"] == "blocked"
+        assert exc_info.value.blocking_reasons[0]["code"] == "preflight_evaluation_error"
+        mock_broker.submit_order.assert_not_called()
+
+        with SessionLocal() as session:
+            rows = (
+                session.query(BrokerSubmitDecision)
+                .order_by(BrokerSubmitDecision.created_at.asc())
+                .all()
+            )
+            assert len(rows) == 2
+            assert rows[0].preflight_json["source"] == "submit_preflight"
+            assert rows[1].preflight_json["source"] == "submit_attempt"
+            assert rows[0].preflight_json["decision_status"] == "error"
+            assert rows[1].preflight_json["allowed_to_submit"] is False
+
+    @pytest.mark.asyncio
+    async def test_dry_run_persists_sanitized_decision_payload(self, service):
+        long_message = "x" * 800
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("10"),
+            order_type="LIMIT",
+            limit_price=Decimal("180.5"),
+        )
+        with patch.object(
+            service,
+            "_collect_preflight_warnings",
+            return_value=(
+                [
+                    {
+                        "code": "emergency_stop_active",
+                        "message": long_message,
+                        "severity": "warning",
+                        "source": "trading_halt",
+                        "enforcement_enabled": True,
+                    }
+                ],
+                {
+                    "cash_balance": 99999.0,
+                    "buying_power": 123456.0,
+                },
+            ),
+        ):
+            service.dry_run_order(
+                order_request,
+                persist_decision=True,
+                decision_source="dry_run",
+                intent="manual",
+            )
+
+        with SessionLocal() as session:
+            row = session.query(BrokerSubmitDecision).one()
+            payload = row.preflight_json
+            assert payload["source"] == "dry_run"
+            assert payload["decision_status"] == "blocked"
+            assert payload["allowed_to_submit"] is False
+            assert len(row.blocked_reason_text or "") <= 500
+            assert "cash_balance" not in payload
+            assert "buying_power" not in payload
+
     @pytest.mark.asyncio
     async def test_submit_order_zero_quantity(self, service):
         """Test order submission with invalid quantity."""
@@ -278,6 +425,31 @@ class TestBrokerService:
         
         assert result.status == "REJECTED"
         assert "buying power" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_submit_order_mode_guard_block_persists_attempt(self, service, mock_broker):
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="MARKET",
+        )
+
+        with patch(
+            "app.services.broker_service.assert_order_submission_allowed",
+            side_effect=LiveTradingNotArmedError("live submit disabled"),
+        ):
+            with pytest.raises(LiveTradingNotArmedError):
+                await service.submit_order(order_request)
+
+        mock_broker.submit_order.assert_not_called()
+        with SessionLocal() as session:
+            row = session.query(BrokerSubmitDecision).one()
+            assert row.would_block is True
+            assert row.preflight_json["source"] == "submit_attempt"
+            assert row.preflight_json["decision_status"] == "error"
+            assert row.preflight_json["allowed_to_submit"] is False
+            assert row.blocked_reason_code == "mode_guard_blocked"
 
     @pytest.mark.asyncio
     async def test_submit_auto_order_remains_blocked_by_default(self, service, mock_broker):

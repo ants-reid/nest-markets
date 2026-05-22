@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.models import TradingHalt
 from app.db.session import SessionLocal
 from app.main import create_app
@@ -41,6 +42,17 @@ def _clear_active_global_halts():
         session.commit()
 
 
+@pytest.fixture(autouse=True)
+def _clear_submit_decisions():
+    with SessionLocal() as session:
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+        session.commit()
+    yield
+    with SessionLocal() as session:
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+        session.commit()
+
+
 def _payload(**overrides):
     base = {
         "ticker": "AAPL",
@@ -67,7 +79,24 @@ async def test_dry_run_ready_response(client):
     assert data["issues"] == []
     assert isinstance(data["warnings"], list)
     assert data["preflight_decision"]["submit_gate"] == "not_applied"
-    assert data["preflight_decision"]["decision_status"] in {"advisory", "clear", "would_block"}
+    assert data["preflight_decision"]["decision_status"] in {"advisory", "allowed", "would_block"}
+
+
+@pytest.mark.asyncio
+async def test_dry_run_persists_submit_decision_row(client):
+    response = client.post("/broker/orders/dry-run", json=_payload())
+
+    assert response.status_code == 200
+    with SessionLocal() as session:
+        row = (
+            session.query(BrokerSubmitDecision)
+            .order_by(BrokerSubmitDecision.created_at.desc())
+            .first()
+        )
+        assert row is not None
+        assert row.intent == "manual"
+        assert row.preflight_json["source"] == "dry_run"
+        assert row.preflight_json["submit_gate"] == "not_applied"
 
 
 @pytest.mark.asyncio
@@ -130,7 +159,7 @@ async def test_dry_run_does_not_execute_submit_order(client):
         "issues": [],
         "warnings": [],
         "preflight_decision": {
-            "decision_status": "clear",
+            "decision_status": "allowed",
             "submit_gate": "not_applied",
             "advisory_count": 0,
             "would_block_count": 0,
@@ -152,7 +181,13 @@ async def test_dry_run_does_not_execute_submit_order(client):
         response = client.post("/broker/orders/dry-run", json=_payload())
 
     assert response.status_code == 200
-    fake_service.dry_run_order.assert_called_once()
+    fake_service.dry_run_order.assert_called_once_with(
+        ANY,
+        portfolio_context=None,
+        persist_decision=True,
+        decision_source="dry_run",
+        intent="manual",
+    )
     # If this attribute exists on the double, ensure it was never touched.
     submit = getattr(fake_service, "submit_order", None)
     if submit is not None:

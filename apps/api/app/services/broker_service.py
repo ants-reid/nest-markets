@@ -17,6 +17,10 @@ from app.clients.broker.gateway_factory import BrokerGatewayFactory
 from app.config import get_settings
 from app.db.models.broker_trade_event import BrokerTradeEvent
 from app.db.session import SessionLocal
+from app.services.broker_submit_decision_service import (
+    BrokerSubmitDecisionRecord,
+    BrokerSubmitDecisionService,
+)
 from app.services.broker_trade_event_service import (
     BrokerTradeEventService,
     sum_today_realized_pnl_from_raw_events,
@@ -355,15 +359,74 @@ class BrokerService:
         """
         self._raise_for_invalid_order_request(request)
 
-        assert_order_submission_allowed(intent=intent)
+        try:
+            assert_order_submission_allowed(intent=intent)
+        except (
+            AutoTradingBlockedError,
+            LiveExecutionBlockedError,
+            LiveTradingNotArmedError,
+            TradingControlError,
+            TradingControlMisconfiguredError,
+        ) as exc:
+            blocked_decision = self._build_blocked_error_decision(
+                code="mode_guard_blocked",
+                message=str(exc),
+            )
+            self._persist_submit_decision(
+                intent=intent,
+                preflight_decision=blocked_decision,
+                warnings=[],
+                source="submit_attempt",
+                submit_gate="blocked",
+            )
+            raise
 
         trading_mode = str(get_broker_mode_metadata().get("mode") or "paper").lower()
         if trading_mode == "paper":
-            portfolio_context = await self._build_submit_portfolio_context(request)
-            preflight_result = self.dry_run_order(request, portfolio_context=portfolio_context)
-            preflight_decision = dict(preflight_result["preflight_decision"])
-            if preflight_decision["blocking_count"] > 0 or preflight_decision["would_block_count"] > 0:
+            try:
+                portfolio_context = await self._build_submit_portfolio_context(request)
+                preflight_result = self.dry_run_order(
+                    request,
+                    portfolio_context=portfolio_context,
+                    persist_decision=True,
+                    decision_source="submit_preflight",
+                    intent=intent,
+                )
+                preflight_decision = dict(preflight_result["preflight_decision"])
+            except Exception as exc:
+                preflight_decision = self._build_blocked_error_decision(
+                    code="preflight_evaluation_error",
+                    message=f"preflight evaluation failed: {exc}",
+                )
+                self._persist_submit_decision(
+                    intent=intent,
+                    preflight_decision=preflight_decision,
+                    warnings=[],
+                    source="submit_preflight",
+                    submit_gate="blocked",
+                )
+                self._persist_submit_decision(
+                    intent=intent,
+                    preflight_decision=preflight_decision,
+                    warnings=[],
+                    source="submit_attempt",
+                    submit_gate="blocked",
+                )
                 preflight_decision["submit_gate"] = "blocked"
+                raise PaperPreflightBlockedError(
+                    preflight_decision=preflight_decision,
+                    preflight_context={},
+                )
+
+            if self._is_submit_blocked_by_preflight(preflight_decision):
+                preflight_decision["submit_gate"] = "blocked"
+                self._persist_submit_decision(
+                    intent=intent,
+                    preflight_decision=preflight_decision,
+                    warnings=list(preflight_result.get("warnings") or []),
+                    source="submit_attempt",
+                    submit_gate="blocked",
+                )
                 raise PaperPreflightBlockedError(
                     preflight_decision=preflight_decision,
                     preflight_context=preflight_result["preflight_context"],
@@ -373,6 +436,25 @@ class BrokerService:
         assert self._broker is not None
         
         result = await self._broker.submit_order(request)
+
+        allowed_decision = {
+            "decision_status": "allowed",
+            "submit_gate": "allowed",
+            "advisory_count": 0,
+            "would_block_count": 0,
+            "blocking_count": 0,
+            "advisory_items": [],
+            "would_block_items": [],
+            "blocking_items": [],
+        }
+        self._persist_submit_decision(
+            intent=intent,
+            preflight_decision=allowed_decision,
+            warnings=[],
+            source="submit_attempt",
+            submit_gate="allowed",
+            broker_order_id=result.broker_order_id,
+        )
         
         if result.status == "REJECTED":
             _logger.warning(
@@ -618,6 +700,10 @@ class BrokerService:
         self,
         request: OrderRequest,
         portfolio_context: dict[str, Any] | None = None,
+        *,
+        persist_decision: bool = False,
+        decision_source: str = "dry_run",
+        intent: str = "manual",
     ) -> dict[str, Any]:
         """Verify whether an order would be accepted without submitting it.
 
@@ -674,7 +760,7 @@ class BrokerService:
         warnings.extend(preflight_warnings)
         preflight_decision = self._build_preflight_decision(issues=issues, warnings=warnings)
 
-        return {
+        result = {
             "status": status,
             "mode_guard_ok": mode_guard_ok,
             "request_valid": request_valid,
@@ -686,6 +772,15 @@ class BrokerService:
             "broker_mode": get_broker_mode_metadata(),
         }
 
+        if persist_decision:
+            self._persist_submit_decision_from_result(
+                result=result,
+                intent=intent,
+                source=decision_source,
+            )
+
+        return result
+
     def _build_preflight_decision(
         self,
         *,
@@ -694,8 +789,8 @@ class BrokerService:
     ) -> dict[str, Any]:
         """Classify current dry-run findings into a structured preflight decision.
 
-        MH-77 keeps dry-run non-executing and submit unchanged. This decision object
-        is an additive planning seam for later enforcement phases.
+        Decision output is consumed by submit-time enforcement and audit
+        persistence. Dry-run remains non-executing.
         """
 
         blocking_items: list[dict[str, Any]] = []
@@ -756,7 +851,7 @@ class BrokerService:
         elif advisory_items:
             decision_status = "advisory"
         else:
-            decision_status = "clear"
+            decision_status = "allowed"
 
         return {
             "decision_status": decision_status,
@@ -768,6 +863,134 @@ class BrokerService:
             "would_block_items": would_block_items,
             "blocking_items": blocking_items,
         }
+
+    def _is_submit_blocked_by_preflight(self, decision: dict[str, Any]) -> bool:
+        decision_status = str(decision.get("decision_status") or "unknown").strip().lower()
+        blocking_count = int(decision.get("blocking_count") or 0)
+        would_block_count = int(decision.get("would_block_count") or 0)
+
+        if blocking_count > 0 or would_block_count > 0:
+            return True
+        if decision_status in {"blocked", "would_block", "error", "unknown", "invalid"}:
+            return True
+        return decision_status not in {"allowed", "advisory"}
+
+    def _build_blocked_error_decision(self, *, code: str, message: str) -> dict[str, Any]:
+        return {
+            "decision_status": "error",
+            "submit_gate": "blocked",
+            "advisory_count": 0,
+            "would_block_count": 1,
+            "blocking_count": 0,
+            "advisory_items": [],
+            "would_block_items": [
+                {
+                    "code": code,
+                    "message": message,
+                    "source": "preflight",
+                    "classification": "would_block",
+                    "severity": "critical",
+                }
+            ],
+            "blocking_items": [],
+        }
+
+    def _decision_reason_fields(
+        self, preflight_decision: dict[str, Any], warnings: list[dict[str, Any]]
+    ) -> tuple[str | None, str | None, str | None, list[dict[str, Any]]]:
+        blocked_reasons = list(preflight_decision.get("blocking_items") or []) + list(
+            preflight_decision.get("would_block_items") or []
+        )
+        primary = blocked_reasons[0] if blocked_reasons else None
+        reason_code = primary.get("code") if primary else None
+        reason_text = primary.get("message") if primary else None
+
+        decision_status = str(preflight_decision.get("decision_status") or "unknown").strip().lower()
+        if reason_text:
+            decision_reason = reason_text
+        elif decision_status == "allowed":
+            decision_reason = "preflight_allowed"
+        elif decision_status == "advisory":
+            decision_reason = "advisory_only"
+        elif decision_status == "would_block":
+            decision_reason = "would_block_findings"
+        elif decision_status == "blocked":
+            decision_reason = "blocking_findings"
+        else:
+            decision_reason = "preflight_unknown"
+
+        return decision_reason, reason_code, reason_text, blocked_reasons
+
+    def _execution_mode_metadata(self) -> tuple[str, str]:
+        mode_meta = get_broker_mode_metadata()
+        broker_mode = str(mode_meta.get("mode") or "paper").lower()
+        execution_mode = "ibkr_paper"
+        if broker_mode == "live":
+            execution_mode = "ibkr_live_locked"
+        return execution_mode, broker_mode
+
+    def _persist_submit_decision(
+        self,
+        *,
+        intent: str,
+        preflight_decision: dict[str, Any],
+        warnings: list[dict[str, Any]],
+        source: str,
+        submit_gate: str,
+        broker_order_id: str | None = None,
+    ) -> None:
+        try:
+            decision_status = str(preflight_decision.get("decision_status") or "unknown").strip().lower()
+            blocked = self._is_submit_blocked_by_preflight(preflight_decision)
+            decision_reason, reason_code, reason_text, blocked_reasons = self._decision_reason_fields(
+                preflight_decision, warnings
+            )
+            execution_mode, account_mode = self._execution_mode_metadata()
+
+            record = BrokerSubmitDecisionRecord(
+                intent=intent,
+                would_block=blocked,
+                decision_status=decision_status,
+                allowed_to_submit=not blocked,
+                decision_reason=decision_reason,
+                blocked_reason_code=reason_code,
+                blocked_reason_text=reason_text,
+                blocked_reasons=blocked_reasons,
+                warnings=warnings,
+                execution_mode=execution_mode,
+                account_mode=account_mode,
+                source=source,
+                submit_gate=submit_gate,
+                broker_order_id=broker_order_id,
+            )
+            with SessionLocal() as session:
+                writer = BrokerSubmitDecisionService(session)
+                writer.persist(record)
+                session.commit()
+        except Exception:
+            _logger.exception(
+                "Failed to persist broker submit decision intent=%s source=%s",
+                intent,
+                source,
+            )
+
+    def _persist_submit_decision_from_result(
+        self,
+        *,
+        result: dict[str, Any],
+        intent: str,
+        source: str,
+    ) -> None:
+        preflight_decision = dict(result.get("preflight_decision") or {})
+        warnings = list(result.get("warnings") or [])
+        submit_gate = str(preflight_decision.get("submit_gate") or "not_applied")
+        self._persist_submit_decision(
+            intent=intent,
+            preflight_decision=preflight_decision,
+            warnings=warnings,
+            source=source,
+            submit_gate=submit_gate,
+        )
 
     def _collect_preflight_warnings(
         self,
