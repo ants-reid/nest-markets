@@ -243,6 +243,14 @@
   font-size: 0.94rem;
 }
 
+.readinessReasonPass {
+  color: var(--state-success);
+}
+
+.readinessReasonFail {
+  color: var(--state-danger);
+}
+
 @media (max-width: 720px) {
   .header {
     flex-direction: column;

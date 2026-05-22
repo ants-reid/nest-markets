@@ -39,6 +39,190 @@ function formatBoolean(value: boolean | null): string {
   return value ? "yes" : "no";
 }
 
+type ManualPaperSubmitReadinessStatus =
+  | "ready_for_future_manual_paper_submit"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "unknown";
+
+type ManualPaperSubmitReadinessReason = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+};
+
+type ManualPaperSubmitReadiness = {
+  status: ManualPaperSubmitReadinessStatus;
+  title: string;
+  body: string;
+  reasons: ManualPaperSubmitReadinessReason[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  staleDataWarnings: string[];
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
+function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
+  if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
+  if (status === "blocked") return styles.statusBlocked;
+  if (status === "missing_context" || status === "dry_run_required") return styles.statusMissing;
+  return styles.statusUnknown;
+}
+
+function formatReadinessStatus(status: ManualPaperSubmitReadinessStatus): string {
+  if (status === "ready_for_future_manual_paper_submit") return "ready for future manual paper submit";
+  if (status === "dry_run_required") return "dry-run required";
+  return formatStatus(status);
+}
+
+function uniqueMessages(values: Array<string | null | undefined>): string[] {
+  return values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, all) => all.indexOf(value) === index);
+}
+
+function deriveManualPaperSubmitReadiness(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+): ManualPaperSubmitReadiness {
+  const preflightStatus = preview?.preflight_decision?.decision_status ?? null;
+  const dryRunPassed =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.dry_run_status === "ready";
+  const preflightNonBlocking =
+    preview !== null &&
+    preflightStatus !== null &&
+    ["allowed", "advisory"].includes(preflightStatus) &&
+    preview.would_block === false;
+  const liveLocked =
+    result.live_state === "ibkr_live_locked" &&
+    result.live_trading_enabled === false &&
+    (preview?.live_trading_enabled ?? false) === false;
+  const workersNonSubmitting =
+    result.workers_allowed_to_submit === false &&
+    (preview?.workers_allowed_to_submit ?? false) === false;
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const resolvedRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const routeCheckPassed = result.route_check_status === "eligible";
+  const sourceLabelsCorrect =
+    result.execution_source === "recommendation_route_check" &&
+    result.serious_paper_source === "ibkr_paper" &&
+    (preview?.dry_run_execution_source ?? "broker_dry_run") === "broker_dry_run" &&
+    (preview?.serious_paper_source ?? "ibkr_paper") === "ibkr_paper";
+  const noSubmitControlPresent = true;
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...(preview?.preflight_decision?.blocking_items.map((item) => item.message) ?? []),
+    ...(preview?.preflight_decision?.would_block_items.map((item) => item.message) ?? []),
+  ]);
+  const missingData = uniqueMessages([...result.missing_data, ...(preview?.missing_data ?? [])]);
+  const warnings = uniqueMessages(preview?.warnings.map((warning) => warning.message) ?? []);
+  const staleDataWarnings = warnings.filter((warning) => /stale/i.test(warning));
+
+  const reasons: ManualPaperSubmitReadinessReason[] = [
+    { code: "route_check_passed", label: "Route-check passed", satisfied: routeCheckPassed },
+    { code: "broker_mode_paper", label: "Broker mode coherently paper", satisfied: brokerModePaper },
+    {
+      code: "resolved_route_is_broker_orders",
+      label: "Resolved route is /broker/orders",
+      satisfied: resolvedRouteIsBrokerOrders,
+    },
+    { code: "dry_run_passed", label: "Guarded broker dry-run passed", satisfied: dryRunPassed },
+    {
+      code: "preflight_non_blocking",
+      label: "Broker preflight is non-blocking",
+      satisfied: preflightNonBlocking,
+    },
+    { code: "source_labels_correct", label: "Source labels are correct", satisfied: sourceLabelsCorrect },
+    { code: "live_locked", label: "Live remains locked", satisfied: liveLocked },
+    { code: "workers_non_submitting", label: "Workers remain non-submitting", satisfied: workersNonSubmitting },
+    {
+      code: "no_submit_control_present",
+      label: "No submit control is present",
+      satisfied: noSubmitControlPresent,
+    },
+  ];
+
+  let status: ManualPaperSubmitReadinessStatus = "unknown";
+  if (result.route_check_status === "missing_context" || preview?.dry_run_status === "missing_context") {
+    status = "missing_context";
+  } else if (result.route_check_status === "blocked") {
+    status = "blocked";
+  } else if (result.route_check_status !== "eligible") {
+    status = "unknown";
+  } else if (preview === null) {
+    status = "dry_run_required";
+  } else if (
+    blockedReasons.length > 0 ||
+    missingData.length > 0 ||
+    !brokerModePaper ||
+    !resolvedRouteIsBrokerOrders ||
+    !liveLocked ||
+    !workersNonSubmitting ||
+    !dryRunPassed ||
+    !preflightNonBlocking ||
+    !sourceLabelsCorrect
+  ) {
+    status = missingData.length > 0 ? "missing_context" : "blocked";
+  } else {
+    status = "ready_for_future_manual_paper_submit";
+  }
+
+  let title = "Manual IBKR paper submit readiness is unknown";
+  let body = "Readiness only, no order submitted. Review the route-check and dry-run evidence before any future manual handoff.";
+  let nextRequiredAction = "no_action_available";
+  let nextRequiredActionDetail = result.next_required_action;
+
+  if (status === "missing_context") {
+    title = "Missing context before manual paper handoff";
+    body = "Readiness only, no order submitted. Fix the missing recommendation or dry-run context before any future manual IBKR paper submit handoff can be considered.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = missingData[0] ?? preview?.next_required_action ?? result.next_required_action;
+  } else if (status === "blocked") {
+    title = "Blocked before manual paper handoff";
+    body = "Readiness only, no order submitted. One or more route, dry-run, source, or safety gates are still blocking a future manual IBKR paper submit handoff.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail = blockedReasons[0] ?? preview?.next_required_action ?? result.next_required_action;
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required first";
+    body = "Readiness only, no order submitted. The recommendation passed route-check, but guarded broker dry-run evidence is still required before future manual IBKR paper handoff review.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail = "Run the guarded broker dry-run preview before reviewing future manual paper handoff readiness.";
+  } else if (status === "ready_for_future_manual_paper_submit") {
+    title = "Ready for future manual paper handoff";
+    body = "Readiness only, no order submitted. This recommendation has cleared the current route-check and guarded dry-run gates for a future manual IBKR paper submit handoff review.";
+    nextRequiredAction = "future_manual_submit_handoff_available_after_review";
+    nextRequiredActionDetail = "Future manual paper submit would still use guarded /broker/orders after operator review. Live trading remains locked and workers cannot submit.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    reasons,
+    blockedReasons,
+    missingData,
+    warnings,
+    staleDataWarnings,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -158,6 +342,7 @@ export function RecommendationRouteCheckPanel({
   const blockingFindings = preview?.preflight_decision
     ? [...preview.preflight_decision.blocking_items, ...preview.preflight_decision.would_block_items]
     : [];
+  const readiness = result ? deriveManualPaperSubmitReadiness(result, preview) : null;
 
   return (
     <section
@@ -506,6 +691,125 @@ export function RecommendationRouteCheckPanel({
               </p>
             ) : null}
           </section>
+
+          {readiness ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-readiness-${recommendationId}`}
+              aria-label={`Manual IBKR paper submit readiness for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Readiness review</p>
+                  <h5 className={styles.previewTitle}>Manual IBKR paper submit readiness</h5>
+                  <p className={styles.subtitle}>
+                    Readiness only, no order submitted. Future manual paper submit would still use the guarded /broker/orders path.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${readinessStatusClassName(readiness.status)}`}
+                  data-testid={`recommendation-submit-readiness-status-${recommendationId}`}
+                >
+                  {formatReadinessStatus(readiness.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(readiness.status)}`}
+                data-testid={`recommendation-submit-readiness-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{readiness.title}</p>
+                <p className={styles.summaryText}>{readiness.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Next required action</span>
+                  <span className={styles.value}>{formatStatus(readiness.nextRequiredAction)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Resolved route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{result.resolved_route ?? preview?.resolved_route ?? "not resolved"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Broker account mode</span>
+                  <span className={styles.value}>{preview?.broker_account_mode ?? result.broker_account_mode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live state</span>
+                  <span className={styles.value}>{preview?.live_state ?? result.live_state}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Would block</span>
+                  <span className={styles.value}>{preview?.would_block ?? result.would_block ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Allowed to submit</span>
+                  <span className={styles.value}>{formatBoolean(preview?.allowed_to_submit ?? null)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Readiness reasons</h5>
+                <ul className={styles.list}>
+                  {readiness.reasons.map((reason) => (
+                    <li key={reason.code}>
+                      {reason.label}: {reason.satisfied ? "yes" : "no"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {readiness.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current readiness review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {readiness.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {readiness.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current readiness review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {readiness.missingData.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings and stale data</h5>
+                <p className={styles.emptyText}>
+                  {readiness.warnings.length === 0
+                    ? "No warnings surfaced."
+                    : `${readiness.warnings.length} warning${readiness.warnings.length === 1 ? "" : "s"} surfaced.`}
+                </p>
+                <p className={styles.emptyText}>
+                  {readiness.staleDataWarnings.length === 0
+                    ? "No stale-data warnings surfaced."
+                    : `${readiness.staleDataWarnings.length} stale-data warning${readiness.staleDataWarnings.length === 1 ? "" : "s"} surfaced.`}
+                </p>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{readiness.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                No order submitted. No submit button was added here. Future manual paper submit would still use guarded /broker/orders. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
         </>
       ) : null}
     </section>

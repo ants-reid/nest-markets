@@ -342,6 +342,18 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
     "/broker#broker-execution",
   );
   await expect(page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1")).toBeVisible();
+  await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-1")).toContainText(
+    /dry-run required/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-readiness-summary-recommendation-1")).toContainText(
+    /readiness only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-readiness-recommendation-1")).toContainText(
+    /live remains locked/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-readiness-recommendation-1")).toContainText(
+    /workers cannot submit/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
@@ -366,6 +378,16 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
   await expect(page.getByTestId("recommendation-dry-run-preview-recommendation-1")).toContainText(
     /dry-run validates the ibkr paper submit path without placing an order/i,
   );
+  await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-1")).toContainText(
+    /ready for future manual paper submit/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-readiness-summary-recommendation-1")).toContainText(
+    /ready for future manual paper handoff/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-readiness-recommendation-1")).toContainText(
+    /no submit control is present: yes/i,
+  );
+  await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
 });
 
 test("In-Flight Adjustments recommendation route-check renders blocked and missing-context states", async ({ page }) => {
@@ -508,11 +530,15 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await page.getByTestId("recommendation-route-check-trigger-recommendation-live-blocked").click();
   await expect(page.getByTestId("recommendation-route-check-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-live-blocked")).toContainText(/live submit remains locked/i);
+  await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByRole("link", { name: /open guarded broker dry-run/i })).toHaveCount(0);
 
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
   await expect(page.getByTestId("recommendation-route-check-status-recommendation-missing-context")).toContainText(/missing context/i);
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-missing-context")).toContainText(/operator approval is required/i);
+  await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-missing-context")).toContainText(
+    /missing context/i,
+  );
   expect(dryRunPreviewCalls).toBe(0);
 });
 
