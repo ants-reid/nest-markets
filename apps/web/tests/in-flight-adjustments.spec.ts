@@ -43,6 +43,31 @@ async function routeRecommendationRouteChecks(
   });
 }
 
+async function routeRecommendationDryRunPreviews(
+  page: import("@playwright/test").Page,
+  responses: Record<string, MockRouteResponse>,
+) {
+  await page.route("**/paper/recommendations/**/broker-dry-run-preview*", async (route) => {
+    const requestUrl = new URL(route.request().url());
+
+    if (requestUrl.origin !== API_ORIGIN) {
+      await route.continue();
+      return;
+    }
+
+    const parts = requestUrl.pathname.split("/");
+    const recommendationId = parts[3];
+    const response = recommendationId ? responses[recommendationId] : undefined;
+
+    if (!response) {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill(response);
+  });
+}
+
 function buildInFlightReport(overrides: Record<string, unknown> = {}) {
   return {
     generated_at: "2026-05-22T20:15:00+00:00",
@@ -192,6 +217,81 @@ async function mockInFlightReport(
       }),
     },
   });
+
+  await routeRecommendationDryRunPreviews(page, {
+    "recommendation-1": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        recommendation_id: "recommendation-1",
+        recommendation_status: "approved",
+        ticker: "NVDA",
+        side: "BUY",
+        quantity: 3,
+        order_type: "MARKET",
+        limit_price: null,
+        estimated_notional: 300,
+        risk_score: 0.18,
+        route_check_status: "eligible",
+        dry_run_status: "ready",
+        dry_run_only: true,
+        dry_run_executed: true,
+        allowed_to_submit: true,
+        resolved_route: "/broker/orders",
+        resolved_execution_source: "ibkr_paper",
+        dry_run_execution_source: "broker_dry_run",
+        balance_source: "ibkr_paper",
+        fees_source: "pending_broker_report",
+        fills_source: "pending_broker_fill",
+        positions_source: "ibkr_paper",
+        serious_paper_source: "ibkr_paper",
+        is_canonical_paper: true,
+        broker_account_mode: "paper",
+        live_state: "ibkr_live_locked",
+        would_block: false,
+        blocked_reason: null,
+        missing_data: [],
+        next_required_action: "Review this guarded broker dry-run preview, then use the existing POST /broker/orders manual paper submit path only if the operator still accepts the preflight findings.",
+        is_submit: false,
+        workers_allowed_to_submit: false,
+        live_trading_enabled: false,
+        canonical_paper_route: "/broker/orders",
+        broker_mode: {
+          broker: "ibkr",
+          mode: "paper",
+          live_execution_enabled: false,
+          paper_trading_enabled: true,
+        },
+        mode_guard_ok: true,
+        request_valid: true,
+        issues: [],
+        warnings: [],
+        preflight_decision: {
+          decision_status: "allowed",
+          submit_gate: "not_applied",
+          advisory_count: 0,
+          would_block_count: 0,
+          blocking_count: 0,
+          advisory_items: [],
+          would_block_items: [],
+          blocking_items: [],
+        },
+        preflight_context: {
+          cash_balance: null,
+          buying_power: null,
+          open_position_count: null,
+          current_symbol_exposure: null,
+          estimated_post_trade_symbol_exposure: null,
+          current_total_exposure: null,
+          estimated_post_trade_total_exposure: null,
+          daily_pnl: null,
+          daily_loss: null,
+          risk_limit_snapshot: null,
+        },
+        paper_path_note: "Dry-run validates the IBKR paper submit path without placing an order.",
+      }),
+    },
+  });
 }
 
 test("In-Flight Adjustments route renders summary and paper read-only wording", async ({ page }) => {
@@ -241,9 +341,35 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
     "href",
     "/broker#broker-execution",
   );
+  await expect(page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1")).toBeVisible();
+});
+
+test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
+  await mockInFlightReport(page);
+
+  await page.goto("/cockpit/in-flight-adjustments");
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
+  await page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1").click();
+
+  await expect(page.getByTestId("recommendation-dry-run-preview-status-recommendation-1")).toContainText(/ready/i);
+  await expect(page.getByTestId("recommendation-dry-run-preview-summary-recommendation-1")).toContainText(
+    /no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-dry-run-preview-recommendation-1")).toContainText(
+    /broker_dry_run/i,
+  );
+  await expect(page.getByTestId("recommendation-dry-run-preview-recommendation-1")).toContainText(
+    /allowed to submit/i,
+  );
+  await expect(page.getByTestId("recommendation-dry-run-preview-recommendation-1")).toContainText(
+    /dry-run validates the ibkr paper submit path without placing an order/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation route-check renders blocked and missing-context states", async ({ page }) => {
+  let dryRunPreviewCalls = 0;
   await mockInFlightReport(page, buildInFlightReport({
     items: [
       {
@@ -366,6 +492,15 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
       }),
     },
   });
+  await page.unroute("**/paper/recommendations/**/broker-dry-run-preview*");
+  await page.route("**/paper/recommendations/**/broker-dry-run-preview*", async (route) => {
+    dryRunPreviewCalls += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "text/plain",
+      body: "dry-run preview should not have been called",
+    });
+  });
 
   await page.goto("/cockpit/in-flight-adjustments");
   await page.waitForLoadState("domcontentloaded");
@@ -378,6 +513,7 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
   await expect(page.getByTestId("recommendation-route-check-status-recommendation-missing-context")).toContainText(/missing context/i);
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-missing-context")).toContainText(/operator approval is required/i);
+  expect(dryRunPreviewCalls).toBe(0);
 });
 
 test("In-Flight Adjustments recommendation route-check shows fetch error safely", async ({ page }) => {
@@ -401,6 +537,28 @@ test("In-Flight Adjustments recommendation route-check shows fetch error safely"
   );
 });
 
+test("In-Flight Adjustments recommendation dry-run preview shows fetch error safely", async ({ page }) => {
+  await mockInFlightReport(page);
+
+  await page.unroute("**/paper/recommendations/**/broker-dry-run-preview*");
+  await routeRecommendationDryRunPreviews(page, {
+    "recommendation-1": {
+      status: 503,
+      contentType: "text/plain",
+      body: "dry-run preview unavailable",
+    },
+  });
+
+  await page.goto("/cockpit/in-flight-adjustments");
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
+  await page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1").click();
+  await expect(page.getByTestId("recommendation-dry-run-preview-error-recommendation-1")).toContainText(
+    /dry-run preview unavailable/i,
+  );
+});
+
 test("cockpit/in-flight-adjustments expanded recommendation route-check has no horizontal overflow at 390px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockInFlightReport(page);
@@ -408,6 +566,7 @@ test("cockpit/in-flight-adjustments expanded recommendation route-check has no h
   await page.goto("/cockpit/in-flight-adjustments");
   await page.waitForLoadState("domcontentloaded");
   await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
+  await page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1").click();
   await expect(page.getByTestId("recommendation-route-check-summary-recommendation-1")).toBeVisible();
 
   const overflow = await page.evaluate(() => ({

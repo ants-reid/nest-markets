@@ -25,6 +25,9 @@ from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.session import SessionLocal
 from app.services.broker_preflight_decision_service import BrokerPreflightDecisionService
 from app.services.broker_service import BrokerService
+from app.services.paper_recommendation_broker_dry_run_preview_service import (
+    PaperRecommendationBrokerDryRunPreviewService,
+)
 from app.services.paper_recommendation_route_check_service import PaperRecommendationRouteCheckService
 from app.services.paper_recommendation_service import PaperRecommendationService
 from app.services.paper_source_contract import (
@@ -170,6 +173,106 @@ def test_serious_paper_route_check_fails_closed_in_unknown_mode(monkeypatch):
     assert decision.can_route_to_broker_paper is False
     assert decision.would_block is True
     assert "coherently paper" in (decision.blocked_reason or "").lower()
+
+
+def test_operator_recommendation_dry_run_preview_reuses_existing_broker_dry_run_without_submit(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    recommendation = SimpleNamespace(
+        id=uuid4(),
+        status="approved",
+        ticker="AAPL",
+        side="BUY",
+        quantity=Decimal("1"),
+        order_type="LIMIT",
+        limit_price=Decimal("100"),
+        estimated_notional=Decimal("100"),
+        risk_score=Decimal("0.2"),
+    )
+
+    with patch.object(PaperRecommendationService, "get_recommendation", return_value=recommendation), patch.object(
+        BrokerService,
+        "dry_run_order",
+        return_value={
+            "status": "ready",
+            "mode_guard_ok": True,
+            "request_valid": True,
+            "estimated_notional": 100.0,
+            "issues": [],
+            "warnings": [],
+            "preflight_decision": {
+                "decision_status": "allowed",
+                "submit_gate": "not_applied",
+                "advisory_count": 0,
+                "would_block_count": 0,
+                "blocking_count": 0,
+                "advisory_items": [],
+                "would_block_items": [],
+                "blocking_items": [],
+            },
+            "preflight_context": {},
+            "broker_mode": {
+                "broker": "ibkr",
+                "mode": "paper",
+                "live_execution_enabled": False,
+                "paper_trading_enabled": True,
+            },
+            "execution_source": SOURCE_BROKER_DRY_RUN,
+            "balance_source": SOURCE_IBKR_PAPER,
+            "fees_source": "pending_broker_report",
+            "fills_source": "pending_broker_fill",
+            "positions_source": SOURCE_IBKR_PAPER,
+            "serious_paper_source": SOURCE_IBKR_PAPER,
+            "is_canonical_paper": True,
+            "canonical_paper_route": CANONICAL_PAPER_ROUTE,
+            "broker_account_mode": "paper",
+            "live_state": "ibkr_live_locked",
+            "paper_path_note": "Dry-run validates the IBKR paper submit path without placing an order.",
+        },
+    ) as dry_run_order, patch.object(BrokerService, "submit_order", new_callable=AsyncMock) as submit_order:
+        decision = PaperRecommendationBrokerDryRunPreviewService(MagicMock()).resolve_preview(recommendation.id)
+
+    assert decision is not None
+    assert decision.route_check_status == "eligible"
+    assert decision.dry_run_status == "ready"
+    assert decision.dry_run_executed is True
+    assert decision.allowed_to_submit is True
+    assert decision.dry_run_execution_source == SOURCE_BROKER_DRY_RUN
+    dry_run_order.assert_called_once()
+    submit_order.assert_not_called()
+
+
+def test_operator_recommendation_dry_run_preview_fails_closed_before_dry_run_when_context_missing(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    recommendation = SimpleNamespace(
+        id=uuid4(),
+        status="draft",
+        ticker="AAPL",
+        side="BUY",
+        quantity=Decimal("1"),
+        order_type="MARKET",
+        limit_price=None,
+        estimated_notional=Decimal("100"),
+        risk_score=Decimal("0.2"),
+    )
+
+    with patch.object(PaperRecommendationService, "get_recommendation", return_value=recommendation), patch.object(
+        BrokerService, "dry_run_order"
+    ) as dry_run_order:
+        decision = PaperRecommendationBrokerDryRunPreviewService(MagicMock()).resolve_preview(recommendation.id)
+
+    assert decision is not None
+    assert decision.route_check_status == "missing_context"
+    assert decision.dry_run_status == "missing_context"
+    assert decision.dry_run_executed is False
+    dry_run_order.assert_not_called()
 
 
 def test_submit_decision_persistence_keeps_source_and_sanitizes_warning_payload():

@@ -13838,3 +13838,94 @@ still 100% green.
 
 -> Continue with the next paper-safe operator review surfaces or adjacent cockpit maintenance work, keeping recommendation route review read-only unless a future phase explicitly expands guarded manual workflow support.
 
+## Manual Guarded Broker Dry-Run Review Surface
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Extend the existing operator recommendation route-check review surface with a recommendation-owned guarded broker dry-run preview. The preview remains dry-run-only, appears only after route-check eligibility, never exposes submit controls, keeps workers non-submitting, and leaves live locked.
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a guarded broker dry-run preview action for eligible recommendation route-check results.
+- The preview subpanel stays recommendation-owned, shows dry-run-only status/findings/warnings/next steps, and never exposes manual submit or auto-submit controls.
+- The operator flow remains review-first: route-check must resolve `eligible` before the preview request is attempted.
+
+### API Helper / Component Added
+
+- `apps/web/lib/api/paperRecommendations.ts` — added `previewPaperRecommendationBrokerDryRun(...)` and the `PaperRecommendationBrokerDryRunPreview` contract.
+- `apps/web/lib/api/broker.ts` — expanded dry-run types with source-label and preflight-decision metadata reused by the preview panel.
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` — extended the read-only review panel with guarded preview fetch, preview summary copy, and dry-run-only result rendering.
+- `apps/web/components/RecommendationRouteCheckPanel.module.css` — added preview-specific subpanel/button styling.
+- `apps/web/tests/in-flight-adjustments.spec.ts` — expanded Playwright coverage for eligible preview success, preview fetch error, and blocked/missing-context states that must not call the preview endpoint.
+
+### Backend Preview Route / Service Added
+
+- `POST /paper/recommendations/{recommendation_id}/broker-dry-run-preview`
+- `apps/api/app/services/paper_recommendation_broker_dry_run_preview_service.py`
+
+### Contract Outcome
+
+- The new preview endpoint is recommendation-owned and enforces route-check eligibility server-side before any broker dry-run request is constructed.
+- Preview requests reuse `BrokerService.dry_run_order(...)` semantics only, apply canonical source labels, and persist or reuse append-only dry-run decision rows without calling broker submit.
+- STOP and STOP_LIMIT recommendations fail closed when `stop_price` cannot be reconstructed from persisted recommendation data.
+- Live-config or otherwise incoherent broker mode fails closed before dry-run execution.
+- `allowed_to_submit` remains false and no submit path is activated by this phase.
+
+### Safety Confirmation
+
+- Dry-run only; no submit controls added.
+- Workers remain non-submitting.
+- Live remains locked.
+- Recommendation route-check remains read-only.
+- Canonical manual submit path remains `POST /broker/orders`.
+
+### Files Changed
+
+- `apps/api/app/api/routes/paper_recommendations.py`
+- `apps/api/app/schemas/broker_schemas.py`
+- `apps/api/app/services/paper_recommendation_broker_dry_run_preview_service.py`
+- `apps/api/app/services/paper_recommendation_route_check_service.py`
+- `apps/api/tests/routes/test_paper_recommendations.py`
+- `apps/api/tests/test_post_lock_simulation_regression.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/web/lib/api/broker.ts`
+- `apps/web/lib/api/paperRecommendations.ts`
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/components/RecommendationRouteCheckPanel.module.css`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Backend lint: `cd apps/api && .venv/bin/ruff check app tests` -> pass
+- Focused backend preview + regression slice: `cd apps/api && .venv/bin/python -m pytest tests/routes/test_paper_recommendations.py tests/test_post_lock_simulation_regression.py -q` -> `41 passed`
+- Route registry drift lock: `cd apps/api && .venv/bin/python -m pytest tests/test_route_registry_drift_lock.py -q` -> `4 passed`
+- Full backend validation: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2405 passed`
+- Frontend lint: `cd apps/web && npm run lint` -> pass
+- Frontend build: `cd apps/web && npm run build` -> pass
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line` -> `10 passed`
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line` -> `4 passed`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh` -> `99 passed`
+
+### TypeScript Classification
+
+- `cd apps/web && npx tsc --noEmit` still reports unrelated pre-existing failures in `tests/inspect_charts.spec.ts` and `tests/visual.spec.ts`.
+- Those files were not part of this change slice, and the normal project gates for this workspace remain `npm run lint` and `npm run build`, both of which are green.
+
+### Runtime Recovery Note
+
+- Browser validation briefly hit the known stale Next.js chunk error (`Cannot find module './966.js'`) after `next build` and `next dev` overlapped.
+- Final Playwright validation was run only after fully stopping dev processes, removing `apps/web/.next`, and restarting a clean dev runtime on `127.0.0.1:3100`, which restored HTTP 200 on `/cockpit/in-flight-adjustments`.
+
+### Known Limitations
+
+- The preview panel is intentionally recommendation-owned and review-only within the in-flight adjustments page.
+- The panel does not submit broker orders and does not broaden worker execution authority.
+
+### Next Recommended Phase
+
+-> If a future phase needs a manual operator handoff from preview to actual submit, keep the preview recommendation-owned and route any actual submission through the existing guarded `POST /broker/orders` seam without adding auto-submit behavior.
+

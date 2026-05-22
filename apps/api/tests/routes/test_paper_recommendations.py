@@ -7,6 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
+from app.db.models import TradingHalt
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
+from app.db.models.risk_limit_config import RiskLimitConfig
+from app.db.session import SessionLocal
 from app.main import create_app
 
 
@@ -23,6 +27,28 @@ def _clear_settings_cache():
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_safety_side_effect_rows():
+    """Keep recommendation route tests isolated from shared risk/halt state."""
+    with SessionLocal() as session:
+        session.query(TradingHalt).filter(
+            TradingHalt.scope == "global",
+            TradingHalt.status == "active",
+        ).delete(synchronize_session=False)
+        session.query(RiskLimitConfig).delete(synchronize_session=False)
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+        session.commit()
+    yield
+    with SessionLocal() as session:
+        session.query(TradingHalt).filter(
+            TradingHalt.scope == "global",
+            TradingHalt.status == "active",
+        ).delete(synchronize_session=False)
+        session.query(RiskLimitConfig).delete(synchronize_session=False)
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+        session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -315,6 +341,212 @@ def test_get_serious_paper_route_check_returns_missing_context_for_unapproved_re
         "operator approval is required before manual IBKR paper submit"
     ]
     assert "operator approval" in data["next_required_action"].lower()
+
+
+def test_get_serious_paper_route_check_flags_missing_stop_price_for_stop_orders(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "NVDA",
+            "side": "BUY",
+            "quantity": 3.0,
+            "order_type": "STOP",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route_check_status"] == "missing_context"
+    assert any("stop_price" in entry for entry in data["missing_data"])
+
+
+def test_post_broker_dry_run_preview_runs_guarded_dry_run_for_eligible_recommendation(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "AAPL",
+            "side": "BUY",
+            "quantity": 10.0,
+            "order_type": "LIMIT",
+            "limit_price": 180.5,
+            "risk_score": 0.2,
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    response = client.post(f"/paper/recommendations/{rec_id}/broker-dry-run-preview")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recommendation_id"] == rec_id
+    assert data["route_check_status"] == "eligible"
+    assert data["dry_run_status"] == "ready"
+    assert data["dry_run_only"] is True
+    assert data["dry_run_executed"] is True
+    assert data["allowed_to_submit"] is True
+    assert data["is_submit"] is False
+    assert data["would_block"] is False
+    assert data["dry_run_execution_source"] == "broker_dry_run"
+    assert data["balance_source"] == "ibkr_paper"
+    assert data["positions_source"] == "ibkr_paper"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["canonical_paper_route"] == "/broker/orders"
+    assert data["preflight_decision"]["submit_gate"] == "not_applied"
+    assert data["workers_allowed_to_submit"] is False
+    assert data["live_trading_enabled"] is False
+
+
+def test_post_broker_dry_run_preview_persists_existing_dry_run_decision_row(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "AAPL",
+            "side": "BUY",
+            "quantity": 10.0,
+            "order_type": "LIMIT",
+            "limit_price": 180.5,
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    response = client.post(f"/paper/recommendations/{rec_id}/broker-dry-run-preview")
+    assert response.status_code == 200
+
+    from app.db.models.broker_submit_decision import BrokerSubmitDecision
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as session:
+        row = (
+            session.query(BrokerSubmitDecision)
+            .order_by(BrokerSubmitDecision.created_at.desc())
+            .first()
+        )
+        assert row is not None
+        assert row.intent == "manual"
+        assert row.preflight_json["source"] == "dry_run"
+        assert row.preflight_json["execution_source"] == "broker_dry_run"
+
+
+def test_post_broker_dry_run_preview_blocks_before_dry_run_in_live_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("BROKER_MODE", "live")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "MSFT",
+            "side": "SELL",
+            "quantity": 5.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    with patch("app.services.broker_service.BrokerService.dry_run_order") as dry_run_order, patch(
+        "app.services.broker_service.BrokerService.submit_order", new_callable=AsyncMock
+    ) as submit_order:
+        response = client.post(f"/paper/recommendations/{rec_id}/broker-dry-run-preview")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route_check_status"] == "blocked"
+    assert data["dry_run_status"] == "blocked"
+    assert data["dry_run_executed"] is False
+    assert data["allowed_to_submit"] is False
+    assert data["dry_run_execution_source"] is None
+    dry_run_order.assert_not_called()
+    submit_order.assert_not_called()
+
+
+def test_post_broker_dry_run_preview_blocks_before_dry_run_when_context_missing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "TSLA",
+            "side": "BUY",
+            "quantity": 2.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+
+    with patch("app.services.broker_service.BrokerService.dry_run_order") as dry_run_order, patch(
+        "app.services.broker_service.BrokerService.submit_order", new_callable=AsyncMock
+    ) as submit_order:
+        response = client.post(f"/paper/recommendations/{rec_id}/broker-dry-run-preview")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route_check_status"] == "missing_context"
+    assert data["dry_run_status"] == "missing_context"
+    assert data["dry_run_executed"] is False
+    assert data["allowed_to_submit"] is False
+    dry_run_order.assert_not_called()
+    submit_order.assert_not_called()
+
+
+def test_post_broker_dry_run_preview_never_calls_submit_order(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "AAPL",
+            "side": "BUY",
+            "quantity": 10.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    with patch("app.services.broker_service.BrokerService.submit_order", new_callable=AsyncMock) as submit_order:
+        response = client.post(f"/paper/recommendations/{rec_id}/broker-dry-run-preview")
+
+    assert response.status_code == 200
+    submit_order.assert_not_called()
 
 
 def test_get_serious_paper_route_check_does_not_mutate_recommendation_state(

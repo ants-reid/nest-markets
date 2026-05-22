@@ -95,6 +95,12 @@
   opacity: 0.7;
 }
 
+.secondaryButton {
+  background: color-mix(in srgb, var(--bg-surface) 68%, var(--accent-primary));
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
 .inlineError {
   border-radius: 0.75rem;
   border: 1px solid var(--state-danger);
@@ -218,8 +224,31 @@
   font-size: 0.84rem;
 }
 
+.subpanel {
+  border-top: 1px solid var(--border-default);
+  padding-top: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.previewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
 @media (max-width: 720px) {
   .header {
+    flex-direction: column;
+  }
+
+  .previewHeader {
     flex-direction: column;
   }
 

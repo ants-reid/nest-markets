@@ -136,8 +136,12 @@ class PaperRecommendationRouteCheckService:
         order_type = str(recommendation.order_type or "").upper()
         if not order_type:
             missing.append("order_type is required")
-        if order_type == "LIMIT" and recommendation.limit_price is None:
-            missing.append("limit_price is required for LIMIT recommendations")
+        if order_type in {"LIMIT", "STOP_LIMIT"} and recommendation.limit_price is None:
+            missing.append("limit_price is required for LIMIT and STOP_LIMIT recommendations")
+        if order_type in {"STOP", "STOP_LIMIT"}:
+            missing.append(
+                "stop_price is required for STOP and STOP_LIMIT recommendations, but this recommendation does not persist stop_price"
+            )
 
         if str(recommendation.status) != PaperRecommendationStatus.APPROVED:
             missing.append("operator approval is required before manual IBKR paper submit")

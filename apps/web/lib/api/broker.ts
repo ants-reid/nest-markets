@@ -123,6 +123,26 @@ export interface BrokerOrderDryRunIssue {
   enforcement_enabled?: boolean | null;
 }
 
+export interface BrokerOrderPreflightDecisionItem {
+  code: string;
+  message: string;
+  severity?: string | null;
+  source?: string | null;
+  enforcement_enabled: boolean;
+  classification: string;
+}
+
+export interface BrokerOrderDryRunPreflightDecision {
+  decision_status: string;
+  submit_gate: string;
+  advisory_count: number;
+  would_block_count: number;
+  blocking_count: number;
+  advisory_items: BrokerOrderPreflightDecisionItem[];
+  would_block_items: BrokerOrderPreflightDecisionItem[];
+  blocking_items: BrokerOrderPreflightDecisionItem[];
+}
+
 export interface RiskLimitSnapshot {
   scope: string | null;
   trading_mode: string | null;
@@ -156,8 +176,20 @@ export interface BrokerOrderDryRunResult {
   estimated_notional: number | null;
   issues: BrokerOrderDryRunIssue[];
   warnings: BrokerOrderDryRunIssue[];
+  preflight_decision: BrokerOrderDryRunPreflightDecision;
   preflight_context: DryRunPreflightContext | null;
   broker_mode: BrokerModeInfo;
+  execution_source: string;
+  balance_source: string;
+  fees_source: string;
+  fills_source: string;
+  positions_source: string;
+  serious_paper_source: string;
+  is_canonical_paper: boolean;
+  canonical_paper_route: string;
+  broker_account_mode: string;
+  live_state: string;
+  paper_path_note: string;
 }
 
 export interface BrokerOrderDryRunRequest extends BrokerOrderRequest {

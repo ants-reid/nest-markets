@@ -86,6 +86,57 @@ class PaperRecommendationRouteCheckResponseSchema(BaseModel):
     broker_mode: BrokerModeSchema
 
 
+class PaperRecommendationBrokerDryRunPreviewResponseSchema(BaseModel):
+    """Guarded dry-run preview for a persisted recommendation.
+
+    This surface is recommendation-owned, never submits, and only executes the
+    existing broker dry-run path when the recommendation first passes the
+    read-only serious-paper route-check.
+    """
+
+    recommendation_id: UUID
+    recommendation_status: str
+    ticker: Optional[str] = None
+    side: Optional[str] = None
+    quantity: Optional[float] = None
+    order_type: Optional[str] = None
+    limit_price: Optional[float] = None
+    estimated_notional: Optional[float] = None
+    risk_score: Optional[float] = None
+    route_check_status: str
+    dry_run_status: str
+    dry_run_only: bool = True
+    dry_run_executed: bool = False
+    allowed_to_submit: Optional[bool] = None
+    resolved_route: Optional[str] = None
+    resolved_execution_source: Optional[str] = None
+    dry_run_execution_source: Optional[str] = None
+    balance_source: Optional[str] = None
+    fees_source: Optional[str] = None
+    fills_source: Optional[str] = None
+    positions_source: Optional[str] = None
+    serious_paper_source: str = "ibkr_paper"
+    is_canonical_paper: bool = False
+    broker_account_mode: str
+    live_state: str = "ibkr_live_locked"
+    would_block: bool
+    blocked_reason: Optional[str] = None
+    missing_data: list[str] = Field(default_factory=list)
+    next_required_action: str
+    is_submit: bool = False
+    workers_allowed_to_submit: bool = False
+    live_trading_enabled: bool = False
+    canonical_paper_route: str = "/broker/orders"
+    broker_mode: BrokerModeSchema
+    mode_guard_ok: Optional[bool] = None
+    request_valid: Optional[bool] = None
+    issues: list[OrderDryRunIssueSchema] = Field(default_factory=list)
+    warnings: list[OrderDryRunIssueSchema] = Field(default_factory=list)
+    preflight_decision: Optional[OrderDryRunPreflightDecisionSchema] = None
+    preflight_context: Optional[OrderDryRunPreflightContextSchema] = None
+    paper_path_note: Optional[str] = None
+
+
 class OrderRequestSchema(BaseModel):
     """Request body for submitting an order."""
     ticker: str

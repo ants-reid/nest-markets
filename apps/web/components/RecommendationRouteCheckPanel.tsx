@@ -5,21 +5,23 @@ import { useState } from "react";
 
 import {
   getPaperRecommendationRouteCheck,
+  previewPaperRecommendationBrokerDryRun,
+  type PaperRecommendationBrokerDryRunPreview,
   type PaperRecommendationRouteCheck,
 } from "../lib/api/paperRecommendations";
 import styles from "./RecommendationRouteCheckPanel.module.css";
 
 function statusClassName(status: string): string {
-  if (status === "eligible") return styles.statusEligible;
+  if (status === "eligible" || status === "ready") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
-  if (status === "missing_context") return styles.statusMissing;
+  if (status === "missing_context" || status === "invalid") return styles.statusMissing;
   return styles.statusUnknown;
 }
 
 function summaryClassName(status: string): string {
-  if (status === "eligible") return styles.summaryEligible;
+  if (status === "eligible" || status === "ready") return styles.summaryEligible;
   if (status === "blocked") return styles.summaryBlocked;
-  if (status === "missing_context") return styles.summaryMissing;
+  if (status === "missing_context" || status === "invalid") return styles.summaryMissing;
   return styles.summaryUnknown;
 }
 
@@ -30,6 +32,11 @@ function formatStatus(status: string): string {
 function formatMaybeNumber(value: number | null): string {
   if (value === null) return "unknown";
   return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function formatBoolean(value: boolean | null): string {
+  if (value === null) return "not evaluated";
+  return value ? "yes" : "no";
 }
 
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
@@ -64,6 +71,44 @@ function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; bo
   };
 }
 
+function dryRunSummaryCopy(result: PaperRecommendationBrokerDryRunPreview): { title: string; body: string } {
+  if (!result.dry_run_executed) {
+    if (result.dry_run_status === "missing_context") {
+      return {
+        title: "Dry-run preview is unavailable until recommendation context is complete",
+        body: "The guarded broker dry-run was not executed. Complete the missing recommendation context first.",
+      };
+    }
+
+    return {
+      title: "Dry-run preview remains blocked",
+      body: result.blocked_reason ?? "The guarded broker dry-run was not executed in the current safety posture.",
+    };
+  }
+
+  if (result.dry_run_status === "invalid") {
+    return {
+      title: "Dry-run found invalid order details",
+      body: "The preview stayed non-submitting and surfaced invalid recommendation fields that must be corrected first.",
+    };
+  }
+
+  if (result.would_block) {
+    return {
+      title: "Dry-run surfaced preflight findings that still block progression",
+      body:
+        result.blocked_reason ??
+        "The preview stayed non-submitting and flagged findings that must be resolved before the guarded manual paper path should be considered.",
+    };
+  }
+
+  return {
+    title: "Guarded broker dry-run completed with no order submitted",
+    body:
+      "This preview reused the existing broker dry-run path only. It did not place an order, and the guarded manual /broker/orders workflow remains the only paper submit path.",
+  };
+}
+
 export function RecommendationRouteCheckPanel({
   recommendationId,
   symbol,
@@ -72,8 +117,11 @@ export function RecommendationRouteCheckPanel({
   symbol: string;
 }) {
   const [result, setResult] = useState<PaperRecommendationRouteCheck | null>(null);
+  const [preview, setPreview] = useState<PaperRecommendationBrokerDryRunPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -81,6 +129,10 @@ export function RecommendationRouteCheckPanel({
     try {
       const response = await getPaperRecommendationRouteCheck(recommendationId);
       setResult(response);
+      if (response.route_check_status !== "eligible") {
+        setPreview(null);
+        setPreviewError(null);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
@@ -88,7 +140,24 @@ export function RecommendationRouteCheckPanel({
     }
   }
 
+  async function loadPreview() {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const response = await previewPaperRecommendationBrokerDryRun(recommendationId);
+      setPreview(response);
+    } catch (loadError) {
+      setPreviewError(loadError instanceof Error ? loadError.message : String(loadError));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   const summary = result ? summaryCopy(result) : null;
+  const previewSummary = preview ? dryRunSummaryCopy(preview) : null;
+  const blockingFindings = preview?.preflight_decision
+    ? [...preview.preflight_decision.blocking_items, ...preview.preflight_decision.would_block_items]
+    : [];
 
   return (
     <section
@@ -128,6 +197,21 @@ export function RecommendationRouteCheckPanel({
               ? "Refresh IBKR paper route-check"
               : "Review IBKR paper route-check"}
         </button>
+        {result?.route_check_status === "eligible" ? (
+          <button
+            type="button"
+            className={`${styles.button} ${styles.secondaryButton}`}
+            onClick={() => void loadPreview()}
+            disabled={previewLoading}
+            data-testid={`recommendation-dry-run-preview-trigger-${recommendationId}`}
+          >
+            {previewLoading
+              ? "Loading guarded dry-run…"
+              : preview
+                ? "Refresh guarded broker dry-run"
+                : "Run guarded broker dry-run preview"}
+          </button>
+        ) : null}
       </div>
 
       {error ? (
@@ -271,6 +355,157 @@ export function RecommendationRouteCheckPanel({
           <p className={styles.helperText}>
             This panel is read-only. Actual broker submit still stays on the existing guarded /broker/orders manual paper workflow.
           </p>
+
+          <section
+            className={styles.subpanel}
+            data-testid={`recommendation-dry-run-preview-${recommendationId}`}
+            aria-label={`Guarded broker dry-run preview for ${symbol}`}
+          >
+            <div className={styles.previewHeader}>
+              <div className={styles.titleWrap}>
+                <p className={styles.eyebrow}>Guarded preview</p>
+                <h5 className={styles.previewTitle}>Broker dry-run review</h5>
+                <p className={styles.subtitle}>
+                  This preview stays non-submitting and only reuses the existing broker dry-run path when the route-check is eligible.
+                </p>
+              </div>
+              {preview ? (
+                <span
+                  className={`${styles.statusPill} ${statusClassName(preview.dry_run_status)}`}
+                  data-testid={`recommendation-dry-run-preview-status-${recommendationId}`}
+                >
+                  {formatStatus(preview.dry_run_status)}
+                </span>
+              ) : null}
+            </div>
+
+            {result.route_check_status !== "eligible" ? (
+              <p className={styles.helperText}>
+                Dry-run preview stays unavailable until the recommendation is route-check eligible.
+              </p>
+            ) : null}
+
+            {previewError ? (
+              <div
+                className={styles.inlineError}
+                data-testid={`recommendation-dry-run-preview-error-${recommendationId}`}
+                role="alert"
+              >
+                {previewError}
+              </div>
+            ) : null}
+
+            {preview ? (
+              <>
+                <div
+                  className={`${styles.summary} ${summaryClassName(preview.dry_run_status)}`}
+                  data-testid={`recommendation-dry-run-preview-summary-${recommendationId}`}
+                >
+                  <p className={styles.summaryTitle}>{previewSummary?.title}</p>
+                  <p className={styles.summaryText}>{previewSummary?.body}</p>
+                </div>
+
+                <div className={styles.grid}>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Dry-run only</span>
+                    <span className={styles.value}>{preview.dry_run_only ? "yes" : "no"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Dry-run executed</span>
+                    <span className={styles.value}>{preview.dry_run_executed ? "yes" : "no"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Allowed to submit</span>
+                    <span className={styles.value}>{formatBoolean(preview.allowed_to_submit)}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Would block</span>
+                    <span className={styles.value}>{preview.would_block ? "yes" : "no"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Mode guard ok</span>
+                    <span className={styles.value}>{formatBoolean(preview.mode_guard_ok)}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Request valid</span>
+                    <span className={styles.value}>{formatBoolean(preview.request_valid)}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Dry-run execution source</span>
+                    <span className={styles.value}>{preview.dry_run_execution_source ?? "not run"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Balance source</span>
+                    <span className={styles.value}>{preview.balance_source ?? "not run"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Positions source</span>
+                    <span className={styles.value}>{preview.positions_source ?? "not run"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Preflight decision</span>
+                    <span className={styles.value}>{preview.preflight_decision?.decision_status ?? "not evaluated"}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Estimated notional</span>
+                    <span className={styles.value}>{formatMaybeNumber(preview.estimated_notional)}</span>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.label}>Paper path note</span>
+                    <span className={styles.value}>{preview.paper_path_note ?? "No additional paper-path note surfaced."}</span>
+                  </div>
+                </div>
+
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Dry-run issues</h5>
+                  {preview.issues.length === 0 ? (
+                    <p className={styles.emptyText}>No validation issues surfaced.</p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {preview.issues.map((entry) => (
+                        <li key={`${entry.code}-${entry.message}`}>{entry.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Blocking findings</h5>
+                  {blockingFindings.length === 0 ? (
+                    <p className={styles.emptyText}>No blocking or would-block preflight findings surfaced.</p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {blockingFindings.map((entry) => (
+                        <li key={`${entry.classification}-${entry.code}`}>{entry.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Warnings</h5>
+                  {preview.warnings.length === 0 ? (
+                    <p className={styles.emptyText}>No advisory warnings surfaced.</p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {preview.warnings.map((entry) => (
+                        <li key={`${entry.code}-${entry.message}`}>{entry.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Next required action</h5>
+                  <p className={styles.emptyText}>{preview.next_required_action}</p>
+                </div>
+              </>
+            ) : result.route_check_status === "eligible" ? (
+              <p className={styles.helperText}>
+                Run the guarded broker dry-run preview to inspect the existing non-submitting preflight result before any manual paper submit step.
+              </p>
+            ) : null}
+          </section>
         </>
       ) : null}
     </section>
