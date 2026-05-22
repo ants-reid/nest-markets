@@ -159,6 +159,10 @@ EXPECTED_ORDER_RESULT: dict[str, dict[str, Any]] = {
         "default": None,
         "annotation": "app.schemas.broker_schemas.BrokerModeSchema | None",
     },
+    "execution_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "balance_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "fees_source": {"required": False, "default": "ibkr_reported", "annotation": "<class 'str'>"},
+    "fills_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
 }
 
 

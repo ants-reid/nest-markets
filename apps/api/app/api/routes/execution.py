@@ -39,6 +39,19 @@ from app.services.visual_seed import VISUAL_SEED_PROVIDER
 router = APIRouter(prefix="/execution", tags=["execution"])
 
 
+def _to_paper_execution_response(result) -> PaperExecutionResponse:
+    payload = dict(result.__dict__)
+    payload.update(
+        {
+            "execution_source": "internal_mock_simulator",
+            "balance_source": "app_simulated",
+            "fees_source": "estimated",
+            "fills_source": "simulated",
+        }
+    )
+    return PaperExecutionResponse(**payload)
+
+
 class PaperExecutionJournalUpsertRequest(BaseModel):
     """Typed request payload for backend-backed execution journal saves."""
 
@@ -166,7 +179,7 @@ def execute_paper(
         notional=result.notional if result else None,
         idempotency_key=idempotency_key,
     )
-    return result
+    return _to_paper_execution_response(result)
 
 
 @router.get("/positions", response_model=list[PositionResponse])
@@ -281,7 +294,7 @@ def list_paper_orders(
             result = persistence.build_service_result(row)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        results.append(PaperExecutionResponse(**result.__dict__))
+        results.append(_to_paper_execution_response(result))
 
     return results
 
@@ -300,7 +313,7 @@ def get_paper_order(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return PaperExecutionResponse(**result.__dict__)
+    return _to_paper_execution_response(result)
 
 
 @router.get("/paper/{execution_id}/history", response_model=dict[str, object])
@@ -357,7 +370,7 @@ def fill_paper_order(
                 )
             )
     session.commit()
-    return PaperExecutionResponse(**filled.__dict__)
+    return _to_paper_execution_response(filled)
 
 
 @router.post("/paper/{execution_id}/close", response_model=PaperExecutionResponse)
@@ -392,7 +405,7 @@ def close_paper_order(
         if position is not None:
             PositionService(session).close_position(position.id, close_price=close_price, close_reason="paper_order_closed")
     session.commit()
-    return PaperExecutionResponse(**closed.__dict__)
+    return _to_paper_execution_response(closed)
 
 
 @router.get("/paper/{execution_id}/journal", response_model=PaperExecutionJournalResponse)
@@ -431,4 +444,12 @@ def execute_live(request: LiveExecutionRequestSchema) -> LiveExecutionResponse:
     live_request = LiveExecutionRequest(**request.model_dump())
     result = LiveExecutionService().submit(live_request)
     result_data = {k: v for k, v in result.__dict__.items() if k in LiveExecutionResponse.model_fields}
+    result_data.update(
+        {
+            "execution_source": "ibkr_live_locked",
+            "balance_source": "ibkr_live_locked",
+            "fees_source": "unavailable",
+            "fills_source": "unavailable",
+        }
+    )
     return LiveExecutionResponse(**result_data)

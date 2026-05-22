@@ -94,6 +94,19 @@ These guards apply to ALL phases unless explicitly overridden by a phase spec:
 - Set `PAPER_TRADING_ENABLED=true` in `.env` to activate.
 - `auto_live` remains hardcoded disabled (Gate 4 invariant).
 
+## Broker/Paper Execution Truth Model
+
+| Mode | Canonical path(s) | Balance source | Fees source | Fills source | Positions source | IBKR calls | Can place order | Live lock status |
+|------|-------------------|----------------|-------------|--------------|------------------|------------|-----------------|------------------|
+| internal_mock_simulator | `/execution/paper` + `PaperExecutionService` + `PersistencePaperExecutionService` | app_simulated | estimated | simulated | app DB (`paper_orders`/`positions`) | No | Simulated only | N/A (not live-capable) |
+| ibkr_paper | `/broker/account`, `/broker/positions`, `/broker/orders`, `BrokerService` + `IBKRAdapter` in paper mode | ibkr_paper | ibkr_reported (trade events when available) | ibkr_paper | ibkr_paper | Yes (read + paper submit path) | Yes (paper only, mode-gated) | Live remains blocked by trading-control and mode guards |
+| ibkr_live | Same broker abstraction (`BrokerService` + `IBKRAdapter`) when env is fully live | ibkr_live_locked | unavailable | unavailable | ibkr_live_locked | Read paths possible; live submit intentionally blocked | No (current phase) | Hard locked (`live_order_submission_allowed=false`) |
+
+Notes:
+- There are two distinct paper concepts: simulator paper and IBKR paper.
+- Simulator paper is valid for UI/tests but is not broker-realistic paper execution.
+- Proving the future live process requires using the ibkr_paper path, not `/execution/paper`.
+
 ---
 
 ## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)

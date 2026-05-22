@@ -13243,3 +13243,92 @@ still 100% green.
 
 -> MH-COCKPIT-12 — Open-paper-positions live view (read-only, paper scope).
 
+---
+
+## MH-BROKER-PAPER-VERIFY-01 - Confirm IBKR Paper Execution Source of Truth
+
+**Date:** 2026-05-22  
+**Phase:** 10x-20x controlled broker verification block  
+**Status:** COMPLETE
+
+### Scope
+
+- Inspect and classify all broker and execution paths as:
+  - `internal_mock_simulator`
+  - `ibkr_paper`
+  - `ibkr_live`
+- Confirm whether current paper trading uses IBKR paper account state vs app simulation.
+- Add explicit read-only API source labels to reduce ambiguity between simulator paper and IBKR paper.
+- Add drift-lock tests so source-model separation cannot silently regress.
+- Do not enable live trading, do not place real orders, do not change risk gates.
+
+### Source-of-Truth Findings
+
+1. Two separate paper concepts exist in code:
+  - Internal simulator paper path: `/execution/paper` + `PaperExecutionService` and `PersistencePaperExecutionService`.
+  - Broker paper path: `/broker/*` + `BrokerService` + `IBKRAdapter` in coherent paper mode.
+2. `/execution/paper` is app-internal simulation only. It does not call IBKR and does not use IBKR balances/positions/fills/fees.
+3. `/broker/account` and `/broker/positions` read from IBKR adapter calls (`get_account_info`, `get_positions`) when gateway/session is available.
+4. `/broker/orders` submits through `BrokerService` to `IBKRAdapter.submit_order` only when mode guards allow coherent paper mode.
+5. Live submit remains disabled by trading-control arming gates (`live_order_submission_allowed=false`).
+
+### Code Changes
+
+1. Additive response labels (read-only clarity):
+  - `execution_source`
+  - `balance_source`
+  - `fees_source`
+  - `fills_source`
+2. Label plumbing added to:
+  - `apps/api/app/schemas/broker_schemas.py`
+  - `apps/api/app/schemas/execution.py`
+  - `apps/api/app/api/routes/broker.py`
+  - `apps/api/app/api/routes/execution.py`
+3. Drift-lock/assertion updates:
+  - `apps/api/tests/routes/test_broker_routes.py`
+  - `apps/api/tests/test_stage6_routes.py`
+  - `apps/api/tests/test_execution_positions_route.py`
+  - `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+  - `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+4. Docs truth model updates:
+  - `docs/build-matrix.md`
+  - `docs/implementation-matrix.md`
+  - `docs/regression-qa-matrix.md`
+
+### Broker/Paper Execution Truth Model
+
+| Mode | Path(s) | Balance source | Fees source | Fills source | Positions source | Talks to IBKR | Can place order | Live lock |
+|---|---|---|---|---|---|---|---|---|
+| `internal_mock_simulator` | `/execution/paper`, paper services | `app_simulated` | `estimated` | `simulated` | app DB | No | Simulated only | N/A |
+| `ibkr_paper` | `/broker/account`, `/broker/positions`, `/broker/orders` | `ibkr_paper` | `ibkr_reported` (when available) | `ibkr_paper` | `ibkr_paper` | Yes | Yes, paper-only (mode-gated) | Live submit still blocked |
+| `ibkr_live` | same broker abstraction under coherent live tuple | `ibkr_live_locked` | `unavailable` | `unavailable` | `ibkr_live_locked` | read paths possible | No in this phase | locked |
+
+### Validation Commands And Results
+
+- Backend:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api`
+  - `.venv/bin/ruff check app tests`
+  - `.venv/bin/python -m pytest tests/ -q`
+  - Result: `2361 passed`
+- Frontend:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web`
+  - `npm run lint`
+  - `npm run build`
+  - Result: pass/pass
+- Learning:
+  - `cd /Users/ants/Documents/market-hunter-mvp`
+  - `scripts/test/test-learning.sh`
+  - Result: `99 passed`
+
+### Safety Confirmation
+
+- No live trading enablement.
+- No live order submission.
+- No credentials changes.
+- No risk gate weakening.
+- No test deletions.
+
+### Next Recommended Build Block
+
+-> MH-148-C + MH-147 wiring: persist and enforce broker preflight decisions consistently on submit while preserving live lock.
+

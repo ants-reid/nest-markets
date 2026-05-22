@@ -223,7 +223,14 @@ def test_list_paper_executions_returns_list(client):
     """QA-S612: GET /execution/paper returns a list."""
     response = client.get("/execution/paper")
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    rows = response.json()
+    assert isinstance(rows, list)
+    if rows:
+        first = rows[0]
+        assert first["execution_source"] == "internal_mock_simulator"
+        assert first["balance_source"] == "app_simulated"
+        assert first["fees_source"] == "estimated"
+        assert first["fills_source"] == "simulated"
 
 
 def test_live_execution_guard_returns_sentinel(client):
@@ -235,6 +242,10 @@ def test_live_execution_guard_returns_sentinel(client):
     data = response.json()
     assert data["reason"] == "live_execution_disabled_in_mvp"
     assert data["accepted"] is False
+    assert data["execution_source"] == "ibkr_live_locked"
+    assert data["balance_source"] == "ibkr_live_locked"
+    assert data["fees_source"] == "unavailable"
+    assert data["fills_source"] == "unavailable"
 
 
 def test_paper_execution_create_and_retrieve(client):

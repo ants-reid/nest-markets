@@ -50,6 +50,10 @@ EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
             "app.schemas.broker_schemas.BrokerModeSchema | None",
             False,
         ),
+        "execution_source": ("<class 'str'>", False),
+        "balance_source": ("<class 'str'>", False),
+        "fees_source": ("<class 'str'>", False),
+        "fills_source": ("<class 'str'>", False),
     },
     "BrokerModeSchema": {
         "broker": ("<class 'str'>", True),

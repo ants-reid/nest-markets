@@ -70,6 +70,7 @@ def _is_broker_transport_error(exc: Exception) -> bool:
 
 def _paper_fallback_account_info() -> AccountInfoSchema:
     meta = get_broker_mode_metadata()
+    execution_source, balance_source, fees_source, fills_source = _truth_sources_from_mode(meta)
     return AccountInfoSchema(
         net_liquidation=0.0,
         cash_balance=0.0,
@@ -79,6 +80,27 @@ def _paper_fallback_account_info() -> AccountInfoSchema:
         margin=0.0,
         unrealized_pnl=0.0,
         broker_mode=BrokerModeSchema(**meta),
+        execution_source=execution_source,
+        balance_source=balance_source,
+        fees_source=fees_source,
+        fills_source=fills_source,
+    )
+
+
+def _truth_sources_from_mode(meta: dict[str, object]) -> tuple[str, str, str, str]:
+    mode = str(meta.get("mode") or "paper").lower()
+    if mode == "live":
+        return (
+            "ibkr_live_locked",
+            "ibkr_live_locked",
+            "unavailable",
+            "unavailable",
+        )
+    return (
+        "ibkr_paper",
+        "ibkr_paper",
+        "ibkr_reported",
+        "ibkr_paper",
     )
 
 
@@ -169,6 +191,7 @@ async def get_account():
         service = get_broker_service()
         info = await service.get_account_info()
         meta = get_broker_mode_metadata()
+        execution_source, balance_source, fees_source, fills_source = _truth_sources_from_mode(meta)
         return AccountInfoSchema(
             net_liquidation=float(info.net_liquidation),
             cash_balance=float(info.cash_balance),
@@ -178,6 +201,10 @@ async def get_account():
             margin=float(info.margin),
             unrealized_pnl=float(info.unrealized_pnl),
             broker_mode=BrokerModeSchema(**meta),
+            execution_source=execution_source,
+            balance_source=balance_source,
+            fees_source=fees_source,
+            fills_source=fills_source,
         )
     except Exception as exc:
         if not is_live_mode_enabled() and _is_broker_transport_error(exc):
@@ -194,6 +221,8 @@ async def get_positions():
     try:
         service = get_broker_service()
         positions = await service.get_positions()
+        meta = get_broker_mode_metadata()
+        execution_source, balance_source, fees_source, fills_source = _truth_sources_from_mode(meta)
         return [
             PositionInfoSchema(
                 conid=p.conid,
@@ -206,6 +235,10 @@ async def get_positions():
                 unrealized_pnl=float(p.unrealized_pnl) if p.unrealized_pnl else None,
                 asset_class=p.asset_class,
                 currency=p.currency,
+                execution_source=execution_source,
+                balance_source=balance_source,
+                fees_source=fees_source,
+                fills_source=fills_source,
             )
             for p in positions
         ]
@@ -326,6 +359,7 @@ async def submit_order(request: OrderRequestSchema):
             dry_run=False,
         )
         meta = get_broker_mode_metadata()
+        execution_source, balance_source, fees_source, fills_source = _truth_sources_from_mode(meta)
         return OrderResultSchema(
             broker_order_id=result.broker_order_id,
             status=result.status,
@@ -333,6 +367,10 @@ async def submit_order(request: OrderRequestSchema):
             filled_quantity=float(result.filled_quantity) if result.filled_quantity else None,
             error_message=result.error_message,
             broker_mode=BrokerModeSchema(**meta),
+            execution_source=execution_source,
+            balance_source=balance_source,
+            fees_source=fees_source,
+            fills_source=fills_source,
         )
     except HTTPException:
         raise

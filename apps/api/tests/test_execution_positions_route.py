@@ -142,6 +142,11 @@ def test_fill_paper_order_opens_position(client):
         response = c.post(f"/execution/paper/{execution_id}/fill")
 
     assert response.status_code == 200
+    data = response.json()
+    assert data["execution_source"] == "internal_mock_simulator"
+    assert data["balance_source"] == "app_simulated"
+    assert data["fees_source"] == "estimated"
+    assert data["fills_source"] == "simulated"
     open_position.assert_called_once()
 
 
@@ -179,4 +184,9 @@ def test_close_paper_order_closes_position(client):
         response = c.post(f"/execution/paper/{execution_id}/close?close_price=104")
 
     assert response.status_code == 200
+    data = response.json()
+    assert data["execution_source"] == "internal_mock_simulator"
+    assert data["balance_source"] == "app_simulated"
+    assert data["fees_source"] == "estimated"
+    assert data["fills_source"] == "simulated"
     close_position.assert_called_once_with(position_id, close_price=104.0, close_reason="paper_order_closed")

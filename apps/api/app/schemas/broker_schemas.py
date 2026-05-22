@@ -53,6 +53,10 @@ class OrderResultSchema(BaseModel):
     filled_quantity: Optional[float] = None
     error_message: Optional[str] = None
     broker_mode: Optional[BrokerModeSchema] = None
+    execution_source: str = "ibkr_paper"
+    balance_source: str = "ibkr_paper"
+    fees_source: str = "ibkr_reported"
+    fills_source: str = "ibkr_paper"
 
 
 class OrderDryRunIssueSchema(BaseModel):
@@ -196,6 +200,10 @@ class AccountInfoSchema(BaseModel):
     margin: float = 0.0
     unrealized_pnl: float = 0.0
     broker_mode: Optional[BrokerModeSchema] = None
+    execution_source: str = "ibkr_paper"
+    balance_source: str = "ibkr_paper"
+    fees_source: str = "ibkr_reported"
+    fills_source: str = "ibkr_paper"
 
 
 class PositionInfoSchema(BaseModel):
@@ -210,6 +218,10 @@ class PositionInfoSchema(BaseModel):
     unrealized_pnl: Optional[float] = None
     asset_class: str = "STK"
     currency: str = "USD"
+    execution_source: str = "ibkr_paper"
+    balance_source: str = "ibkr_paper"
+    fees_source: str = "ibkr_reported"
+    fills_source: str = "ibkr_paper"
 
 
 class PositionMismatchSchema(BaseModel):

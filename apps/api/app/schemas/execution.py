@@ -36,6 +36,10 @@ class PaperExecutionResponse(BaseModel):
     target_price: float
     fill_price: float
     reason: str | None = None
+    execution_source: str = "internal_mock_simulator"
+    balance_source: str = "app_simulated"
+    fees_source: str = "estimated"
+    fills_source: str = "simulated"
 
 
 class LiveExecutionRequestSchema(BaseModel):
@@ -60,3 +64,7 @@ class LiveExecutionResponse(BaseModel):
     status: str
     reason: str
     processed_at: datetime
+    execution_source: str = "ibkr_live_locked"
+    balance_source: str = "ibkr_live_locked"
+    fees_source: str = "unavailable"
+    fills_source: str = "unavailable"
