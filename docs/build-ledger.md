@@ -12653,3 +12653,98 @@ still 100% green.
 
 -> MH-COCKPIT-05 — EOD report surface (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-05 — EOD Report Surface
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-155
+
+### Scope
+
+- Added a read-only cockpit backend route at `GET /cockpit/eod-report`.
+- Added a deterministic EOD aggregation service that summarizes the day from existing paper orders, paper positions, incident logs, and signal outcomes.
+- Added typed backend schemas for a frontend-friendly, stable paper-only report contract.
+- Added a new cockpit page at `/cockpit/eod-report` with summary cards, paper activity, P&L snapshot, open/closed position summaries, incident and monitor notes, lessons, recommended actions, and limitation notes.
+- Added a cockpit-hub link so operators can reach the EOD report from the existing read-only cockpit surface.
+- Added focused backend and browser tests without changing broker submission behavior, risk enforcement, or live-trading posture.
+
+### Files Changed
+
+- `apps/api/app/api/routes/cockpit_eod_report.py`
+- `apps/api/app/main.py`
+- `apps/api/app/schemas/cockpit_eod_report.py`
+- `apps/api/app/services/cockpit_eod_report_service.py`
+- `apps/api/tests/test_cockpit_eod_report_route.py`
+- `apps/api/tests/test_cockpit_eod_report_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/web/app/cockpit/eod-report/page.tsx`
+- `apps/web/app/cockpit/page.tsx`
+- `apps/web/lib/api/cockpitEodReport.ts`
+- `apps/web/styles/pages/cockpit-eod-report.module.css`
+- `apps/web/tests/eod-report.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Endpoint Path
+
+- `GET /cockpit/eod-report`
+
+### UI Route
+
+- `/cockpit/eod-report`
+
+### Tests Run
+
+- Focused backend checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests && .venv/bin/python -m pytest tests/test_cockpit_eod_report_service.py tests/test_cockpit_eod_report_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q`
+- Focused mocked browser checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/eod-report.spec.ts tests/routes.spec.ts tests/responsive.spec.ts --grep 'EOD|End-of-Day|cockpit/eod|eod-report' --reporter=line`
+- Required targeted browser command:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'EOD|End-of-Day|cockpit/eod|eod-report' --reporter=line`
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Focused backend checks: **13/13 passed**.
+- Focused mocked/browser EOD checks: **8/8 passed**.
+- Required targeted Playwright rerun: **4/4 passed**.
+- Backend Ruff: **pass**.
+- Backend full pytest: **2336/2336 passed**.
+- Web lint: **pass**.
+- Web build: **pass**.
+- Learning suite: **99/99 passed**.
+- Theme-token grep gates: **pass/pass**.
+
+### Safety Notes
+
+- The backend route is `GET`-only and uses a read-only service layer.
+- The EOD aggregation does not call broker submit, live execution, or position-closing paths.
+- The UI is explicitly paper-only and read-focused; it contains no buttons that place, close, or modify trades.
+- Missing or partial metrics stay `null`/limited instead of being invented.
+- Live-trading state, broker execution behavior, and risk-control enforcement are unchanged.
+
+### Known Limitations
+
+- Report day boundaries are UTC-based.
+- Realized or unrealized P&L stays unavailable when persisted position rows do not contain the required values.
+- Lessons are limited by the number of signal outcomes that have actually closed today.
+- Legacy paper positions with `opened_by="unknown"` are still included in the paper-scope rollup to avoid hiding older persisted paper rows.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-07 — In-flight adjustments view (paper scope, read-focused visibility).
+

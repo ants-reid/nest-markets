@@ -38,6 +38,7 @@ from app.api.routes.monitor_test import router as monitor_test_router
 from app.api.routes.monitor_worker_run_log import router as monitor_worker_run_log_router
 from app.api.routes.cockpit_notifications import router as cockpit_notifications_router
 from app.api.routes.cockpit_auto_paper_status import router as cockpit_auto_paper_status_router
+from app.api.routes.cockpit_eod_report import router as cockpit_eod_report_router
 from app.api.routes.cockpit_mode import router as cockpit_mode_router
 from app.api.routes.monitor_incidents import router as monitor_incidents_router
 from app.api.routes.news_articles import router as news_articles_router
@@ -262,6 +263,7 @@ def create_app() -> FastAPI:
     app.include_router(monitor_worker_run_log_router)
     app.include_router(cockpit_notifications_router)
     app.include_router(cockpit_auto_paper_status_router)
+    app.include_router(cockpit_eod_report_router)
     app.include_router(cockpit_mode_router)
     app.include_router(assets_router)
     app.include_router(opportunities_router)

@@ -27,6 +27,7 @@ const ROUTES = [
   { path: "/notifications", name: "notifications" },
   { path: "/analytics", name: "analytics" },
   { path: "/cockpit", name: "cockpit" },
+  { path: "/cockpit/eod-report", name: "cockpit-eod-report" },
   { path: "/monitor/feeds", name: "feed-monitor" },
 ];
 

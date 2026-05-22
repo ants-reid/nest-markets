@@ -35,6 +35,12 @@ const SECTIONS: ReadonlyArray<{
     heading: "Operator overviews",
     items: [
       {
+        href: "/cockpit/eod-report",
+        title: "End-of-Day report",
+        description:
+          "Paper-only end-of-day recap covering opens, closes, incidents, and lessons without any trading actions.",
+      },
+      {
         href: "/cockpit/notifications",
         title: "Notifications digest",
         description:
