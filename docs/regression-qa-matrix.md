@@ -136,6 +136,23 @@ The browser matrix is green again on the fresh MH-BROWSER-STABILITY-001 evidence
 | QA-132 | Broker/paper truth-model labels | API responses keep simulator paper (`internal_mock_simulator`) distinct from broker paper (`ibkr_paper`) and live-locked (`ibkr_live_locked`), with explicit source labels for execution/balance/fees/fills and no live-submit unlock drift | automated | passing | API-R06, API-RX03, API-S05, API-S06, API-SX07 | Covered by `apps/api/tests/test_stage6_routes.py`, `apps/api/tests/test_execution_positions_route.py`, and `apps/api/tests/routes/test_broker_routes.py` in MH-BROKER-PAPER-VERIFY-01. |
 | QA-133 | Broker preflight decision persistence | Broker dry-run and submit paths persist append-only `BrokerSubmitDecision` rows with sanitized payloads, and submit fails closed for `would_block` plus unknown/error preflight outcomes without unlocking live execution | automated | passing | API-RX03, API-RX04, API-SX07 | Covered by `apps/api/tests/services/test_broker_service.py`, `apps/api/tests/routes/test_broker_dry_run.py`, and `apps/api/tests/test_broker_submit_decisions.py` in MH-148-C + MH-147. |
 
+### Broker/Paper Canonical Source Model (MH-BROKER-PAPER-CANONICAL-01)
+
+- Contract fields (additive, required on key responses): `positions_source`, `serious_paper_source`, `is_canonical_paper`, `paper_path_note`
+- Expected source labels:
+	- Internal simulator path (`/execution/paper`): `execution_source=internal_mock_simulator`, `balance_source=app_simulated`, `positions_source=app_db_simulated`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
+	- IBKR paper path (`/broker/account`, `/broker/positions`, `/broker/orders`): `execution_source=ibkr_paper`, `balance_source=ibkr_paper`, `positions_source=ibkr_paper`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`
+	- Broker dry-run (`/broker/orders/dry-run`): `execution_source=broker_dry_run`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`
+	- Live-locked status surface (`/execution/live` lock response): `execution_source=ibkr_live_locked`, `balance_source=ibkr_live_locked`, `positions_source=ibkr_live_locked`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
+- Regression assertions pinned by tests:
+	- `apps/api/tests/routes/test_broker_routes.py`
+	- `apps/api/tests/routes/test_broker_dry_run.py`
+	- `apps/api/tests/routes/test_broker_e2e.py`
+	- `apps/api/tests/test_stage6_routes.py`
+	- `apps/api/tests/test_execution_positions_route.py`
+	- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+	- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+
 ## Responsive And Mobile Checks
 
 Viewport breakpoints: mobile = 390px, tablet = 768px, desktop = 1024px.

@@ -98,6 +98,9 @@ async def test_full_paper_order_chain(client: TestClient):
     assert dry["mode_guard_ok"] is True
     assert dry["request_valid"] is True
     assert dry["estimated_notional"] == pytest.approx(1805.0)
+    assert dry["execution_source"] == "broker_dry_run"
+    assert dry["serious_paper_source"] == "ibkr_paper"
+    assert dry["is_canonical_paper"] is True
 
     # Step 3: Submit — must succeed
     with patch("app.api.routes.broker.get_broker_service", return_value=fake_service):

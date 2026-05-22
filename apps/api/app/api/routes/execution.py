@@ -29,6 +29,10 @@ from app.schemas.execution import (
 )
 from app.services.execution_journal_service import ExecutionJournalService
 from app.services.live_execution_service import LiveExecutionRequest, LiveExecutionService
+from app.services.paper_source_contract import (
+    live_locked_execution_sources,
+    simulator_execution_sources,
+)
 from app.services.pnl_service import PnlService, PnlSnapshotInput
 from app.services.persistence_paper_execution_service import PersistencePaperExecutionService
 from app.services.paper_execution_service import StatelessPaperExecutionService as PaperExecutionService
@@ -41,14 +45,7 @@ router = APIRouter(prefix="/execution", tags=["execution"])
 
 def _to_paper_execution_response(result) -> PaperExecutionResponse:
     payload = dict(result.__dict__)
-    payload.update(
-        {
-            "execution_source": "internal_mock_simulator",
-            "balance_source": "app_simulated",
-            "fees_source": "estimated",
-            "fills_source": "simulated",
-        }
-    )
+    payload.update(simulator_execution_sources())
     return PaperExecutionResponse(**payload)
 
 
@@ -444,12 +441,5 @@ def execute_live(request: LiveExecutionRequestSchema) -> LiveExecutionResponse:
     live_request = LiveExecutionRequest(**request.model_dump())
     result = LiveExecutionService().submit(live_request)
     result_data = {k: v for k, v in result.__dict__.items() if k in LiveExecutionResponse.model_fields}
-    result_data.update(
-        {
-            "execution_source": "ibkr_live_locked",
-            "balance_source": "ibkr_live_locked",
-            "fees_source": "unavailable",
-            "fills_source": "unavailable",
-        }
-    )
+    result_data.update(live_locked_execution_sources())
     return LiveExecutionResponse(**result_data)

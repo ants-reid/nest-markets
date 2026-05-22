@@ -147,6 +147,9 @@ def test_fill_paper_order_opens_position(client):
     assert data["balance_source"] == "app_simulated"
     assert data["fees_source"] == "estimated"
     assert data["fills_source"] == "simulated"
+    assert data["positions_source"] == "app_db_simulated"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is False
     open_position.assert_called_once()
 
 
@@ -189,4 +192,7 @@ def test_close_paper_order_closes_position(client):
     assert data["balance_source"] == "app_simulated"
     assert data["fees_source"] == "estimated"
     assert data["fills_source"] == "simulated"
+    assert data["positions_source"] == "app_db_simulated"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is False
     close_position.assert_called_once_with(position_id, close_price=104.0, close_reason="paper_order_closed")

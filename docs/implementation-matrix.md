@@ -59,17 +59,18 @@ Documentation values:
 - WS-06: New-feature integration review
 - WS-07: Release gates and anti-drift process
 
-## Broker/Paper Execution Truth Model
+## Broker/Paper Canonical Source Model
 
-| Mode | Primary route/service seam | Balance source | Fees source | Fills source | Positions source | Submission capability | Current lock state |
-|---|---|---|---|---|---|---|---|
-| internal_mock_simulator | API-R06 `/execution/paper` + API-S05 `paper_execution_service.py` + API-P05 persistence layer | app_simulated | estimated | simulated | app DB (`paper_orders`, `positions`) | Simulated lifecycle only (`submit/fill/close` in app) | Not live-capable |
-| ibkr_paper | API-RX03 `/broker/*` + API-SX07 `broker_service.py` + API-C04 `ibkr_adapter.py` (paper mode) | ibkr_paper | ibkr_reported (via trade events when available) | ibkr_paper | ibkr_paper | Paper broker submit allowed only in coherent paper mode | Live submit still blocked |
-| ibkr_live | Same broker abstraction as ibkr_paper with fully live env tuple | ibkr_live_locked | unavailable | unavailable | ibkr_live_locked | Live submit intentionally blocked in current phase | Locked (`live_order_submission_allowed=false`) |
+| Mode | Primary route/service seam | execution_source | balance_source | fees_source | fills_source | positions_source | serious_paper_source | is_canonical_paper | Submission capability | Current lock state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| internal_mock_simulator | API-R06 `/execution/paper` + API-S05 `paper_execution_service.py` + API-P05 persistence layer | internal_mock_simulator | app_simulated | estimated | simulated | app_db_simulated | ibkr_paper | false | Simulated lifecycle only (`submit/fill/close` in app) | Not live-capable |
+| ibkr_paper | API-RX03 `/broker/*` + API-SX07 `broker_service.py` + API-C04 `ibkr_adapter.py` (paper mode) | ibkr_paper (`broker_dry_run` for dry-run) | ibkr_paper | ibkr_reported (via trade events when available) | ibkr_paper | ibkr_paper | ibkr_paper | true | Paper broker submit allowed only in coherent paper mode | Live submit still blocked |
+| ibkr_live_locked | Same broker abstraction as ibkr_paper with fully live env tuple | ibkr_live_locked | ibkr_live_locked | unavailable | unavailable | ibkr_live_locked | ibkr_paper | false | Live submit intentionally blocked in current phase | Locked (`live_order_submission_allowed=false`) |
 
 Clarification:
 - API-R06 (`/execution/paper`) is internal simulation and is not IBKR paper execution.
-- Broker-realistic proving path is API-RX03 (`/broker/*`) in paper mode.
+- Serious pre-live paper proving is API-RX03 (`/broker/*`) in coherent paper mode.
+- This contract is clarity/routing metadata only and does not unlock live submission.
 
 ## Backend Routes
 

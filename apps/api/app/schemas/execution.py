@@ -40,6 +40,12 @@ class PaperExecutionResponse(BaseModel):
     balance_source: str = "app_simulated"
     fees_source: str = "estimated"
     fills_source: str = "simulated"
+    positions_source: str = "app_db_simulated"
+    serious_paper_source: str = "ibkr_paper"
+    is_canonical_paper: bool = False
+    paper_path_note: str = (
+        "Internal simulator path only. Use IBKR paper broker routes for serious paper validation."
+    )
 
 
 class LiveExecutionRequestSchema(BaseModel):
@@ -68,3 +74,7 @@ class LiveExecutionResponse(BaseModel):
     balance_source: str = "ibkr_live_locked"
     fees_source: str = "unavailable"
     fills_source: str = "unavailable"
+    positions_source: str = "ibkr_live_locked"
+    serious_paper_source: str = "ibkr_paper"
+    is_canonical_paper: bool = False
+    paper_path_note: str = "Live trading remains locked in this phase."

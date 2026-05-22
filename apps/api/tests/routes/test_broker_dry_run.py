@@ -80,6 +80,9 @@ async def test_dry_run_ready_response(client):
     assert isinstance(data["warnings"], list)
     assert data["preflight_decision"]["submit_gate"] == "not_applied"
     assert data["preflight_decision"]["decision_status"] in {"advisory", "allowed", "would_block"}
+    assert data["execution_source"] == "broker_dry_run"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is True
 
 
 @pytest.mark.asyncio

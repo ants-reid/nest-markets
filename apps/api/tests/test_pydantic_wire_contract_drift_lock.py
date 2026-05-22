@@ -163,6 +163,14 @@ EXPECTED_ORDER_RESULT: dict[str, dict[str, Any]] = {
     "balance_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
     "fees_source": {"required": False, "default": "ibkr_reported", "annotation": "<class 'str'>"},
     "fills_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "positions_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "serious_paper_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "is_canonical_paper": {"required": False, "default": True, "annotation": "<class 'bool'>"},
+    "paper_path_note": {
+        "required": False,
+        "default": "IBKR paper is the canonical serious paper trading path.",
+        "annotation": "<class 'str'>",
+    },
 }
 
 

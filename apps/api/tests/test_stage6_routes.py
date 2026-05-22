@@ -231,6 +231,9 @@ def test_list_paper_executions_returns_list(client):
         assert first["balance_source"] == "app_simulated"
         assert first["fees_source"] == "estimated"
         assert first["fills_source"] == "simulated"
+        assert first["positions_source"] == "app_db_simulated"
+        assert first["serious_paper_source"] == "ibkr_paper"
+        assert first["is_canonical_paper"] is False
 
 
 def test_live_execution_guard_returns_sentinel(client):
@@ -246,6 +249,9 @@ def test_live_execution_guard_returns_sentinel(client):
     assert data["balance_source"] == "ibkr_live_locked"
     assert data["fees_source"] == "unavailable"
     assert data["fills_source"] == "unavailable"
+    assert data["positions_source"] == "ibkr_live_locked"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is False
 
 
 def test_paper_execution_create_and_retrieve(client):

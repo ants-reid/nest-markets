@@ -13371,3 +13371,63 @@ still 100% green.
   - `assert_auto_trading_allowed()` behavior unchanged.
   - No worker runtime activation or scheduler unlock was introduced.
 
+---
+
+## MH-BROKER-PAPER-CANONICAL-01 - Make IBKR Paper the Canonical Serious Paper Trading Path
+
+- **Date:** 2026-05-22
+- **Status:** ✅ Complete
+- **Scope:** Additive API source-model clarity only. Distinguish internal simulator paper from IBKR paper and locked-live surfaces using centralized source labels and pinned response contracts. No behavior unlocks.
+
+### Files Changed
+
+- `apps/api/app/services/paper_source_contract.py` (new)
+- `apps/api/app/api/routes/execution.py`
+- `apps/api/app/api/routes/broker.py`
+- `apps/api/app/schemas/execution.py`
+- `apps/api/app/schemas/broker_schemas.py`
+- `apps/api/tests/test_stage6_routes.py`
+- `apps/api/tests/test_execution_positions_route.py`
+- `apps/api/tests/routes/test_broker_routes.py`
+- `apps/api/tests/routes/test_broker_dry_run.py`
+- `apps/api/tests/routes/test_broker_e2e.py`
+- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Contract Outcome
+
+- New additive response fields: `positions_source`, `serious_paper_source`, `is_canonical_paper`, `paper_path_note`.
+- Source model labels now pinned as:
+  - simulator paper: `internal_mock_simulator`
+  - broker serious paper: `ibkr_paper`
+  - broker dry-run execution source: `broker_dry_run`
+  - locked-live status surface: `ibkr_live_locked`
+
+### Validation
+
+- Backend lint: `cd apps/api && .venv/bin/ruff check app tests` -> pass
+- Backend focused broker/execution + drift-lock suite: `90 passed`
+- Backend full suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2363 passed in 203.87s (0:03:23)`
+- Frontend lint/build: `cd apps/web && npm run lint && npm run build` -> pass/pass
+- Learning suite: `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh` -> `99 passed`
+
+### Safety Confirmation
+
+- No live-trading enablement.
+- No live-order submission unlock.
+- No risk-gate weakening.
+- No deletion of existing tests.
+- Changes are additive metadata + drift-lock coverage only.
+
+### Known Limitations
+
+- Internal simulator remains useful for local UX/testing but is intentionally non-canonical for serious pre-live proving.
+- Dry-run execution source intentionally remains `broker_dry_run` while still marking canonical serious-paper lineage via `serious_paper_source=ibkr_paper`.
+
+### Next Recommended Phase
+
+-> MH-161 (`BrokerService` split, no behavior change) after Bucket 1 lock criteria and reliability checks are green.
+

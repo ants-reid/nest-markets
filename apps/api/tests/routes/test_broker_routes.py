@@ -623,6 +623,9 @@ async def test_get_account_includes_broker_mode(client, mock_service):
     assert data["balance_source"] == "ibkr_paper"
     assert data["fees_source"] == "ibkr_reported"
     assert data["fills_source"] == "ibkr_paper"
+    assert data["positions_source"] == "ibkr_paper"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is True
 
 
 @pytest.mark.asyncio
@@ -647,6 +650,9 @@ async def test_submit_order_includes_broker_mode(client, mock_service):
     assert data["balance_source"] == "ibkr_paper"
     assert data["fees_source"] == "ibkr_reported"
     assert data["fills_source"] == "ibkr_paper"
+    assert data["positions_source"] == "ibkr_paper"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is True
 
 
 @pytest.mark.asyncio
@@ -720,6 +726,9 @@ async def test_get_account_not_blocked_when_live_execution_enabled(client, mock_
     assert data["balance_source"] == "ibkr_paper"
     assert data["fees_source"] == "ibkr_reported"
     assert data["fills_source"] == "ibkr_paper"
+    assert data["positions_source"] == "ibkr_paper"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is True
 
 
 @pytest.mark.asyncio
