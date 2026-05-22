@@ -12,7 +12,6 @@ The worker is designed to be fully test-injectable: pass ``client`` and
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import date, timedelta
 
@@ -26,6 +25,7 @@ from app.db.models.asset import Asset
 from app.db.session import SessionLocal
 from app.services.persistence_signal_service import PersistenceSignalService
 from app.services.signal_service import SignalInput, SignalService
+from app.workers.async_bridge import run_async
 from app.workers.base_worker import BaseWorker
 
 _logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ class SignalSweepWorker(BaseWorker):
         close_session = self._session is None
 
         try:
-            processed, persisted, errors = asyncio.run(self._sweep(session))
+            processed, persisted, errors = run_async(lambda: self._sweep(session))
             session.commit()
         except Exception as exc:
             session.rollback()

@@ -5,7 +5,6 @@ will persist NewsArticle rows; until then it is a controlled no-op.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -14,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.news.news_client import NewsClient, get_news_client
 from app.db.models.news_article import NewsArticle
+from app.workers.async_bridge import run_async
 from app.workers.base_worker import BaseWorker, WorkerResult
 
 _logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class NewsIngestWorker(BaseWorker):
         session = SessionLocal()
         started_at = datetime.now(timezone.utc)
         try:
-            result = asyncio.run(self.execute(session))
+            result = run_async(lambda: self.execute(session))
             finished_at = datetime.now(timezone.utc)
             return WorkerResult(
                 worker_name=self.worker_name,

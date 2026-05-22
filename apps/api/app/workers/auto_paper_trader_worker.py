@@ -15,7 +15,6 @@ PaperOrder row is created.  No position is opened with status other than "approv
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -35,6 +34,7 @@ from app.services.broker_service import BrokerService, PaperPreflightBlockedErro
 from app.services.opportunity_ranker_service import OpportunityRankerService
 from app.services.risk_service import RiskInput, RiskService
 from app.services.trading_control_service import AutoTradingBlockedError
+from app.workers.async_bridge import run_async
 from app.workers.base_worker import BaseWorker
 
 _logger = logging.getLogger(__name__)
@@ -122,7 +122,9 @@ class AutoPaperTraderWorker(BaseWorker):
     def _submit_via_broker_gate(self, opportunity, signal: Signal) -> OrderResult:
         """Route worker-driven auto paper submission through the broker auto-submit seam."""
         order_request = self._build_broker_order_request(opportunity, signal)
-        return asyncio.run(self._get_broker_service().submit_auto_order(order_request))
+        return run_async(
+            lambda: self._get_broker_service().submit_auto_order(order_request)
+        )
 
     def _normalize_paper_order_status(self, broker_status: str) -> str:
         normalized = broker_status.upper()

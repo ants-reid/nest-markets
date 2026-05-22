@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.db.models.asset import Asset
 from app.db.session import SessionLocal
 from app.services.market_data_service import AssetNotFoundError, MarketDataService
+from app.workers.async_bridge import run_async
 from app.workers.base_worker import BaseWorker
 
 _logger = logging.getLogger(__name__)
@@ -53,8 +54,6 @@ class DataSyncWorker(BaseWorker):
         errors: list[str] = []
 
         try:
-            import asyncio
-
             service = MarketDataService(self._client, session)
             assets = session.execute(select(Asset)).scalars().all()
             to_date = date.today()
@@ -62,8 +61,13 @@ class DataSyncWorker(BaseWorker):
 
             for asset in assets:
                 try:
-                    count = asyncio.run(
-                        service.ingest_bars(asset.symbol, from_date, to_date, timeframe="1d")
+                    count = run_async(
+                        lambda asset=asset: service.ingest_bars(
+                            asset.symbol,
+                            from_date,
+                            to_date,
+                            timeframe="1d",
+                        )
                     )
                     total += count
                 except AssetNotFoundError:
