@@ -138,22 +138,20 @@ The browser matrix is green again on the fresh MH-BROWSER-STABILITY-001 evidence
 | QA-134 | BrokerService split drift lock | `BrokerService` remains a stable facade while internal preflight decision and advisory logic are delegated to focused helper services, with submit/dry-run/account/positions behavior unchanged and live submit still blocked | automated | passing | API-SX07, API-RX03 | Covered by focused broker/trading-control/risk tests, full backend pytest, and helper-delegation assertions in `apps/api/tests/services/test_broker_service.py` during MH-161. |
 | QA-135 | Post-lock simulation regression suite | Canonical paper source model stays separated across simulator, broker paper, and live-locked surfaces; submit decision persistence remains source-pinned and sanitized; fail-closed preflight classification, live-lock submit blocking/auditability, and worker async bridge + auto-submit seam invariants remain intact | automated | passing | API-SX07, API-SX06, API-R06, API-RX03 | Covered by `apps/api/tests/test_post_lock_simulation_regression.py` (`13 passed`) during MH-162. |
 
-### Broker/Paper Canonical Source Model (MH-BROKER-PAPER-CANONICAL-01)
+### Broker/Paper Canonical Source Model (MH-BROKER-PAPER-CANONICAL-01 / 02)
 
-- Contract fields (additive, required on key responses): `positions_source`, `serious_paper_source`, `is_canonical_paper`, `paper_path_note`
+- Contract fields (additive, required on key responses): `positions_source`, `serious_paper_source`, `is_canonical_paper`, `paper_path_note`, `canonical_paper_route`, `broker_account_mode`, `live_state`
 - Expected source labels:
-	- Internal simulator path (`/execution/paper`): `execution_source=internal_mock_simulator`, `balance_source=app_simulated`, `positions_source=app_db_simulated`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
-	- IBKR paper path (`/broker/account`, `/broker/positions`, `/broker/orders`): `execution_source=ibkr_paper`, `balance_source=ibkr_paper`, `positions_source=ibkr_paper`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`
-	- Broker dry-run (`/broker/orders/dry-run`): `execution_source=broker_dry_run`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`
-	- Live-locked status surface (`/execution/live` lock response): `execution_source=ibkr_live_locked`, `balance_source=ibkr_live_locked`, `positions_source=ibkr_live_locked`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
+  - Internal simulator path (`/execution/paper`): `execution_source=internal_mock_simulator`, `balance_source=app_simulated`, `positions_source=app_db_simulated`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
+  - IBKR paper path (`/broker/account`, `/broker/positions`, `/broker/orders`): `execution_source=ibkr_paper`, `balance_source=ibkr_paper`, `positions_source=ibkr_paper`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`, `canonical_paper_route=/broker/orders`, `broker_account_mode=paper`
+  - Broker dry-run in coherent paper mode (`/broker/orders/dry-run`): `execution_source=broker_dry_run`, `balance_source=ibkr_paper`, `positions_source=ibkr_paper`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=true`, `canonical_paper_route=/broker/orders`, `broker_account_mode=paper`
+  - Broker dry-run in live-config mode (`/broker/orders/dry-run`): `execution_source=broker_dry_run`, `balance_source=ibkr_live_locked`, `positions_source=ibkr_live_locked`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`, `canonical_paper_route=/broker/orders`, `broker_account_mode=live`, `live_state=ibkr_live_locked`
+  - Live-locked status surface (`/execution/live` lock response): `execution_source=ibkr_live_locked`, `balance_source=ibkr_live_locked`, `positions_source=ibkr_live_locked`, `serious_paper_source=ibkr_paper`, `is_canonical_paper=false`
 - Regression assertions pinned by tests:
-	- `apps/api/tests/routes/test_broker_routes.py`
-	- `apps/api/tests/routes/test_broker_dry_run.py`
-	- `apps/api/tests/routes/test_broker_e2e.py`
-	- `apps/api/tests/test_stage6_routes.py`
-	- `apps/api/tests/test_execution_positions_route.py`
-	- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
-	- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+  - `apps/api/tests/routes/test_broker_dry_run.py`
+  - `apps/api/tests/test_post_lock_simulation_regression.py`
+  - `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+  - `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
 
 ## Responsive And Mobile Checks
 

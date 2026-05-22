@@ -13506,6 +13506,55 @@ still 100% green.
 
 ---
 
+
+## MH-BROKER-PAPER-CANONICAL-02 - Serious Paper Order Flow Contract
+
+- **Date:** 2026-05-22
+- **Status:** ✅ Complete
+- **Scope:** Tighten the broker order-flow contract so serious paper remains the IBKR paper submit path, while broker dry-run stays available as a read-only inspection surface in live-config environments without advertising canonical paper lineage.
+
+### Files Changed
+
+- `apps/api/app/api/routes/broker.py`
+- `apps/api/app/schemas/broker_schemas.py`
+- `apps/api/app/schemas/execution.py`
+- `apps/api/app/services/broker_preflight_decision_service.py`
+- `apps/api/app/services/broker_submit_decision_service.py`
+- `apps/api/app/services/paper_source_contract.py`
+- `apps/api/tests/routes/test_broker_dry_run.py`
+- `apps/api/tests/test_post_lock_simulation_regression.py`
+- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Contract Outcome
+
+- `POST /broker/orders` remains the canonical serious-paper route only in coherent paper mode.
+- `POST /broker/orders/dry-run` now derives its source metadata from current broker mode instead of hard-coded paper defaults.
+- Live-config dry-run responses advertise `ibkr_live_locked` account lineage, `broker_account_mode=live`, and `is_canonical_paper=false` while still exposing `canonical_paper_route=/broker/orders` for operator clarity.
+- Preflight decision persistence now carries mode-aware source metadata so append-only audit rows stay aligned with the route contract.
+
+### Validation
+
+- Backend focused route + drift-lock slice: `66 passed`
+- Backend lint: `cd apps/api && .venv/bin/ruff check app tests` -> pass
+- Backend targeted broker/paper/execution slice: `608 passed, 1771 deselected`
+- Backend full suite: `2379 passed in 268.46s (0:04:28)`
+- Frontend lint: `cd apps/web && npm run lint` -> pass
+- Frontend build: `cd apps/web && npm run build` -> pass
+- Learning suite: `./scripts/test/test-learning.sh` -> `99 passed`
+
+### Safety Confirmation
+
+- No live submit unlock.
+- No broker-preflight bypass.
+- No risk-control weakening.
+- Canonical serious-paper route remains `/broker/orders` only.
+- Live-config dry-run remains informational and non-submitting.
+
 ## MH-162 — Post-Lock Simulation Regression Suite
 
 - **Date:** 2026-05-22

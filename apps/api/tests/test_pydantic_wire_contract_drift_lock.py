@@ -166,6 +166,9 @@ EXPECTED_ORDER_RESULT: dict[str, dict[str, Any]] = {
     "positions_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
     "serious_paper_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
     "is_canonical_paper": {"required": False, "default": True, "annotation": "<class 'bool'>"},
+    "canonical_paper_route": {"required": False, "default": "/broker/orders", "annotation": "<class 'str'>"},
+    "broker_account_mode": {"required": False, "default": "paper", "annotation": "<class 'str'>"},
+    "live_state": {"required": False, "default": "ibkr_live_locked", "annotation": "<class 'str'>"},
     "paper_path_note": {
         "required": False,
         "default": "IBKR paper is the canonical serious paper trading path.",

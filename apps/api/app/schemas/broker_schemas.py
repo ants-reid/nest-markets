@@ -60,6 +60,9 @@ class OrderResultSchema(BaseModel):
     positions_source: str = "ibkr_paper"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = True
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "paper"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = "IBKR paper is the canonical serious paper trading path."
 
 
@@ -154,8 +157,15 @@ class OrderDryRunResultSchema(BaseModel):
     preflight_context: Optional[OrderDryRunPreflightContextSchema] = None
     broker_mode: BrokerModeSchema
     execution_source: str = "broker_dry_run"
+    balance_source: str = "ibkr_paper"
+    fees_source: str = "pending_broker_report"
+    fills_source: str = "pending_broker_fill"
+    positions_source: str = "ibkr_paper"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = True
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "paper"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = "Dry-run validates the IBKR paper submit path without placing an order."
 
 
@@ -215,6 +225,9 @@ class AccountInfoSchema(BaseModel):
     positions_source: str = "ibkr_paper"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = True
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "paper"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = "IBKR paper is the canonical serious paper trading path."
 
 
@@ -237,6 +250,9 @@ class PositionInfoSchema(BaseModel):
     positions_source: str = "ibkr_paper"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = True
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "paper"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = "IBKR paper is the canonical serious paper trading path."
 
 

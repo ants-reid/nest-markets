@@ -108,6 +108,11 @@ Notes:
 - Proving the future live process requires using the IBKR paper path, not `/execution/paper`.
 - This model does not enable live trading and does not relax existing broker/trading-control guards.
 
+MH-BROKER-PAPER-CANONICAL-02 delta:
+- `POST /broker/orders` remains the canonical serious-paper order route only when broker mode is coherently paper.
+- `POST /broker/orders/dry-run` remains available in live-config environments for inspection only, but now emits live-locked balance/positions lineage (`ibkr_live_locked`) plus `broker_account_mode=live`, `live_state=ibkr_live_locked`, and `is_canonical_paper=false`.
+- Dry-run never upgrades a live-config environment into a canonical paper path and never unlocks live submission.
+
 ---
 
 ## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)

@@ -57,6 +57,9 @@ EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
         "positions_source": ("<class 'str'>", False),
         "serious_paper_source": ("<class 'str'>", False),
         "is_canonical_paper": ("<class 'bool'>", False),
+        "canonical_paper_route": ("<class 'str'>", False),
+        "broker_account_mode": ("<class 'str'>", False),
+        "live_state": ("<class 'str'>", False),
         "paper_path_note": ("<class 'str'>", False),
     },
     "BrokerModeSchema": {

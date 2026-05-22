@@ -12,6 +12,7 @@ from typing import Any
 
 from app.db.session import SessionLocal
 from app.services.broker_mode_guard import get_broker_mode_metadata
+from app.services.paper_source_contract import broker_dry_run_sources, broker_sources_from_mode
 from app.services.broker_submit_decision_service import (
     BrokerSubmitDecisionRecord,
     BrokerSubmitDecisionService,
@@ -166,6 +167,12 @@ class BrokerPreflightDecisionService:
             execution_mode = "ibkr_live_locked"
         return execution_mode, broker_mode
 
+    def source_metadata(self, *, source: str) -> dict[str, Any]:
+        mode_meta = get_broker_mode_metadata()
+        if source == "dry_run":
+            return broker_dry_run_sources(mode_meta)
+        return broker_sources_from_mode(mode_meta)
+
     def persist_submit_decision(
         self,
         *,
@@ -202,7 +209,7 @@ class BrokerPreflightDecisionService:
             )
             with SessionLocal() as session:
                 writer = BrokerSubmitDecisionService(session)
-                writer.persist(record)
+                writer.persist(record, source_metadata=self.source_metadata(source=source))
                 session.commit()
         except Exception:
             _logger.exception(

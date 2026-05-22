@@ -67,6 +67,11 @@ Documentation values:
 | ibkr_paper | API-RX03 `/broker/*` + API-SX07 `broker_service.py` + API-C04 `ibkr_adapter.py` (paper mode) | ibkr_paper (`broker_dry_run` for dry-run) | ibkr_paper | ibkr_reported (via trade events when available) | ibkr_paper | ibkr_paper | ibkr_paper | true | Paper broker submit allowed only in coherent paper mode | Live submit still blocked |
 | ibkr_live_locked | Same broker abstraction as ibkr_paper with fully live env tuple | ibkr_live_locked | ibkr_live_locked | unavailable | unavailable | ibkr_live_locked | ibkr_paper | false | Live submit intentionally blocked in current phase | Locked (`live_order_submission_allowed=false`) |
 
+Phase-02 route contract note:
+- `POST /broker/orders` is the canonical serious-paper order path only in coherent paper mode.
+- `POST /broker/orders/dry-run` is read-only contract inspection in both paper and live-config modes; in live-config mode it must advertise live-locked account lineage instead of canonical paper lineage.
+- Append-only decision persistence now carries source metadata so dry-run and submit audits stay pinned to the mode-aware route contract.
+
 Clarification:
 - API-R06 (`/execution/paper`) is internal simulation and is not IBKR paper execution.
 - Serious pre-live paper proving is API-RX03 (`/broker/*`) in coherent paper mode.

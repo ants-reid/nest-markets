@@ -20,9 +20,12 @@ from app.db.session import SessionLocal
 from app.services.broker_preflight_decision_service import BrokerPreflightDecisionService
 from app.services.broker_service import BrokerService
 from app.services.paper_source_contract import (
+    CANONICAL_PAPER_ROUTE,
     SERIOUS_PAPER_SOURCE,
+    SOURCE_BROKER_DRY_RUN,
     SOURCE_IBKR_PAPER,
     SOURCE_INTERNAL_MOCK_SIMULATOR,
+    broker_dry_run_sources,
     broker_sources_from_mode,
     live_locked_execution_sources,
     simulator_execution_sources,
@@ -58,6 +61,10 @@ def test_simulator_sources_are_isolated_from_broker_paper_path():
     assert simulator["positions_source"] == "app_db_simulated"
     assert simulator["serious_paper_source"] == SOURCE_IBKR_PAPER
     assert simulator["is_canonical_paper"] is False
+    assert simulator["canonical_paper_route"] == CANONICAL_PAPER_ROUTE
+    assert simulator["broker_account_mode"] == "simulator"
+    assert simulator["live_state"] == "ibkr_live_locked"
+    assert "not the canonical IBKR paper" in simulator["simulator_warning"]
 
 
 def test_broker_paper_sources_remain_canonical_path():
@@ -68,6 +75,21 @@ def test_broker_paper_sources_remain_canonical_path():
     assert broker_paper["fills_source"] == SOURCE_IBKR_PAPER
     assert broker_paper["positions_source"] == SOURCE_IBKR_PAPER
     assert broker_paper["is_canonical_paper"] is True
+    assert broker_paper["canonical_paper_route"] == CANONICAL_PAPER_ROUTE
+    assert broker_paper["broker_account_mode"] == "paper"
+    assert broker_paper["live_state"] == "ibkr_live_locked"
+
+
+def test_broker_dry_run_sources_mark_canonical_paper_without_simulator_drift():
+    broker_dry_run = broker_dry_run_sources({"mode": "paper"})
+
+    assert broker_dry_run["execution_source"] == SOURCE_BROKER_DRY_RUN
+    assert broker_dry_run["balance_source"] == SOURCE_IBKR_PAPER
+    assert broker_dry_run["fills_source"] == "pending_broker_fill"
+    assert broker_dry_run["fees_source"] == "pending_broker_report"
+    assert broker_dry_run["is_canonical_paper"] is True
+    assert broker_dry_run["canonical_paper_route"] == CANONICAL_PAPER_ROUTE
+    assert broker_dry_run["broker_account_mode"] == "paper"
 
 
 def test_submit_decision_persistence_keeps_source_and_sanitizes_warning_payload():
@@ -102,6 +124,9 @@ def test_submit_decision_persistence_keeps_source_and_sanitizes_warning_payload(
     assert payload["source"] == "submit_preflight"
     assert payload["execution_mode"] == "ibkr_paper"
     assert payload["account_mode"] == "paper"
+    assert payload["execution_source"] == "ibkr_paper"
+    assert payload["canonical_paper_route"] == CANONICAL_PAPER_ROUTE
+    assert payload["broker_account_mode"] == "paper"
     assert persisted_warning["code"] == "max_order_notional_exceeded"
     assert len(persisted_warning["message"]) == 240
     assert "api_key" not in persisted_warning

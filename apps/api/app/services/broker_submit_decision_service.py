@@ -73,7 +73,12 @@ class BrokerSubmitDecisionService:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def persist(self, record: BrokerSubmitDecisionRecord) -> BrokerSubmitDecision:
+    def persist(
+        self,
+        record: BrokerSubmitDecisionRecord,
+        *,
+        source_metadata: dict[str, Any] | None = None,
+    ) -> BrokerSubmitDecision:
         """Insert one decision row with sanitized audit payload."""
         row = BrokerSubmitDecision(
             signal_id=record.signal_id,
@@ -95,6 +100,7 @@ class BrokerSubmitDecisionService:
                 "correlation_id": record.correlation_id,
                 "risk_profile_id": record.risk_profile_id,
                 "risk_block_reason": _cap_text(record.risk_block_reason, _MAX_REASON_TEXT),
+                **(source_metadata or {}),
             },
         )
         self._session.add(row)

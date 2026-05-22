@@ -65,6 +65,39 @@ def get_broker_service() -> BrokerService:
     return _broker_service
 
 
+def _dry_run_source_meta(meta: dict[str, object]) -> dict[str, object]:
+    """Return canonical dry-run labels from the current runtime mode."""
+    mode = str(meta.get("mode") or "paper").lower()
+    if mode == "live":
+        return {
+            "execution_source": "broker_dry_run",
+            "balance_source": "ibkr_live_locked",
+            "fees_source": "unavailable",
+            "fills_source": "pending_broker_fill",
+            "positions_source": "ibkr_live_locked",
+            "serious_paper_source": "ibkr_paper",
+            "is_canonical_paper": False,
+            "canonical_paper_route": "/broker/orders",
+            "broker_account_mode": "live",
+            "live_state": "ibkr_live_locked",
+            "paper_path_note": "Dry-run stays available for contract inspection, but live submit remains locked.",
+        }
+
+    return {
+        "execution_source": "broker_dry_run",
+        "balance_source": "ibkr_paper",
+        "fees_source": "pending_broker_report",
+        "fills_source": "pending_broker_fill",
+        "positions_source": "ibkr_paper",
+        "serious_paper_source": "ibkr_paper",
+        "is_canonical_paper": True,
+        "canonical_paper_route": "/broker/orders",
+        "broker_account_mode": "paper",
+        "live_state": "ibkr_live_locked",
+        "paper_path_note": "Dry-run validates the canonical IBKR paper submit path without placing an order.",
+    }
+
+
 def _is_broker_transport_error(exc: Exception) -> bool:
     return isinstance(exc, httpx.TransportError)
 
@@ -469,6 +502,7 @@ async def dry_run_order(request: OrderDryRunRequestSchema):
             risk_limit_snapshot=RiskLimitSnapshotSchema(**snapshot_data) if snapshot_data else None,
         )
 
+        meta = get_broker_mode_metadata()
         return OrderDryRunResultSchema(
             status=result["status"],
             mode_guard_ok=result["mode_guard_ok"],
@@ -478,11 +512,8 @@ async def dry_run_order(request: OrderDryRunRequestSchema):
             warnings=[OrderDryRunIssueSchema(**warning) for warning in result.get("warnings", [])],
             preflight_decision=OrderDryRunPreflightDecisionSchema(**result["preflight_decision"]),
             preflight_context=preflight_context_schema,
-            broker_mode=BrokerModeSchema(**result["broker_mode"]),
-            execution_source="broker_dry_run",
-            serious_paper_source="ibkr_paper",
-            is_canonical_paper=True,
-            paper_path_note="Dry-run validates the IBKR paper submit path without placing an order.",
+            broker_mode=BrokerModeSchema(**meta),
+            **_dry_run_source_meta(meta),
         )
     except HTTPException:
         raise

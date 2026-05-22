@@ -81,8 +81,15 @@ async def test_dry_run_ready_response(client):
     assert data["preflight_decision"]["submit_gate"] == "not_applied"
     assert data["preflight_decision"]["decision_status"] in {"advisory", "allowed", "would_block"}
     assert data["execution_source"] == "broker_dry_run"
+    assert data["balance_source"] == "ibkr_paper"
+    assert data["fees_source"] == "pending_broker_report"
+    assert data["fills_source"] == "pending_broker_fill"
+    assert data["positions_source"] == "ibkr_paper"
     assert data["serious_paper_source"] == "ibkr_paper"
     assert data["is_canonical_paper"] is True
+    assert data["canonical_paper_route"] == "/broker/orders"
+    assert data["broker_account_mode"] == "paper"
+    assert data["live_state"] == "ibkr_live_locked"
 
 
 @pytest.mark.asyncio
@@ -100,6 +107,9 @@ async def test_dry_run_persists_submit_decision_row(client):
         assert row.intent == "manual"
         assert row.preflight_json["source"] == "dry_run"
         assert row.preflight_json["submit_gate"] == "not_applied"
+        assert row.preflight_json["execution_source"] == "broker_dry_run"
+        assert row.preflight_json["canonical_paper_route"] == "/broker/orders"
+        assert row.preflight_json["broker_account_mode"] == "paper"
 
 
 @pytest.mark.asyncio
@@ -134,13 +144,14 @@ async def test_dry_run_blocked_when_live_guard_trips(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dry_run_allowed_for_full_live_config(client, monkeypatch):
+async def test_dry_run_allowed_for_full_live_config(monkeypatch):
     """Dry-run stays available in fully configured live mode because it never submits orders."""
     monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("BROKER_MODE", "live")
     monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
     get_settings.cache_clear()
 
+    client = TestClient(create_app())
     response = client.post("/broker/orders/dry-run", json=_payload())
 
     assert response.status_code == 200
@@ -148,6 +159,12 @@ async def test_dry_run_allowed_for_full_live_config(client, monkeypatch):
     assert data["status"] == "ready"
     assert data["mode_guard_ok"] is True
     assert data["request_valid"] is True
+    assert data["execution_source"] == "broker_dry_run"
+    assert data["balance_source"] == "ibkr_live_locked"
+    assert data["positions_source"] == "ibkr_live_locked"
+    assert data["is_canonical_paper"] is False
+    assert data["broker_account_mode"] == "live"
+    assert data["live_state"] == "ibkr_live_locked"
 
 
 @pytest.mark.asyncio

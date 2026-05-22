@@ -43,8 +43,14 @@ class PaperExecutionResponse(BaseModel):
     positions_source: str = "app_db_simulated"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = False
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "simulator"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = (
         "Internal simulator path only. Use IBKR paper broker routes for serious paper validation."
+    )
+    simulator_warning: str = (
+        "Internal simulator only. This is not the canonical IBKR paper proving path."
     )
 
 
@@ -77,4 +83,7 @@ class LiveExecutionResponse(BaseModel):
     positions_source: str = "ibkr_live_locked"
     serious_paper_source: str = "ibkr_paper"
     is_canonical_paper: bool = False
+    canonical_paper_route: str = "/broker/orders"
+    broker_account_mode: str = "live"
+    live_state: str = "ibkr_live_locked"
     paper_path_note: str = "Live trading remains locked in this phase."
