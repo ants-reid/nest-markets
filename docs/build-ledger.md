@@ -13504,3 +13504,52 @@ still 100% green.
 
 -> MH-161 (`BrokerService` split, no behavior change) after Bucket 1 lock criteria and reliability checks are green.
 
+---
+
+## MH-162 — Post-Lock Simulation Regression Suite
+
+- **Date:** 2026-05-22
+- **Status:** ✅ Complete
+- **Scope:** Test-only regression lock. No production behavior change, no schema/migration change, no unlock of live/auto execution.
+
+### Files Changed
+
+- `apps/api/tests/test_post_lock_simulation_regression.py` (new)
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Scenario Coverage (A-G)
+
+- A: Simulator source separation remains pinned (`internal_mock_simulator`, non-canonical paper).
+- B: IBKR paper remains canonical serious paper path (`ibkr_paper`, canonical=true).
+- C: Submit-decision persistence remains source-pinned and payload-sanitized (no secret-like extra keys, message capping).
+- D: Preflight classification remains fail-closed for `would_block`, `blocked`, `unknown`, and `error` outcomes.
+- E: Live mode submit remains blocked and auditable with persisted blocked decision metadata (`execution_mode=ibkr_live_locked`).
+- F: Worker and async-bridge invariants hold: sync worker bridge executes async safely and worker auto path routes through `submit_auto_order` only.
+- G: Canonical paper contract guard remains consistent across source helper surfaces.
+
+### Validation
+
+- Focused backend suite:
+  - `cd apps/api && .venv/bin/pytest tests/test_post_lock_simulation_regression.py -q`
+  - Result: `13 passed in 1.00s`
+
+### Safety Confirmation
+
+- No live trading enablement.
+- No live submit path activation.
+- No auto-trading unlock.
+- No risk-gate relaxation.
+- No production route/service behavior changes.
+
+### Known Limitations
+
+- This phase is intentionally focused on regression locking; it does not replace broader full-suite validation runs.
+- Existing drift-lock and route-level tests remain the broader safety net; MH-162 adds focused post-lock cross-surface assertions.
+
+### Next Recommended Phase
+
+-> Continue Bucket 3 hardening and maintenance phases after reviewing full-suite timing windows.
+

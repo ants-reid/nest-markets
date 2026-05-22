@@ -173,7 +173,7 @@ Notes:
 | Phase           | Title                                          | Status   | Depends On             | Drift Lock |
 |-----------------|------------------------------------------------|----------|------------------------|------------|
 | MH-161          | `BrokerService` split (refactor)               | ✅ Complete | Bucket 1 green        | No behaviour change |
-| MH-162          | Post-lock simulation regression suite          | ⏳ Pending | MH-161                | Test-only |
+| MH-162          | Post-lock simulation regression suite          | ✅ Complete | MH-161                | Test-only |
 | MH-MON-09       | Backend test-service POST endpoint hardening   | ✅ Complete | MH-MON-10             | Auth + rate-limit |
 | MH-COCKPIT-07   | In-flight adjustments view                     | ✅ Complete | MH-COCKPIT-05         | Paper scope |
 | MH-COCKPIT-08   | Trade-close explanations                       | ✅ Complete | MH-150                | Audit-driven |
