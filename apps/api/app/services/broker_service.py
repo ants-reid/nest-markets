@@ -17,20 +17,16 @@ from app.clients.broker.gateway_factory import BrokerGatewayFactory
 from app.config import get_settings
 from app.db.models.broker_trade_event import BrokerTradeEvent
 from app.db.session import SessionLocal
-from app.services.broker_submit_decision_service import (
-    BrokerSubmitDecisionRecord,
-    BrokerSubmitDecisionService,
-)
+from app.services.broker_preflight_advisory_service import BrokerPreflightAdvisoryService
+from app.services.broker_preflight_decision_service import BrokerPreflightDecisionService
 from app.services.broker_trade_event_service import (
     BrokerTradeEventService,
     sum_today_realized_pnl_from_raw_events,
 )
-from app.services.risk_limit_service import RiskLimitService
 from app.services.broker_mode_guard import (
     LiveExecutionBlockedError,
     get_broker_mode_metadata,
 )
-from app.services.trading_halt_service import TradingHaltService
 from app.services.trading_control_service import (
     AutoTradingBlockedError,
     LiveTradingNotArmedError,
@@ -93,6 +89,8 @@ class BrokerService:
         """
         self._broker = broker
         self._cached_account_info: AccountInfo | None = None
+        self._preflight_advisory = BrokerPreflightAdvisoryService()
+        self._preflight_decisions = BrokerPreflightDecisionService()
 
     async def ensure_connected(self) -> None:
         """Ensure the broker adapter is initialized and connected."""
@@ -787,147 +785,24 @@ class BrokerService:
         issues: list[dict[str, Any]],
         warnings: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Classify current dry-run findings into a structured preflight decision.
-
-        Decision output is consumed by submit-time enforcement and audit
-        persistence. Dry-run remains non-executing.
-        """
-
-        blocking_items: list[dict[str, Any]] = []
-        advisory_items: list[dict[str, Any]] = []
-        would_block_items: list[dict[str, Any]] = []
-
-        for issue in issues:
-            blocking_items.append(
-                {
-                    "code": issue["code"],
-                    "message": issue["message"],
-                    "severity": issue.get("severity"),
-                    "source": issue.get("source") or "request_validation",
-                    "enforcement_enabled": True,
-                    "classification": "blocking",
-                }
-            )
-
-        blocking_warning_codes = {
-            "emergency_stop_active",
-        }
-
-        would_block_codes = {
-            "max_order_notional_exceeded",
-            "max_total_exposure_exceeded",
-            "max_symbol_exposure_exceeded",
-            "max_open_positions_exceeded",
-            "max_trades_per_day_exceeded",
-            "min_cash_buffer_breached",
-        }
-
-        for warning in warnings:
-            warning_code = warning.get("code")
-            if warning_code in blocking_warning_codes:
-                classification = "blocking"
-                target = blocking_items
-            elif warning_code in would_block_codes:
-                classification = "would_block"
-                target = would_block_items
-            else:
-                classification = "advisory"
-                target = advisory_items
-            target.append(
-                {
-                    "code": warning["code"],
-                    "message": warning["message"],
-                    "severity": warning.get("severity"),
-                    "source": warning.get("source"),
-                    "enforcement_enabled": bool(warning.get("enforcement_enabled", False)),
-                    "classification": classification,
-                }
-            )
-
-        if blocking_items:
-            decision_status = "blocked"
-        elif would_block_items:
-            decision_status = "would_block"
-        elif advisory_items:
-            decision_status = "advisory"
-        else:
-            decision_status = "allowed"
-
-        return {
-            "decision_status": decision_status,
-            "submit_gate": "not_applied",
-            "advisory_count": len(advisory_items),
-            "would_block_count": len(would_block_items),
-            "blocking_count": len(blocking_items),
-            "advisory_items": advisory_items,
-            "would_block_items": would_block_items,
-            "blocking_items": blocking_items,
-        }
+        return self._preflight_decisions.build_preflight_decision(
+            issues=issues,
+            warnings=warnings,
+        )
 
     def _is_submit_blocked_by_preflight(self, decision: dict[str, Any]) -> bool:
-        decision_status = str(decision.get("decision_status") or "unknown").strip().lower()
-        blocking_count = int(decision.get("blocking_count") or 0)
-        would_block_count = int(decision.get("would_block_count") or 0)
-
-        if blocking_count > 0 or would_block_count > 0:
-            return True
-        if decision_status in {"blocked", "would_block", "error", "unknown", "invalid"}:
-            return True
-        return decision_status not in {"allowed", "advisory"}
+        return self._preflight_decisions.is_submit_blocked_by_preflight(decision)
 
     def _build_blocked_error_decision(self, *, code: str, message: str) -> dict[str, Any]:
-        return {
-            "decision_status": "error",
-            "submit_gate": "blocked",
-            "advisory_count": 0,
-            "would_block_count": 1,
-            "blocking_count": 0,
-            "advisory_items": [],
-            "would_block_items": [
-                {
-                    "code": code,
-                    "message": message,
-                    "source": "preflight",
-                    "classification": "would_block",
-                    "severity": "critical",
-                }
-            ],
-            "blocking_items": [],
-        }
+        return self._preflight_decisions.build_blocked_error_decision(code=code, message=message)
 
     def _decision_reason_fields(
         self, preflight_decision: dict[str, Any], warnings: list[dict[str, Any]]
     ) -> tuple[str | None, str | None, str | None, list[dict[str, Any]]]:
-        blocked_reasons = list(preflight_decision.get("blocking_items") or []) + list(
-            preflight_decision.get("would_block_items") or []
-        )
-        primary = blocked_reasons[0] if blocked_reasons else None
-        reason_code = primary.get("code") if primary else None
-        reason_text = primary.get("message") if primary else None
-
-        decision_status = str(preflight_decision.get("decision_status") or "unknown").strip().lower()
-        if reason_text:
-            decision_reason = reason_text
-        elif decision_status == "allowed":
-            decision_reason = "preflight_allowed"
-        elif decision_status == "advisory":
-            decision_reason = "advisory_only"
-        elif decision_status == "would_block":
-            decision_reason = "would_block_findings"
-        elif decision_status == "blocked":
-            decision_reason = "blocking_findings"
-        else:
-            decision_reason = "preflight_unknown"
-
-        return decision_reason, reason_code, reason_text, blocked_reasons
+        return self._preflight_decisions.decision_reason_fields(preflight_decision, warnings)
 
     def _execution_mode_metadata(self) -> tuple[str, str]:
-        mode_meta = get_broker_mode_metadata()
-        broker_mode = str(mode_meta.get("mode") or "paper").lower()
-        execution_mode = "ibkr_paper"
-        if broker_mode == "live":
-            execution_mode = "ibkr_live_locked"
-        return execution_mode, broker_mode
+        return self._preflight_decisions.execution_mode_metadata()
 
     def _persist_submit_decision(
         self,
@@ -939,40 +814,14 @@ class BrokerService:
         submit_gate: str,
         broker_order_id: str | None = None,
     ) -> None:
-        try:
-            decision_status = str(preflight_decision.get("decision_status") or "unknown").strip().lower()
-            blocked = self._is_submit_blocked_by_preflight(preflight_decision)
-            decision_reason, reason_code, reason_text, blocked_reasons = self._decision_reason_fields(
-                preflight_decision, warnings
-            )
-            execution_mode, account_mode = self._execution_mode_metadata()
-
-            record = BrokerSubmitDecisionRecord(
-                intent=intent,
-                would_block=blocked,
-                decision_status=decision_status,
-                allowed_to_submit=not blocked,
-                decision_reason=decision_reason,
-                blocked_reason_code=reason_code,
-                blocked_reason_text=reason_text,
-                blocked_reasons=blocked_reasons,
-                warnings=warnings,
-                execution_mode=execution_mode,
-                account_mode=account_mode,
-                source=source,
-                submit_gate=submit_gate,
-                broker_order_id=broker_order_id,
-            )
-            with SessionLocal() as session:
-                writer = BrokerSubmitDecisionService(session)
-                writer.persist(record)
-                session.commit()
-        except Exception:
-            _logger.exception(
-                "Failed to persist broker submit decision intent=%s source=%s",
-                intent,
-                source,
-            )
+        self._preflight_decisions.persist_submit_decision(
+            intent=intent,
+            preflight_decision=preflight_decision,
+            warnings=warnings,
+            source=source,
+            submit_gate=submit_gate,
+            broker_order_id=broker_order_id,
+        )
 
     def _persist_submit_decision_from_result(
         self,
@@ -981,15 +830,10 @@ class BrokerService:
         intent: str,
         source: str,
     ) -> None:
-        preflight_decision = dict(result.get("preflight_decision") or {})
-        warnings = list(result.get("warnings") or [])
-        submit_gate = str(preflight_decision.get("submit_gate") or "not_applied")
-        self._persist_submit_decision(
+        self._preflight_decisions.persist_submit_decision_from_result(
+            result=result,
             intent=intent,
-            preflight_decision=preflight_decision,
-            warnings=warnings,
             source=source,
-            submit_gate=submit_gate,
         )
 
     def _collect_preflight_warnings(
@@ -998,194 +842,8 @@ class BrokerService:
         estimated_notional: float | None,
         portfolio_context: dict[str, Any] | None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        """Run preflight checks against halt and risk foundations.
-
-        Returns:
-            (warnings, preflight_data) where preflight_data is the rich context
-            dict that becomes OrderDryRunPreflightContextSchema in the response.
-        """
-        warnings: list[dict[str, Any]] = []
-        preflight_data: dict[str, Any] = {}
-        session = SessionLocal()
-
-        try:
-            trading_mode = str(get_broker_mode_metadata().get("mode") or "paper").lower()
-
-            halt_status = TradingHaltService(session).get_status(scope="global")
-            if halt_status.emergency_stop_active:
-                warnings.append(
-                    {
-                        "code": "emergency_stop_active",
-                        "message": halt_status.blocked_reason
-                        or "Trading halt is active and will be enforced in a later execution phase.",
-                        "severity": "warning",
-                        "source": "trading_halt",
-                        "enforcement_enabled": True,
-                    }
-                )
-
-            risk_service = RiskLimitService(session)
-            risk_status = risk_service.get_status(trading_mode=trading_mode)
-
-            # --- Build risk_limit_snapshot for preflight context ---
-            active_config = risk_status.active_config
-            if active_config is not None:
-                preflight_data["risk_limit_snapshot"] = {
-                    "scope": active_config.scope,
-                    "trading_mode": active_config.trading_mode,
-                    "max_order_notional": active_config.max_order_notional,
-                    "daily_loss_limit_amount": active_config.daily_loss_limit_amount,
-                    "daily_loss_limit_pct": active_config.daily_loss_limit_pct,
-                    "max_open_positions": active_config.max_open_positions,
-                    "max_total_exposure": active_config.max_total_exposure,
-                    "max_symbol_exposure": active_config.max_symbol_exposure,
-                    "max_trades_per_day": active_config.max_trades_per_day,
-                    "min_cash_buffer": active_config.min_cash_buffer,
-                }
-
-            # --- Pass through caller-supplied portfolio context ---
-            if portfolio_context:
-                for key in (
-                    "cash_balance",
-                    "buying_power",
-                    "open_position_count",
-                    "current_symbol_exposure",
-                    "current_total_exposure",
-                    "daily_pnl",
-                    "daily_loss",
-                ):
-                    if portfolio_context.get(key) is not None:
-                        preflight_data[key] = portfolio_context[key]
-
-                # Compute post-trade exposure estimates (BUY adds to exposure)
-                if estimated_notional is not None and request.side == "BUY":
-                    sym_exp = portfolio_context.get("current_symbol_exposure")
-                    if sym_exp is not None:
-                        preflight_data["estimated_post_trade_symbol_exposure"] = (
-                            float(sym_exp) + estimated_notional
-                        )
-                    tot_exp = portfolio_context.get("current_total_exposure")
-                    if tot_exp is not None:
-                        preflight_data["estimated_post_trade_total_exposure"] = (
-                            float(tot_exp) + estimated_notional
-                        )
-
-            # --- max_order_notional advisory ---
-            if risk_status.has_max_order_notional:
-                warnings.append(
-                    {
-                        "code": "max_order_notional_configured",
-                        "message": "Max order notional is configured for future enforcement and is evaluated here as advisory only.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-            else:
-                warnings.append(
-                    {
-                        "code": "max_order_notional_not_configured",
-                        "message": "Max order notional is not configured; future preflight enforcement remains pending.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-
-            # --- Evaluate order against limits (enriched with portfolio context when available) ---
-            if estimated_notional is not None:
-                order_eval_context: dict[str, Any] = {
-                    "ticker": request.ticker,
-                    "side": request.side,
-                    "quantity": float(request.quantity),
-                    "estimated_notional": estimated_notional,
-                    "trading_mode": trading_mode,
-                }
-                if portfolio_context:
-                    if portfolio_context.get("current_total_exposure") is not None:
-                        order_eval_context["current_total_exposure"] = portfolio_context["current_total_exposure"]
-                    if portfolio_context.get("current_symbol_exposure") is not None:
-                        order_eval_context["current_symbol_exposure"] = portfolio_context["current_symbol_exposure"]
-                    if portfolio_context.get("open_position_count") is not None:
-                        order_eval_context["current_open_positions"] = portfolio_context["open_position_count"]
-                    if portfolio_context.get("cash_balance") is not None:
-                        order_eval_context["available_cash"] = portfolio_context["cash_balance"]
-
-                evaluation = risk_service.evaluate_order_against_limits(order_eval_context)
-                for violation in evaluation.violations:
-                    warnings.append(
-                        {
-                            "code": violation.code,
-                            "message": violation.message,
-                            "severity": "warning",
-                            "source": "risk_limits",
-                            "enforcement_enabled": False,
-                        }
-                    )
-            elif risk_status.has_max_order_notional:
-                warnings.append(
-                    {
-                        "code": "max_order_notional_not_evaluated",
-                        "message": "Estimated notional could not be evaluated for this dry-run payload.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-
-            # --- Daily loss advisory ---
-            if risk_status.has_daily_loss_limit:
-                warnings.append(
-                    {
-                        "code": "daily_loss_limit_placeholder",
-                        "message": "Daily loss limits are configured for future enforcement, but current dry-run does not yet calculate intraday realized loss context.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-            else:
-                warnings.append(
-                    {
-                        "code": "daily_loss_limit_not_configured",
-                        "message": "Daily loss limits are not configured; future enforcement remains pending.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-
-            # --- Exposure advisory ---
-            has_exposure_limit = risk_status.has_max_total_exposure or (
-                "max_symbol_exposure" in risk_status.configured_limits
-            )
-            has_exposure_context = portfolio_context is not None and (
-                portfolio_context.get("current_total_exposure") is not None
-                or portfolio_context.get("current_symbol_exposure") is not None
-            )
-            if has_exposure_limit and not has_exposure_context:
-                # Context not provided — emit placeholder; evaluation violations cover the case when context IS present
-                warnings.append(
-                    {
-                        "code": "max_exposure_placeholder",
-                        "message": "Exposure limits are configured for future enforcement, but current dry-run does not yet include live portfolio exposure context.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-            elif not has_exposure_limit:
-                warnings.append(
-                    {
-                        "code": "max_exposure_not_configured",
-                        "message": "Exposure limits are not configured; future enforcement remains pending.",
-                        "severity": "warning",
-                        "source": "risk_limits",
-                        "enforcement_enabled": False,
-                    }
-                )
-            # When has_exposure_limit AND has_exposure_context: violations from evaluate_order_against_limits cover it
-        finally:
-            session.close()
-
-        return warnings, preflight_data
+        return self._preflight_advisory.collect_preflight_warnings(
+            request,
+            estimated_notional,
+            portfolio_context,
+        )

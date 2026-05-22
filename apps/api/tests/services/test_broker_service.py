@@ -96,6 +96,45 @@ class TestBrokerService:
         service = BrokerService()
         assert service._broker is None
 
+    def test_preflight_decision_builder_delegates_to_split_helper(self, service):
+        expected = {
+            "decision_status": "allowed",
+            "submit_gate": "not_applied",
+            "advisory_count": 0,
+            "would_block_count": 0,
+            "blocking_count": 0,
+            "advisory_items": [],
+            "would_block_items": [],
+            "blocking_items": [],
+        }
+        with patch.object(
+            service._preflight_decisions,
+            "build_preflight_decision",
+            return_value=expected,
+        ) as mocked:
+            result = service._build_preflight_decision(issues=[], warnings=[])
+
+        assert result == expected
+        mocked.assert_called_once_with(issues=[], warnings=[])
+
+    def test_preflight_warning_collection_delegates_to_split_helper(self, service):
+        request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="MARKET",
+        )
+        expected = ([{"code": "advisory", "message": "ok"}], {"daily_pnl": 0.0})
+        with patch.object(
+            service._preflight_advisory,
+            "collect_preflight_warnings",
+            return_value=expected,
+        ) as mocked:
+            result = service._collect_preflight_warnings(request, None, None)
+
+        assert result == expected
+        mocked.assert_called_once_with(request, None, None)
+
     @pytest.mark.asyncio
     async def test_get_account_info_fresh(self, service, mock_broker):
         """Test fetching fresh account info (no cache)."""

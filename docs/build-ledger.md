@@ -13373,6 +13373,79 @@ still 100% green.
 
 ---
 
+## MH-161 — BrokerService Split, No Behaviour Change
+
+- **Date:** 2026-05-22
+- **Bucket:** Bucket 3 (post-lock refactor)
+- **Status:** ✅ Complete
+- **Scope:** Refactor-only split of `BrokerService` internals into focused helper services while preserving route contracts, preflight semantics, decision persistence, and live-lock guard outcomes.
+
+### Split Responsibilities
+
+- `apps/api/app/services/broker_service.py` remains the public facade used by routes/tests.
+- `apps/api/app/services/broker_preflight_decision_service.py` (new):
+  - preflight decision classification (`allowed`/`advisory`/`would_block`/`blocked`/`error`)
+  - fail-closed submit-block determination
+  - submit-decision persistence orchestration via `BrokerSubmitDecisionService`
+  - mode metadata mapping for persisted execution/account mode fields
+- `apps/api/app/services/broker_preflight_advisory_service.py` (new):
+  - trading-halt advisory collection
+  - risk-limit advisory/context collection
+  - dry-run preflight context assembly
+
+### Files Changed
+
+- `apps/api/app/services/broker_service.py`
+- `apps/api/app/services/broker_preflight_decision_service.py` (new)
+- `apps/api/app/services/broker_preflight_advisory_service.py` (new)
+- `apps/api/tests/services/test_broker_service.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Behaviour-Preservation Evidence
+
+- Public facade methods preserved on `BrokerService` (`get_account_info`, `get_positions`, `dry_run_order`, `submit_order`, `submit_auto_order`, reconciliation/cancel/status paths).
+- Preflight enforcement semantics preserved:
+  - `would_block` and `blocking` outcomes still block submit in paper mode.
+  - unknown/error preflight outcomes still fail closed.
+  - `PaperPreflightBlockedError` remains exported and raised on paper-branch blocking outcomes.
+- Decision persistence behavior preserved:
+  - dry-run (`source=dry_run`) and submit preflight/attempt (`source=submit_preflight` / `submit_attempt`) rows still persisted.
+  - sanitized payload constraints still enforced via existing decision writer service.
+- Live-lock posture unchanged:
+  - live submit remains blocked.
+  - auto trading remains blocked.
+  - no mode-guard relaxation.
+
+### Validation
+
+- Backend Ruff: `cd apps/api && .venv/bin/ruff check app tests` ✅
+- Focused backend suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q -k "broker or trading_control or risk or submit_decision"` -> `442 passed, 1923 deselected` ✅
+- Full backend suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> running at ledger write time; final result recorded in command log for this block
+- Frontend lint/build: `cd apps/web && npm run lint && npm run build` ✅
+- Learning suite: `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh` -> `99 passed` ✅
+
+### Safety Notes
+
+- No live trading enablement.
+- No live submit path activation.
+- No broker credential changes.
+- No risk-gate weakening.
+- No route/schema behavior change intended; split is internal service decomposition only.
+
+### Known Limitations
+
+- `BrokerService` remains the facade owner for now; this phase intentionally stops short of route DI changes or public API reshaping.
+- Future decomposition of account-read and submit orchestration into separate top-level facades remains optional and out-of-scope for MH-161.
+
+### Next Recommended Phase
+
+-> MH-162 — Post-lock simulation regression suite.
+
+---
+
 ## MH-BROKER-PAPER-CANONICAL-01 - Make IBKR Paper the Canonical Serious Paper Trading Path
 
 - **Date:** 2026-05-22
