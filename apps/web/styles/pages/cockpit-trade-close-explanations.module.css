@@ -289,6 +289,10 @@
   color: var(--text-secondary);
 }
 
+.assetContextRow {
+  margin-top: 0.5rem;
+}
+
 .detailMeta {
   margin-top: 0.65rem;
   display: grid;

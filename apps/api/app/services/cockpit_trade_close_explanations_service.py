@@ -53,9 +53,31 @@ def _status_text(value: object | None) -> str:
     return str(normalized).lower()
 
 
-def _load_assets(session: Session) -> dict[str, str]:
-    rows = session.execute(select(Asset.id, Asset.symbol)).all()
-    return {str(asset_id): symbol for asset_id, symbol in rows}
+def _load_assets(session: Session) -> tuple[dict[str, str], dict[str, str | None]]:
+    rows = session.execute(select(Asset.id, Asset.symbol, Asset.name)).all()
+    symbols_by_id = {str(asset_id): symbol for asset_id, symbol, _ in rows}
+    names_by_id = {str(asset_id): name for asset_id, _, name in rows}
+    return symbols_by_id, names_by_id
+
+
+def _asset_context_from_asset_id(
+    *,
+    asset_id: str | None,
+    names_by_id: dict[str, str | None],
+) -> dict[str, str | bool | None]:
+    if not asset_id:
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    return {
+        "asset_id": asset_id,
+        "asset_name": names_by_id.get(asset_id),
+        "asset_detail_path": f"/asset-cards/{asset_id}",
+        "has_asset_context": True,
+    }
 
 
 def _load_closed_positions(session: Session) -> list[Position]:
@@ -205,7 +227,7 @@ def get_cockpit_trade_close_explanations(
 ) -> CockpitTradeCloseExplanationsResponseSchema:
     current_time = _ensure_utc(now_utc) or _now_utc()
 
-    assets = _load_assets(session)
+    symbols_by_id, names_by_id = _load_assets(session)
     positions = _load_closed_positions(session)
     orders = _load_paper_orders(session)
     outcomes = _load_signal_outcomes(session)
@@ -234,7 +256,9 @@ def get_cockpit_trade_close_explanations(
     explanations: list[CockpitTradeCloseExplanationSchema] = []
 
     for position in positions[:_MAX_ROWS]:
-        symbol = assets.get(str(position.asset_id), "unknown")
+        asset_id = str(position.asset_id) if position.asset_id is not None else None
+        symbol = symbols_by_id.get(asset_id or "", "unknown")
+        context = _asset_context_from_asset_id(asset_id=asset_id, names_by_id=names_by_id)
         linked_order = _find_order_for_position(position, orders_by_signal)
         linked_outcome = outcomes_by_signal.get(str(position.signal_id)) if position.signal_id is not None else None
         linked_risk = risk_by_signal.get(str(position.signal_id)) if position.signal_id is not None else None
@@ -274,6 +298,10 @@ def get_cockpit_trade_close_explanations(
                 paper_order_id=str(linked_order.id) if linked_order is not None else None,
                 position_id=str(position.id),
                 symbol=symbol,
+                asset_id=context["asset_id"],
+                asset_name=context["asset_name"],
+                asset_detail_path=context["asset_detail_path"],
+                has_asset_context=context["has_asset_context"],
                 opened_at=_iso(position.opened_at),
                 closed_at=_iso(position.closed_at),
                 status=_status_text(position.status),

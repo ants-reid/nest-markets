@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import {
   getCockpitEodReport,
   type CockpitEodIncidentItem,
@@ -72,6 +73,7 @@ function TradeCard({ trade, label }: { trade: CockpitEodTradeItem | null; label:
     <div className={styles.metricCard}>
       <span className={styles.metricLabel}>{label}</span>
       <span className={styles.metricValue}>{trade.asset_symbol}</span>
+      <AssetContextLink context={trade} fallbackSymbol={trade.asset_symbol} />
       <span className={`${styles.metricSubvalue} ${pnlClass(trade.realized_pnl)}`}>
         {formatCurrency(trade.realized_pnl)}
       </span>
@@ -306,6 +308,9 @@ export default function CockpitEodReportPage() {
                         <div className={styles.positionTop}>
                           <span className={styles.positionAsset}>{item.asset_symbol}</span>
                           <span className={styles.positionSide}>{item.side}</span>
+                        </div>
+                        <div className={styles.assetContextRow}>
+                          <AssetContextLink context={item} fallbackSymbol={item.asset_symbol} />
                         </div>
                         <div className={styles.positionMeta}>Qty: {formatNumber(item.qty)}</div>
                         <div className={styles.positionMeta}>Opened: {formatTimestamp(item.opened_at)}</div>

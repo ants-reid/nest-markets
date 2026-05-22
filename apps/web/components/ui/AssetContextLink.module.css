@@ -1,0 +1,31 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.name {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.link {
+  text-decoration: none;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.link:hover,
+.link:focus-visible {
+  border-color: var(--accent-primary);
+}
+
+.unavailable {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}

@@ -19,6 +19,10 @@ function buildInFlightReport(overrides: Record<string, unknown> = {}) {
         id: "position-1",
         item_type: "paper_position",
         symbol: "AAPL",
+        asset_id: "asset-aapl",
+        asset_name: "Apple Inc.",
+        asset_detail_path: "/asset-cards/asset-aapl",
+        has_asset_context: true,
         status: "open",
         opened_at: "2026-05-22T18:00:00+00:00",
         created_at: "2026-05-22T18:00:00+00:00",
@@ -35,6 +39,10 @@ function buildInFlightReport(overrides: Record<string, unknown> = {}) {
         id: "order-1",
         item_type: "paper_order",
         symbol: "AAPL",
+        asset_id: null,
+        asset_name: null,
+        asset_detail_path: null,
+        has_asset_context: false,
         status: "accepted",
         opened_at: null,
         created_at: "2026-05-22T19:55:00+00:00",
@@ -101,6 +109,8 @@ test("In-Flight Adjustments route renders summary and paper read-only wording", 
   await expect(page.getByTestId("cockpit-in-flight-paper-mode")).toContainText(/paper mode only/i);
   await expect(page.getByTestId("cockpit-in-flight-summary-cards")).toContainText(/in-flight items/i);
   await expect(page.getByTestId("cockpit-in-flight-item-list")).toContainText(/AAPL/);
+  await expect(page.getByRole("link", { name: /view asset context/i }).first()).toHaveAttribute("href", "/asset-cards/asset-aapl");
+  await expect(page.getByText(/asset context unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /place|close|modify|execute/i })).toHaveCount(0);
 });
 

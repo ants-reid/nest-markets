@@ -35,6 +35,11 @@ class CockpitAttentionItemSchema(BaseModel):
     ]
     title: str
     message: str
+    asset_id: str | None = None
+    asset_symbol: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     priority: Literal["high", "medium", "low", "unknown"]
     status: str
     detected_at: str | None

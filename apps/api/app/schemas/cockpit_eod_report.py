@@ -23,6 +23,10 @@ class CockpitEodPnlSchema(BaseModel):
 
 class CockpitEodOpenPositionItemSchema(BaseModel):
     asset_symbol: str
+    asset_id: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     side: str
     qty: float | None
     opened_at: str | None
@@ -31,6 +35,10 @@ class CockpitEodOpenPositionItemSchema(BaseModel):
 
 class CockpitEodTradeItemSchema(BaseModel):
     asset_symbol: str
+    asset_id: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     side: str
     opened_at: str | None
     closed_at: str | None

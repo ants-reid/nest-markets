@@ -127,7 +127,7 @@ def _incident(*, severity: str, source: str, code: str, title: str, created_at: 
 
 def test_empty_response_returns_safe_summary_and_limitations(monkeypatch):
     now = datetime(2026, 5, 22, 20, 15, tzinfo=timezone.utc)
-    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: {})
+    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_positions", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_paper_recommendations", lambda session: [])
@@ -147,7 +147,10 @@ def test_open_positions_and_orders_are_surfaced_read_only(monkeypatch):
     asset = _asset("AAPL")
     signal_id = uuid4()
 
-    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: {str(asset.id): "AAPL"})
+    monkeypatch.setattr(
+        "app.services.cockpit_in_flight_adjustments_service._load_assets",
+        lambda session: ({str(asset.id): "AAPL"}, {str(asset.id): None}, {"AAPL": str(asset.id)}),
+    )
     monkeypatch.setattr(
         "app.services.cockpit_in_flight_adjustments_service._load_positions",
         lambda session: [
@@ -179,12 +182,13 @@ def test_open_positions_and_orders_are_surfaced_read_only(monkeypatch):
     assert all(item.is_actionable is False for item in report.items)
     assert any(item.item_type == "paper_position" for item in report.items)
     assert any(item.item_type == "paper_order" for item in report.items)
+    assert all(item.has_asset_context is True for item in report.items)
 
 
 def test_recommendations_are_surfaced_when_available(monkeypatch):
     now = datetime(2026, 5, 22, 20, 15, tzinfo=timezone.utc)
 
-    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: {})
+    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_positions", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr(
@@ -210,13 +214,17 @@ def test_recommendations_are_surfaced_when_available(monkeypatch):
     assert report.items[0].item_type == "paper_recommendation"
     assert report.items[0].adjustment_label in {"review_required", "risk_attention", "stale_data"}
     assert report.items[0].is_actionable is False
+    assert report.items[0].has_asset_context is False
 
 
 def test_missing_context_does_not_crash(monkeypatch):
     now = datetime(2026, 5, 22, 20, 15, tzinfo=timezone.utc)
     asset = _asset("NVDA")
 
-    monkeypatch.setattr("app.services.cockpit_in_flight_adjustments_service._load_assets", lambda session: {str(asset.id): "NVDA"})
+    monkeypatch.setattr(
+        "app.services.cockpit_in_flight_adjustments_service._load_assets",
+        lambda session: ({str(asset.id): "NVDA"}, {str(asset.id): None}, {"NVDA": str(asset.id)}),
+    )
     monkeypatch.setattr(
         "app.services.cockpit_in_flight_adjustments_service._load_positions",
         lambda session: [

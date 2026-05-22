@@ -50,6 +50,7 @@ def _stale_order(*, status: str, submitted_at: datetime):
 def test_empty_response_returns_safe_summary_and_limitations(monkeypatch):
     now = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
 
+    monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_active_alerts", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_notifications", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_incidents", lambda session: [])
@@ -76,6 +77,7 @@ def test_empty_response_returns_safe_summary_and_limitations(monkeypatch):
 
 def test_active_alerts_and_unresolved_incidents_are_surfaced_read_only(monkeypatch):
     now = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
+    asset_id = str(uuid4())
 
     alert = SimpleNamespace(
         alert_id="a1",
@@ -98,6 +100,10 @@ def test_active_alerts_and_unresolved_incidents_are_surfaced_read_only(monkeypat
         is_read=False,
     )
 
+    monkeypatch.setattr(
+        "app.services.cockpit_alerts_attention_service._load_assets",
+        lambda session: ({asset_id: "AAPL"}, {asset_id: "Apple Inc."}, {"AAPL": asset_id}),
+    )
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_active_alerts", lambda session: [alert])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_notifications", lambda session: [notification])
     monkeypatch.setattr(
@@ -130,11 +136,13 @@ def test_active_alerts_and_unresolved_incidents_are_surfaced_read_only(monkeypat
     assert "active_alert" in attention_types
     assert "unresolved_incident" in attention_types
     assert all(item.is_actionable is False for item in report.attention_items)
+    assert any(item.has_asset_context is True for item in report.attention_items if item.source in {"alert", "notification"})
 
 
 def test_monitor_degraded_risk_attention_and_trading_halt_are_surfaced(monkeypatch):
     now = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
 
+    monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_active_alerts", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_notifications", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_incidents", lambda session: [])
@@ -174,6 +182,7 @@ def test_monitor_degraded_risk_attention_and_trading_halt_are_surfaced(monkeypat
 def test_stale_data_and_missing_optional_fields_are_handled_safely(monkeypatch):
     now = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
 
+    monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_active_alerts", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_notifications", lambda session: [])
     monkeypatch.setattr(
@@ -212,6 +221,7 @@ def test_stale_data_and_missing_optional_fields_are_handled_safely(monkeypatch):
 def test_service_does_not_call_mutation_paths(monkeypatch):
     now = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
 
+    monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_assets", lambda session: ({}, {}, {}))
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_active_alerts", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_notifications", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_alerts_attention_service._load_incidents", lambda session: [])

@@ -26,6 +26,10 @@ export interface CockpitInFlightItem {
   id: string;
   item_type: CockpitInFlightItemType;
   symbol: string;
+  asset_id: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   status: string;
   opened_at: string | null;
   created_at: string | null;

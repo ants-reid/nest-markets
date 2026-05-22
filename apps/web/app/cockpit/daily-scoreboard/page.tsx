@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import {
   getCockpitDailyScoreboard,
@@ -74,7 +75,12 @@ function isEmpty(report: CockpitDailyScoreboardResponse): boolean {
 function ContributorRow({ item }: { item: CockpitDailyScoreboardContributor }) {
   return (
     <div className={styles.contributorRow}>
-      <span className={styles.contributorSymbol}>{item.symbol}</span>
+      <div>
+        <span className={styles.contributorSymbol}>{item.symbol}</span>
+        <div className={styles.contributorAssetContext}>
+          <AssetContextLink context={item} fallbackSymbol={item.symbol} />
+        </div>
+      </div>
       <span className={`${styles.contributorPnl} ${pnlClass(item.realized_pnl)}`}>
         {formatCurrency(item.realized_pnl)}
       </span>

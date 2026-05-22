@@ -72,9 +72,11 @@ def _as_float(value: object) -> float | None:
         return None
 
 
-def _load_assets(session: Session) -> dict[str, str]:
-    rows = session.execute(select(Asset.id, Asset.symbol)).all()
-    return {str(asset_id): symbol for asset_id, symbol in rows}
+def _load_assets(session: Session) -> tuple[dict[str, str], dict[str, str | None]]:
+    rows = session.execute(select(Asset.id, Asset.symbol, Asset.name)).all()
+    symbols_by_id = {str(asset_id): symbol for asset_id, symbol, _ in rows}
+    names_by_id = {str(asset_id): name for asset_id, _, name in rows}
+    return symbols_by_id, names_by_id
 
 
 def _load_paper_orders(session: Session) -> list[PaperOrder]:
@@ -113,13 +115,43 @@ def _opened_today_count(orders: Iterable[PaperOrder], start: datetime, end: date
     return count
 
 
-def _position_asset_symbol(position: Position, asset_symbols: dict[str, str]) -> str:
-    return asset_symbols.get(str(position.asset_id), "unknown")
+def _position_asset_symbol(position: Position, symbols_by_id: dict[str, str]) -> str:
+    return symbols_by_id.get(str(position.asset_id), "unknown")
 
 
-def _trade_item(position: Position, asset_symbols: dict[str, str]) -> CockpitEodTradeItemSchema:
+def _asset_context_from_position(
+    position: Position,
+    *,
+    names_by_id: dict[str, str | None],
+) -> dict[str, str | bool | None]:
+    if position.asset_id is None:
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    asset_id = str(position.asset_id)
+    return {
+        "asset_id": asset_id,
+        "asset_name": names_by_id.get(asset_id),
+        "asset_detail_path": f"/asset-cards/{asset_id}",
+        "has_asset_context": True,
+    }
+
+
+def _trade_item(
+    position: Position,
+    symbols_by_id: dict[str, str],
+    names_by_id: dict[str, str | None],
+) -> CockpitEodTradeItemSchema:
+    context = _asset_context_from_position(position, names_by_id=names_by_id)
     return CockpitEodTradeItemSchema(
-        asset_symbol=_position_asset_symbol(position, asset_symbols),
+        asset_symbol=_position_asset_symbol(position, symbols_by_id),
+        asset_id=context["asset_id"],
+        asset_name=context["asset_name"],
+        asset_detail_path=context["asset_detail_path"],
+        has_asset_context=context["has_asset_context"],
         side=position.side,
         opened_at=_iso(position.opened_at),
         closed_at=_iso(position.closed_at),
@@ -174,7 +206,7 @@ def get_cockpit_eod_report(
 ) -> CockpitEodReportResponseSchema:
     now = _ensure_utc(now_utc)
     start, end = _day_bounds(now)
-    asset_symbols = _load_assets(session)
+    symbols_by_id, names_by_id = _load_assets(session)
     orders = _load_paper_orders(session)
     positions = _load_positions(session)
     outcomes = _load_signal_outcomes(session)
@@ -184,13 +216,19 @@ def get_cockpit_eod_report(
 
     open_positions_rows = [row for row in positions if row.closed_at is None]
     open_positions_items = [
-        CockpitEodOpenPositionItemSchema(
-            asset_symbol=_position_asset_symbol(row, asset_symbols),
-            side=row.side,
-            qty=_as_float(row.qty),
-            opened_at=_iso(row.opened_at),
-            unrealized_pnl=_as_float(row.unrealized_pnl),
-        )
+        (
+            lambda context: CockpitEodOpenPositionItemSchema(
+                asset_symbol=_position_asset_symbol(row, symbols_by_id),
+                asset_id=context["asset_id"],
+                asset_name=context["asset_name"],
+                asset_detail_path=context["asset_detail_path"],
+                has_asset_context=context["has_asset_context"],
+                side=row.side,
+                qty=_as_float(row.qty),
+                opened_at=_iso(row.opened_at),
+                unrealized_pnl=_as_float(row.unrealized_pnl),
+            )
+        )(_asset_context_from_position(row, names_by_id=names_by_id))
         for row in open_positions_rows[:_OPEN_LIMIT]
     ]
 
@@ -291,9 +329,17 @@ def get_cockpit_eod_report(
             losses=losses,
             flat=flat,
             unknown=len(closed_today_rows) - len(closed_with_realized),
-            best_trade=_trade_item(best_trade_row, asset_symbols) if best_trade_row is not None else None,
-            worst_trade=_trade_item(worst_trade_row, asset_symbols) if worst_trade_row is not None else None,
-            items=[_trade_item(row, asset_symbols) for row in closed_today_rows[:_CLOSED_LIMIT]],
+            best_trade=(
+                _trade_item(best_trade_row, symbols_by_id, names_by_id)
+                if best_trade_row is not None
+                else None
+            ),
+            worst_trade=(
+                _trade_item(worst_trade_row, symbols_by_id, names_by_id)
+                if worst_trade_row is not None
+                else None
+            ),
+            items=[_trade_item(row, symbols_by_id, names_by_id) for row in closed_today_rows[:_CLOSED_LIMIT]],
         ),
         alerts_or_incidents=[
             CockpitEodIncidentItemSchema(

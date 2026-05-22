@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import {
   getCockpitTradeCloseExplanations,
@@ -233,6 +234,9 @@ export default function CockpitTradeCloseExplanationsPage() {
                   </div>
 
                   <p className={styles.detailSummary}>{item.result_summary}</p>
+                  <div className={styles.assetContextRow}>
+                    <AssetContextLink context={item} fallbackSymbol={item.symbol} />
+                  </div>
 
                   <div className={styles.detailMeta}>
                     <span><strong>Opened:</strong> {formatTimestamp(item.opened_at)}</span>

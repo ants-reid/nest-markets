@@ -54,9 +54,53 @@ def _status_text(value: object | None) -> str:
     return str(status).lower()
 
 
-def _load_assets(session: Session) -> dict[str, str]:
-    rows = session.execute(select(Asset.id, Asset.symbol)).all()
-    return {str(asset_id): symbol for asset_id, symbol in rows}
+def _load_assets(session: Session) -> tuple[dict[str, str], dict[str, str | None], dict[str, str]]:
+    rows = session.execute(select(Asset.id, Asset.symbol, Asset.name)).all()
+    symbols_by_id = {str(asset_id): symbol for asset_id, symbol, _ in rows}
+    names_by_id = {str(asset_id): name for asset_id, _, name in rows}
+    ids_by_symbol = {
+        symbol.upper(): str(asset_id)
+        for asset_id, symbol, _ in rows
+        if symbol
+    }
+    return symbols_by_id, names_by_id, ids_by_symbol
+
+
+def _asset_context_from_asset_id(
+    *,
+    asset_id: str | None,
+    names_by_id: dict[str, str | None],
+) -> dict[str, str | bool | None]:
+    if not asset_id:
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    return {
+        "asset_id": asset_id,
+        "asset_name": names_by_id.get(asset_id),
+        "asset_detail_path": f"/asset-cards/{asset_id}",
+        "has_asset_context": True,
+    }
+
+
+def _asset_context_from_symbol(
+    *,
+    symbol: str | None,
+    ids_by_symbol: dict[str, str],
+    names_by_id: dict[str, str | None],
+) -> dict[str, str | bool | None]:
+    if not symbol:
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    asset_id = ids_by_symbol.get(symbol.upper())
+    return _asset_context_from_asset_id(asset_id=asset_id, names_by_id=names_by_id)
 
 
 def _load_positions(session: Session) -> list[Position]:
@@ -126,11 +170,14 @@ def _position_item(
     position: Position,
     *,
     now_utc: datetime,
-    asset_symbols: dict[str, str],
+    symbols_by_id: dict[str, str],
+    names_by_id: dict[str, str | None],
     risk_by_signal: dict[str, RiskDecision],
     monitor_block: bool,
 ) -> CockpitInFlightItemSchema:
-    symbol = asset_symbols.get(str(position.asset_id), "unknown")
+    asset_id = str(position.asset_id) if position.asset_id is not None else None
+    symbol = symbols_by_id.get(asset_id or "", "unknown")
+    context = _asset_context_from_asset_id(asset_id=asset_id, names_by_id=names_by_id)
     missing_data: list[str] = []
     evidence = [f"position_status={_status_text(position.status)}", f"side={position.side}"]
     if position.stop_price is None:
@@ -183,6 +230,10 @@ def _position_item(
         id=str(position.id),
         item_type="paper_position",
         symbol=symbol,
+        asset_id=context["asset_id"],
+        asset_name=context["asset_name"],
+        asset_detail_path=context["asset_detail_path"],
+        has_asset_context=context["has_asset_context"],
         status=_status_text(position.status),
         opened_at=_iso(position.opened_at),
         created_at=_iso(position.created_at),
@@ -203,10 +254,13 @@ def _order_item(
     order: PaperOrder,
     *,
     now_utc: datetime,
-    asset_symbols: dict[str, str],
+    symbols_by_id: dict[str, str],
+    names_by_id: dict[str, str | None],
     risk_by_signal: dict[str, RiskDecision],
 ) -> CockpitInFlightItemSchema:
-    symbol = asset_symbols.get(str(order.asset_id), "unknown")
+    asset_id = str(order.asset_id) if order.asset_id is not None else None
+    symbol = symbols_by_id.get(asset_id or "", "unknown")
+    context = _asset_context_from_asset_id(asset_id=asset_id, names_by_id=names_by_id)
     created_at = order.submitted_at or order.created_at or order.timestamp
     created_dt = _ensure_utc(created_at) if created_at else None
 
@@ -247,6 +301,10 @@ def _order_item(
         id=str(order.id),
         item_type="paper_order",
         symbol=symbol,
+        asset_id=context["asset_id"],
+        asset_name=context["asset_name"],
+        asset_detail_path=context["asset_detail_path"],
+        has_asset_context=context["has_asset_context"],
         status=_status_text(order.status),
         opened_at=None,
         created_at=_iso(created_at),
@@ -267,6 +325,8 @@ def _recommendation_item(
     recommendation: PaperRecommendation,
     *,
     now_utc: datetime,
+    ids_by_symbol: dict[str, str],
+    names_by_id: dict[str, str | None],
     risk_by_signal: dict[str, RiskDecision],
 ) -> CockpitInFlightItemSchema:
     missing_data: list[str] = []
@@ -315,10 +375,20 @@ def _recommendation_item(
         f"order_type={recommendation.order_type}"
     )
 
+    context = _asset_context_from_symbol(
+        symbol=recommendation.ticker,
+        ids_by_symbol=ids_by_symbol,
+        names_by_id=names_by_id,
+    )
+
     return CockpitInFlightItemSchema(
         id=str(recommendation.id),
         item_type="paper_recommendation",
         symbol=recommendation.ticker,
+        asset_id=context["asset_id"],
+        asset_name=context["asset_name"],
+        asset_detail_path=context["asset_detail_path"],
+        has_asset_context=context["has_asset_context"],
         status=_status_text(recommendation.status),
         opened_at=None,
         created_at=_iso(recommendation.created_at),
@@ -373,7 +443,7 @@ def get_cockpit_in_flight_adjustments(
 ) -> CockpitInFlightAdjustmentsResponseSchema:
     current_time = _ensure_utc(now_utc or _now_utc())
 
-    assets = _load_assets(session)
+    symbols_by_id, names_by_id, ids_by_symbol = _load_assets(session)
     positions = _active_positions(_load_positions(session))
     orders = _active_orders(_load_paper_orders(session))
     recommendations = _active_recommendations(_load_paper_recommendations(session))
@@ -396,18 +466,31 @@ def get_cockpit_in_flight_adjustments(
         _position_item(
             position,
             now_utc=current_time,
-            asset_symbols=assets,
+            symbols_by_id=symbols_by_id,
+            names_by_id=names_by_id,
             risk_by_signal=risk_by_signal,
             monitor_block=monitor_alert_active,
         )
         for position in positions
     )
     items.extend(
-        _order_item(order, now_utc=current_time, asset_symbols=assets, risk_by_signal=risk_by_signal)
+        _order_item(
+            order,
+            now_utc=current_time,
+            symbols_by_id=symbols_by_id,
+            names_by_id=names_by_id,
+            risk_by_signal=risk_by_signal,
+        )
         for order in orders
     )
     items.extend(
-        _recommendation_item(recommendation, now_utc=current_time, risk_by_signal=risk_by_signal)
+        _recommendation_item(
+            recommendation,
+            now_utc=current_time,
+            ids_by_symbol=ids_by_symbol,
+            names_by_id=names_by_id,
+            risk_by_signal=risk_by_signal,
+        )
         for recommendation in recommendations
     )
 

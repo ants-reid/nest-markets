@@ -251,6 +251,10 @@
   font-size: 0.76rem;
   color: var(--text-muted);
   margin: 0;
+
+.assetContextRow {
+  margin-top: 0.6rem;
+}
 }
 
 .metaGrid dd {

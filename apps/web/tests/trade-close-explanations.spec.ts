@@ -22,6 +22,10 @@ function buildTradeCloseReport(overrides: Record<string, unknown> = {}) {
         paper_order_id: "order-1",
         position_id: "position-1",
         symbol: "AAPL",
+        asset_id: "asset-aapl",
+        asset_name: "Apple Inc.",
+        asset_detail_path: "/asset-cards/asset-aapl",
+        has_asset_context: true,
         opened_at: "2026-05-22T18:00:00+00:00",
         closed_at: "2026-05-22T19:10:00+00:00",
         status: "closed",
@@ -40,6 +44,10 @@ function buildTradeCloseReport(overrides: Record<string, unknown> = {}) {
         paper_order_id: "order-2",
         position_id: "position-2",
         symbol: "MSFT",
+        asset_id: null,
+        asset_name: null,
+        asset_detail_path: null,
+        has_asset_context: false,
         opened_at: "2026-05-22T17:00:00+00:00",
         closed_at: "2026-05-22T19:20:00+00:00",
         status: "closed",
@@ -98,6 +106,8 @@ test("Trade-close explanations route renders summary and paper read-only wording
   await expect(page.getByTestId("cockpit-trade-close-paper-mode")).toContainText(/paper mode only/i);
   await expect(page.getByTestId("cockpit-trade-close-summary-cards")).toContainText(/closed trades/i);
   await expect(page.getByTestId("cockpit-trade-close-explanation-list")).toContainText(/AAPL/);
+  await expect(page.getByRole("link", { name: /view asset context/i }).first()).toHaveAttribute("href", "/asset-cards/asset-aapl");
+  await expect(page.getByText(/asset context unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /place|close|modify|execute|submit/i })).toHaveCount(0);
 });
 

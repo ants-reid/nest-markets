@@ -23,6 +23,10 @@ class CockpitTradeCloseExplanationSchema(BaseModel):
     paper_order_id: str | None
     position_id: str | None
     symbol: str
+    asset_id: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     opened_at: str | None
     closed_at: str | None
     status: str

@@ -207,6 +207,10 @@
   font-weight: 700;
 }
 
+.contributorAssetContext {
+  margin-top: 0.35rem;
+}
+
 .contributorPnl {
   font-variant-numeric: tabular-nums;
 }

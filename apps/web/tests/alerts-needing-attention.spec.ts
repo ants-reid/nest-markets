@@ -25,6 +25,11 @@ function buildAttentionPayload(overrides: Record<string, unknown> = {}) {
         source: "alert",
         title: "Active alert for AAPL",
         message: "AAPL execution was rejected.",
+        asset_id: "asset-aapl",
+        asset_symbol: "AAPL",
+        asset_name: "Apple Inc.",
+        asset_detail_path: "/asset-cards/asset-aapl",
+        has_asset_context: true,
         priority: "high",
         status: "rejected",
         detected_at: null,
@@ -39,6 +44,11 @@ function buildAttentionPayload(overrides: Record<string, unknown> = {}) {
         source: "incident",
         title: "Worker failure",
         message: "Worker loop failed",
+        asset_id: null,
+        asset_symbol: null,
+        asset_name: null,
+        asset_detail_path: null,
+        has_asset_context: false,
         priority: "medium",
         status: "observed",
         detected_at: "2026-05-22T23:00:00+00:00",
@@ -53,6 +63,11 @@ function buildAttentionPayload(overrides: Record<string, unknown> = {}) {
         source: "monitor",
         title: "Monitor status down: feeds_in.polygon_provider",
         message: "Probe failed",
+        asset_id: null,
+        asset_symbol: null,
+        asset_name: null,
+        asset_detail_path: null,
+        has_asset_context: false,
         priority: "medium",
         status: "down",
         detected_at: "2026-05-22T23:02:00+00:00",
@@ -116,6 +131,8 @@ test("Alerts needing attention route renders summary and read-only wording", asy
   await expect(page.getByTestId("cockpit-alerts-paper-mode")).toContainText(/paper mode only/i);
   await expect(page.getByTestId("cockpit-alerts-summary-cards")).toContainText(/attention items/i);
   await expect(page.getByTestId("cockpit-alerts-items")).toContainText(/active alert for AAPL/i);
+  await expect(page.getByRole("link", { name: /view asset context/i }).first()).toHaveAttribute("href", "/asset-cards/asset-aapl");
+  await expect(page.getByText(/asset context unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /acknowledge|resolve|execute|close|modify|approve/i })).toHaveCount(0);
 });
 

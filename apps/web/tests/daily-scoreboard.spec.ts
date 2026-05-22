@@ -43,12 +43,20 @@ function buildDailyScoreboard(overrides: Record<string, unknown> = {}) {
       items: [
         {
           symbol: "AAPL",
+          asset_id: "asset-aapl",
+          asset_name: "Apple Inc.",
+          asset_detail_path: "/asset-cards/asset-aapl",
+          has_asset_context: true,
           realized_pnl: 12.5,
           contribution_label: "positive",
           evidence: ["realized_pnl_sum_by_symbol"],
         },
         {
           symbol: "MSFT",
+          asset_id: null,
+          asset_name: null,
+          asset_detail_path: null,
+          has_asset_context: false,
           realized_pnl: -2.0,
           contribution_label: "negative",
           evidence: ["realized_pnl_sum_by_symbol"],
@@ -110,6 +118,8 @@ test("Daily scoreboard route renders summary cards and paper read-only wording",
   await expect(page.getByTestId("cockpit-daily-summary-cards")).toContainText(/trades opened today/i);
   await expect(page.getByTestId("cockpit-daily-top-contributors")).toContainText(/AAPL/);
   await expect(page.getByTestId("cockpit-daily-notes-panels")).toContainText(/feed degraded/i);
+  await expect(page.getByRole("link", { name: /view asset context/i }).first()).toHaveAttribute("href", "/asset-cards/asset-aapl");
+  await expect(page.getByText(/asset context unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /place|close|modify|approve|execute|submit/i })).toHaveCount(0);
 });
 

@@ -20,6 +20,10 @@ class CockpitInFlightItemSchema(BaseModel):
     id: str
     item_type: Literal["paper_position", "paper_order", "paper_recommendation", "unknown"]
     symbol: str
+    asset_id: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     status: str
     opened_at: str | None
     created_at: str | None

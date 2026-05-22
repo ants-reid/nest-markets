@@ -18,6 +18,10 @@ export interface CockpitEodPnl {
 
 export interface CockpitEodOpenPositionItem {
   asset_symbol: string;
+  asset_id: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   side: string;
   qty: number | null;
   opened_at: string | null;
@@ -26,6 +30,10 @@ export interface CockpitEodOpenPositionItem {
 
 export interface CockpitEodTradeItem {
   asset_symbol: string;
+  asset_id: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   side: string;
   opened_at: string | null;
   closed_at: string | null;

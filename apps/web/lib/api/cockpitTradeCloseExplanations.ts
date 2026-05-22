@@ -29,6 +29,10 @@ export interface CockpitTradeCloseExplanation {
   paper_order_id: string | null;
   position_id: string | null;
   symbol: string;
+  asset_id: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   opened_at: string | null;
   closed_at: string | null;
   status: string;

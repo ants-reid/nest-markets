@@ -4,6 +4,7 @@ export { Card } from "./Card";
 export { DataTable } from "./DataTable";
 export type { DataTableColumn } from "./DataTable";
 export { EmptyState } from "./EmptyState";
+export { AssetContextLink } from "./AssetContextLink";
 export { FilterBar } from "./FilterBar";
 export type { FilterGroup } from "./FilterBar";
 export { MetricCard } from "./MetricCard";

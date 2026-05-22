@@ -74,7 +74,7 @@ def _risk_decision(*, approved: str = "approved", signal_id=None, blocking_rule:
 
 def test_empty_response_returns_safe_summary_and_limitations(monkeypatch):
     now = datetime(2026, 5, 22, 21, 0, tzinfo=timezone.utc)
-    monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_assets", lambda session: {})
+    monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_assets", lambda session: ({}, {}))
     monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_positions", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_risk_decisions", lambda session: [])
@@ -100,7 +100,10 @@ def test_opened_and_closed_counts_and_pnl_when_supported(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.cockpit_daily_scoreboard_service._load_assets",
-        lambda session: {str(asset_a.id): "AAPL", str(asset_b.id): "MSFT"},
+        lambda session: (
+            {str(asset_a.id): "AAPL", str(asset_b.id): "MSFT"},
+            {str(asset_a.id): None, str(asset_b.id): None},
+        ),
     )
     monkeypatch.setattr(
         "app.services.cockpit_daily_scoreboard_service._load_paper_orders",
@@ -142,7 +145,7 @@ def test_top_contributors_only_render_with_evidence(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.cockpit_daily_scoreboard_service._load_assets",
-        lambda session: {str(asset_a.id): "AAPL"},
+        lambda session: ({str(asset_a.id): "AAPL"}, {str(asset_a.id): None}),
     )
     monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr(
@@ -160,6 +163,9 @@ def test_top_contributors_only_render_with_evidence(monkeypatch):
     assert report.top_contributors.items[0].symbol == "AAPL"
     assert report.top_contributors.items[0].realized_pnl is None
     assert report.top_contributors.items[0].contribution_label == "unknown"
+    assert report.top_contributors.items[0].asset_id == str(asset_a.id)
+    assert report.top_contributors.items[0].asset_detail_path == f"/asset-cards/{asset_a.id}"
+    assert report.top_contributors.items[0].has_asset_context is True
 
 
 def test_missing_optional_metrics_do_not_crash(monkeypatch):
@@ -169,7 +175,7 @@ def test_missing_optional_metrics_do_not_crash(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.cockpit_daily_scoreboard_service._load_assets",
-        lambda session: {str(asset.id): "NVDA"},
+        lambda session: ({str(asset.id): "NVDA"}, {str(asset.id): None}),
     )
     monkeypatch.setattr("app.services.cockpit_daily_scoreboard_service._load_paper_orders", lambda session: [_paper_order(submitted_at=earlier)])
     monkeypatch.setattr(

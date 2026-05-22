@@ -53,6 +53,10 @@ class CockpitDailyScoreboardClosedPositionsSchema(BaseModel):
 
 class CockpitDailyScoreboardContributorSchema(BaseModel):
     symbol: str
+    asset_id: str | None = None
+    asset_name: str | None = None
+    asset_detail_path: str | None = None
+    has_asset_context: bool = False
     realized_pnl: float | None
     contribution_label: Literal["positive", "negative", "flat", "unknown"]
     evidence: list[str]

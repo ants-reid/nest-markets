@@ -77,7 +77,7 @@ def _risk_decision(*, signal_id, approved: str = "approved", blocking_rule: str 
 
 def test_empty_response_returns_safe_summary_and_limitations(monkeypatch):
     now = datetime(2026, 5, 22, 21, 0, tzinfo=timezone.utc)
-    monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_assets", lambda session: {})
+    monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_assets", lambda session: ({}, {}))
     monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_closed_positions", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_signal_outcomes", lambda session: [])
@@ -95,7 +95,10 @@ def test_closed_paper_trades_are_surfaced_read_only(monkeypatch):
     now = datetime(2026, 5, 22, 21, 0, tzinfo=timezone.utc)
     asset = _asset("AAPL")
     signal_id = uuid4()
-    monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_assets", lambda session: {str(asset.id): "AAPL"})
+    monkeypatch.setattr(
+        "app.services.cockpit_trade_close_explanations_service._load_assets",
+        lambda session: ({str(asset.id): "AAPL"}, {str(asset.id): None}),
+    )
     monkeypatch.setattr(
         "app.services.cockpit_trade_close_explanations_service._load_closed_positions",
         lambda session: [
@@ -129,6 +132,9 @@ def test_closed_paper_trades_are_surfaced_read_only(monkeypatch):
     assert item.close_label == "target_hit"
     assert item.paper_order_id is not None
     assert item.is_actionable is False
+    assert item.asset_id == str(asset.id)
+    assert item.asset_detail_path == f"/asset-cards/{asset.id}"
+    assert item.has_asset_context is True
 
 
 def test_unknown_close_reason_returns_unknown_not_fabricated(monkeypatch):
@@ -136,7 +142,10 @@ def test_unknown_close_reason_returns_unknown_not_fabricated(monkeypatch):
     asset = _asset("MSFT")
     signal_id = uuid4()
 
-    monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_assets", lambda session: {str(asset.id): "MSFT"})
+    monkeypatch.setattr(
+        "app.services.cockpit_trade_close_explanations_service._load_assets",
+        lambda session: ({str(asset.id): "MSFT"}, {str(asset.id): None}),
+    )
     monkeypatch.setattr(
         "app.services.cockpit_trade_close_explanations_service._load_closed_positions",
         lambda session: [
@@ -171,7 +180,10 @@ def test_close_reason_inference_requires_evidence(monkeypatch):
     asset = _asset("NVDA")
     signal_id = uuid4()
 
-    monkeypatch.setattr("app.services.cockpit_trade_close_explanations_service._load_assets", lambda session: {str(asset.id): "NVDA"})
+    monkeypatch.setattr(
+        "app.services.cockpit_trade_close_explanations_service._load_assets",
+        lambda session: ({str(asset.id): "NVDA"}, {str(asset.id): None}),
+    )
     monkeypatch.setattr(
         "app.services.cockpit_trade_close_explanations_service._load_closed_positions",
         lambda session: [

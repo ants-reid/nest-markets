@@ -68,7 +68,7 @@ def _incident(*, severity: str, code: str, title: str, source: str, created_at: 
 
 def test_empty_report_returns_safe_defaults(monkeypatch):
     now = datetime(2026, 5, 22, 20, 15, tzinfo=timezone.utc)
-    monkeypatch.setattr("app.services.cockpit_eod_report_service._load_assets", lambda session: {})
+    monkeypatch.setattr("app.services.cockpit_eod_report_service._load_assets", lambda session: ({}, {}))
     monkeypatch.setattr("app.services.cockpit_eod_report_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_eod_report_service._load_positions", lambda session: [])
     monkeypatch.setattr("app.services.cockpit_eod_report_service._load_signal_outcomes", lambda session: [])
@@ -99,7 +99,10 @@ def test_report_counts_today_activity_and_pnl(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.cockpit_eod_report_service._load_assets",
-        lambda session: {str(asset_a.id): asset_a.symbol, str(asset_b.id): asset_b.symbol},
+        lambda session: (
+            {str(asset_a.id): asset_a.symbol, str(asset_b.id): asset_b.symbol},
+            {str(asset_a.id): None, str(asset_b.id): None},
+        ),
     )
     monkeypatch.setattr(
         "app.services.cockpit_eod_report_service._load_paper_orders",
@@ -133,6 +136,9 @@ def test_report_counts_today_activity_and_pnl(monkeypatch):
     assert report.summary.opened_today == 1
     assert report.summary.closed_today == 2
     assert report.summary.open_positions_now == 1
+    assert report.open_positions.items[0].asset_id == str(asset_a.id)
+    assert report.open_positions.items[0].asset_detail_path == f"/asset-cards/{asset_a.id}"
+    assert report.open_positions.items[0].has_asset_context is True
     assert report.paper_activity.current_open_positions == 1
     assert report.pnl.realized_day == 8.0
     assert report.pnl.unrealized_snapshot == 5.5
@@ -140,8 +146,10 @@ def test_report_counts_today_activity_and_pnl(monkeypatch):
     assert report.closed_positions.losses == 1
     assert report.closed_positions.best_trade is not None
     assert report.closed_positions.best_trade.asset_symbol == "AAPL"
+    assert report.closed_positions.best_trade.asset_id == str(asset_a.id)
     assert report.closed_positions.worst_trade is not None
     assert report.closed_positions.worst_trade.asset_symbol == "MSFT"
+    assert report.closed_positions.worst_trade.asset_id == str(asset_b.id)
     assert len(report.alerts_or_incidents) == 1
     assert report.alerts_or_incidents[0].title == "Feed degraded"
     assert len(report.monitor_notes) == 1
@@ -153,7 +161,7 @@ def test_missing_optional_metrics_do_not_crash(monkeypatch):
     asset_a = _asset("AAPL")
     monkeypatch.setattr(
         "app.services.cockpit_eod_report_service._load_assets",
-        lambda session: {str(asset_a.id): asset_a.symbol},
+        lambda session: ({str(asset_a.id): asset_a.symbol}, {str(asset_a.id): None}),
     )
     monkeypatch.setattr("app.services.cockpit_eod_report_service._load_paper_orders", lambda session: [])
     monkeypatch.setattr(

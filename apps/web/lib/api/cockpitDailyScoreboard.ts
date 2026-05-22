@@ -49,6 +49,10 @@ export interface CockpitDailyScoreboardClosedPositions {
 
 export interface CockpitDailyScoreboardContributor {
   symbol: string;
+  asset_id: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   realized_pnl: number | null;
   contribution_label: "positive" | "negative" | "flat" | "unknown";
   evidence: string[];

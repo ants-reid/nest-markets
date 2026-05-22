@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.models.asset import Asset
 from app.db.models.incident_log import IncidentLog
 from app.db.models.paper_order import PaperOrder
 from app.db.models.risk_decision import RiskDecision
@@ -108,6 +109,49 @@ def _load_active_alerts(session: Session) -> list[ActiveAlertRecord]:
     return PersistenceAlertService(session).list_active_alerts()
 
 
+def _load_assets(session: Session) -> tuple[dict[str, str], dict[str, str | None], dict[str, str]]:
+    rows = session.execute(select(Asset.id, Asset.symbol, Asset.name)).all()
+    symbols_by_id = {str(asset_id): symbol for asset_id, symbol, _ in rows}
+    names_by_id = {str(asset_id): name for asset_id, _, name in rows}
+    ids_by_symbol = {
+        symbol.upper(): str(asset_id)
+        for asset_id, symbol, _ in rows
+        if symbol
+    }
+    return symbols_by_id, names_by_id, ids_by_symbol
+
+
+def _asset_context(
+    *,
+    asset_id: str | None = None,
+    asset_symbol: str | None = None,
+    symbols_by_id: dict[str, str],
+    names_by_id: dict[str, str | None],
+    ids_by_symbol: dict[str, str],
+) -> dict[str, str | bool | None]:
+    resolved_asset_id = asset_id
+    if resolved_asset_id is None and asset_symbol:
+        resolved_asset_id = ids_by_symbol.get(asset_symbol.upper())
+
+    if resolved_asset_id is None:
+        return {
+            "asset_id": None,
+            "asset_symbol": asset_symbol,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+
+    resolved_symbol = asset_symbol or symbols_by_id.get(resolved_asset_id)
+    return {
+        "asset_id": resolved_asset_id,
+        "asset_symbol": resolved_symbol,
+        "asset_name": names_by_id.get(resolved_asset_id),
+        "asset_detail_path": f"/asset-cards/{resolved_asset_id}",
+        "has_asset_context": True,
+    }
+
+
 def _load_notifications(session: Session) -> list[NotificationRecord]:
     return PersistenceNotificationService(session).list_notifications()
 
@@ -190,6 +234,7 @@ def get_cockpit_alerts_needing_attention(
     now_utc: datetime | None = None,
 ) -> CockpitAlertsNeedingAttentionResponseSchema:
     current_time = _ensure_utc(now_utc or _now_utc()) or _now_utc()
+    symbols_by_id, names_by_id, ids_by_symbol = _load_assets(session)
 
     limitations: list[str] = []
     monitor_notes: list[str] = []
@@ -245,12 +290,23 @@ def get_cockpit_alerts_needing_attention(
         limitations.append(f"Recent risk decisions unavailable: {type(exc).__name__}.")
 
     for alert in active_alerts:
+        context = _asset_context(
+            asset_symbol=alert.asset,
+            symbols_by_id=symbols_by_id,
+            names_by_id=names_by_id,
+            ids_by_symbol=ids_by_symbol,
+        )
         items.append(
             CockpitAttentionItemSchema(
                 id=f"alert:{alert.alert_id}",
                 source="alert",
                 title=f"Active alert for {alert.asset}",
                 message=alert.message,
+                asset_id=context["asset_id"],
+                asset_symbol=context["asset_symbol"],
+                asset_name=context["asset_name"],
+                asset_detail_path=context["asset_detail_path"],
+                has_asset_context=context["has_asset_context"],
                 priority=_priority_from_alert_level(alert.level, alert.status),
                 status=(alert.status or "unknown").lower(),
                 detected_at=None,
@@ -270,12 +326,23 @@ def get_cockpit_alerts_needing_attention(
     for notification in notifications:
         if notification.is_read:
             continue
+        context = _asset_context(
+            asset_symbol=notification.asset,
+            symbols_by_id=symbols_by_id,
+            names_by_id=names_by_id,
+            ids_by_symbol=ids_by_symbol,
+        )
         items.append(
             CockpitAttentionItemSchema(
                 id=f"notification:{notification.notification_id}",
                 source="notification",
                 title=f"Unread notification for {notification.asset}",
                 message=notification.message,
+                asset_id=context["asset_id"],
+                asset_symbol=context["asset_symbol"],
+                asset_name=context["asset_name"],
+                asset_detail_path=context["asset_detail_path"],
+                has_asset_context=context["has_asset_context"],
                 priority=_priority_from_alert_level(notification.level, notification.status),
                 status="unread",
                 detected_at=None,
@@ -307,6 +374,11 @@ def get_cockpit_alerts_needing_attention(
                 source=source,
                 title=incident.title,
                 message=incident.detail or incident.code,
+                asset_id=None,
+                asset_symbol=None,
+                asset_name=None,
+                asset_detail_path=None,
+                has_asset_context=False,
                 priority=incident_priority,
                 status="observed",
                 detected_at=_iso(incident.occurred_at or incident.created_at),
@@ -333,6 +405,11 @@ def get_cockpit_alerts_needing_attention(
                 source="monitor",
                 title=f"Monitor status {row.status}: {row.name}",
                 message=row.detail or "Monitor probe reported a non-ok state.",
+                asset_id=None,
+                asset_symbol=None,
+                asset_name=None,
+                asset_detail_path=None,
+                has_asset_context=False,
                 priority=_priority_from_probe_status(row.status),
                 status=row.status,
                 detected_at=row.checked_at,
@@ -351,6 +428,12 @@ def get_cockpit_alerts_needing_attention(
     for order in stale_paper_orders:
         order_status = (order.status or "unknown").lower()
         detected = _iso(order.submitted_at or order.timestamp or order.created_at)
+        context = _asset_context(
+            asset_id=str(order.asset_id) if order.asset_id is not None else None,
+            symbols_by_id=symbols_by_id,
+            names_by_id=names_by_id,
+            ids_by_symbol=ids_by_symbol,
+        )
         evidence = [f"order_status:{order_status}"]
         if order.asset_id is not None:
             evidence.append(f"asset_id:{order.asset_id}")
@@ -362,6 +445,11 @@ def get_cockpit_alerts_needing_attention(
                 message=(
                     f"Paper order remained in '{order_status}' beyond {_PAPER_ORDER_STALE_HOURS}h visibility threshold."
                 ),
+                asset_id=context["asset_id"],
+                asset_symbol=context["asset_symbol"],
+                asset_name=context["asset_name"],
+                asset_detail_path=context["asset_detail_path"],
+                has_asset_context=context["has_asset_context"],
                 priority="medium",
                 status=order_status,
                 detected_at=detected,
@@ -387,6 +475,11 @@ def get_cockpit_alerts_needing_attention(
                         if not risk_status.risk_limits_configured
                         else "One or more risk limit dimensions are missing from the active paper profile."
                     ),
+                    asset_id=None,
+                    asset_symbol=None,
+                    asset_name=None,
+                    asset_detail_path=None,
+                    has_asset_context=False,
                     priority=priority,
                     status="review_required",
                     detected_at=None,
@@ -417,6 +510,11 @@ def get_cockpit_alerts_needing_attention(
                 source="risk",
                 title="Recent risk rejection observed",
                 message=f"Risk decision blocked signal {signal_id}: {reason}.",
+                asset_id=None,
+                asset_symbol=None,
+                asset_name=None,
+                asset_detail_path=None,
+                has_asset_context=False,
                 priority="medium",
                 status=(decision.approved or "unknown").lower(),
                 detected_at=_iso(decision.timestamp or decision.created_at),
@@ -439,6 +537,11 @@ def get_cockpit_alerts_needing_attention(
                 source="trading_halt",
                 title="Trading halt active",
                 message=halt_reason,
+                asset_id=None,
+                asset_symbol=None,
+                asset_name=None,
+                asset_detail_path=None,
+                has_asset_context=False,
                 priority="high",
                 status="active",
                 detected_at=_iso(halt_status.active_halt.triggered_at) if halt_status.active_halt else None,

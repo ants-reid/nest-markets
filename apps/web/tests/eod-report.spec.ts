@@ -29,6 +29,10 @@ function buildEodReport(overrides: Record<string, unknown> = {}) {
       items: [
         {
           asset_symbol: "AAPL",
+          asset_id: "asset-aapl",
+          asset_name: "Apple Inc.",
+          asset_detail_path: "/asset-cards/asset-aapl",
+          has_asset_context: true,
           side: "long",
           qty: 1,
           opened_at: "2026-05-22T18:00:00+00:00",
@@ -44,6 +48,10 @@ function buildEodReport(overrides: Record<string, unknown> = {}) {
       unknown: 0,
       best_trade: {
         asset_symbol: "AAPL",
+        asset_id: "asset-aapl",
+        asset_name: "Apple Inc.",
+        asset_detail_path: "/asset-cards/asset-aapl",
+        has_asset_context: true,
         side: "long",
         opened_at: "2026-05-22T15:00:00+00:00",
         closed_at: "2026-05-22T17:00:00+00:00",
@@ -52,6 +60,10 @@ function buildEodReport(overrides: Record<string, unknown> = {}) {
       },
       worst_trade: {
         asset_symbol: "AAPL",
+        asset_id: null,
+        asset_name: null,
+        asset_detail_path: null,
+        has_asset_context: false,
         side: "long",
         opened_at: "2026-05-22T15:00:00+00:00",
         closed_at: "2026-05-22T17:00:00+00:00",
@@ -127,6 +139,8 @@ test("End-of-Day report renders summary cards and paper-only wording", async ({ 
   await expect(page.getByTestId("cockpit-eod-summary-cards")).toContainText(/paper trades opened/i);
   await expect(page.getByTestId("cockpit-eod-summary-cards")).toContainText(/needs attention/i);
   await expect(page.getByText(/review execution/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /view asset context/i }).first()).toHaveAttribute("href", "/asset-cards/asset-aapl");
+  await expect(page.getByText(/asset context unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /place order|close position|submit/i })).toHaveCount(0);
 });
 

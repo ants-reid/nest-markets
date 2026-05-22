@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import {
   getCockpitAlertsNeedingAttention,
@@ -73,6 +74,13 @@ function AttentionItemCard({ item }: { item: CockpitAttentionItem }) {
           <dd>{item.is_actionable ? "actionable" : "read-only"}</dd>
         </div>
       </dl>
+
+      <div className={styles.assetContextRow}>
+        <AssetContextLink
+          context={item}
+          fallbackSymbol={item.asset_symbol ?? undefined}
+        />
+      </div>
 
       <div className={styles.itemColumns}>
         <section>

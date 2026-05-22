@@ -65,9 +65,40 @@ def _status_text(value: object | None) -> str:
     return str(normalized).lower()
 
 
-def _load_assets(session: Session) -> dict[str, str]:
-    rows = session.execute(select(Asset.id, Asset.symbol)).all()
-    return {str(asset_id): symbol for asset_id, symbol in rows}
+def _load_assets(session: Session) -> tuple[dict[str, str], dict[str, str | None]]:
+    rows = session.execute(select(Asset.id, Asset.symbol, Asset.name)).all()
+    symbols_by_id = {str(asset_id): symbol for asset_id, symbol, _ in rows}
+    names_by_id = {str(asset_id): name for asset_id, _, name in rows}
+    return symbols_by_id, names_by_id
+
+
+def _asset_context_from_symbol(
+    *,
+    symbol: str,
+    symbol_to_asset_id: dict[str, str],
+    names_by_id: dict[str, str | None],
+) -> dict[str, str | bool | None]:
+    if not symbol or symbol == "unknown":
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    asset_id = symbol_to_asset_id.get(symbol.upper())
+    if asset_id is None:
+        return {
+            "asset_id": None,
+            "asset_name": None,
+            "asset_detail_path": None,
+            "has_asset_context": False,
+        }
+    return {
+        "asset_id": asset_id,
+        "asset_name": names_by_id.get(asset_id),
+        "asset_detail_path": f"/asset-cards/{asset_id}",
+        "has_asset_context": True,
+    }
 
 
 def _load_paper_orders(session: Session) -> list[PaperOrder]:
@@ -182,11 +213,20 @@ def _contribution_label(value: float | None) -> str:
     return "flat"
 
 
-def _top_contributors(closed_today: list[Position], assets: dict[str, str]) -> CockpitDailyScoreboardTopContributorsSchema:
+def _top_contributors(
+    closed_today: list[Position],
+    symbols_by_id: dict[str, str],
+    names_by_id: dict[str, str | None],
+) -> CockpitDailyScoreboardTopContributorsSchema:
+    symbol_to_asset_id = {
+        symbol.upper(): asset_id
+        for asset_id, symbol in symbols_by_id.items()
+        if symbol
+    }
     by_symbol: dict[str, float] = {}
     unknown_symbols: set[str] = set()
     for row in closed_today:
-        symbol = assets.get(str(row.asset_id), "unknown")
+        symbol = symbols_by_id.get(str(row.asset_id), "unknown")
         realized = _as_float(row.realized_pnl)
         if realized is None:
             unknown_symbols.add(symbol)
@@ -196,9 +236,18 @@ def _top_contributors(closed_today: list[Position], assets: dict[str, str]) -> C
     if not by_symbol:
         items: list[CockpitDailyScoreboardContributorSchema] = []
         for symbol in sorted(unknown_symbols):
+            context = _asset_context_from_symbol(
+                symbol=symbol,
+                symbol_to_asset_id=symbol_to_asset_id,
+                names_by_id=names_by_id,
+            )
             items.append(
                 CockpitDailyScoreboardContributorSchema(
                     symbol=symbol,
+                    asset_id=context["asset_id"],
+                    asset_name=context["asset_name"],
+                    asset_detail_path=context["asset_detail_path"],
+                    has_asset_context=context["has_asset_context"],
                     realized_pnl=None,
                     contribution_label="unknown",
                     evidence=["realized_pnl_missing"],
@@ -210,9 +259,18 @@ def _top_contributors(closed_today: list[Position], assets: dict[str, str]) -> C
     top_positive = ranked[0]
     top_negative = min(ranked, key=lambda kv: kv[1])
 
+    positive_context = _asset_context_from_symbol(
+        symbol=top_positive[0],
+        symbol_to_asset_id=symbol_to_asset_id,
+        names_by_id=names_by_id,
+    )
     items: list[CockpitDailyScoreboardContributorSchema] = [
         CockpitDailyScoreboardContributorSchema(
             symbol=top_positive[0],
+            asset_id=positive_context["asset_id"],
+            asset_name=positive_context["asset_name"],
+            asset_detail_path=positive_context["asset_detail_path"],
+            has_asset_context=positive_context["has_asset_context"],
             realized_pnl=top_positive[1],
             contribution_label=_contribution_label(top_positive[1]),
             evidence=["realized_pnl_sum_by_symbol", "closed_positions_today"],
@@ -220,9 +278,18 @@ def _top_contributors(closed_today: list[Position], assets: dict[str, str]) -> C
     ]
 
     if top_negative[0] != top_positive[0]:
+        negative_context = _asset_context_from_symbol(
+            symbol=top_negative[0],
+            symbol_to_asset_id=symbol_to_asset_id,
+            names_by_id=names_by_id,
+        )
         items.append(
             CockpitDailyScoreboardContributorSchema(
                 symbol=top_negative[0],
+                asset_id=negative_context["asset_id"],
+                asset_name=negative_context["asset_name"],
+                asset_detail_path=negative_context["asset_detail_path"],
+                has_asset_context=negative_context["has_asset_context"],
                 realized_pnl=top_negative[1],
                 contribution_label=_contribution_label(top_negative[1]),
                 evidence=["realized_pnl_sum_by_symbol", "closed_positions_today"],
@@ -261,7 +328,7 @@ def get_cockpit_daily_scoreboard(
     now = _ensure_utc(now_utc)
     start, end = _day_bounds(now)
 
-    assets = _load_assets(session)
+    symbols_by_id, names_by_id = _load_assets(session)
     orders = _load_paper_orders(session)
     positions = _load_positions(session)
     risk_decisions = _load_risk_decisions(session)
@@ -296,7 +363,7 @@ def get_cockpit_daily_scoreboard(
     long_count = sum(1 for row in open_rows if str(row.side).lower() == "long")
     short_count = sum(1 for row in open_rows if str(row.side).lower() == "short")
 
-    contributors = _top_contributors(closed_today, assets)
+    contributors = _top_contributors(closed_today, symbols_by_id, names_by_id)
     notes = _risk_and_monitor_notes(incidents, risk_decisions, start, end)
 
     limitations: list[str] = []

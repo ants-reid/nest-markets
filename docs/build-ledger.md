@@ -13117,3 +13117,129 @@ still 100% green.
 
 -> MH-COCKPIT-11 — Asset-detail deep-link (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-11 — Asset-Detail Deep-Link
+
+**Date**: 2026-05-22  
+**Status**: ✅ Complete
+
+### Scope
+
+- Added navigation-only asset-context deep links across cockpit review surfaces:
+  - `/cockpit/daily-scoreboard`
+  - `/cockpit/eod-report`
+  - `/cockpit/in-flight-adjustments`
+  - `/cockpit/trade-close-explanations`
+  - `/cockpit/alerts-needing-attention`
+- Extended read-only cockpit response schemas/services with optional asset-context metadata:
+  - `asset_id`
+  - `asset_name` (or `asset_symbol` for alerts)
+  - `asset_detail_path`
+  - `has_asset_context`
+- Added reusable frontend asset-context helper/component and safe fallback rendering for missing identity.
+
+### Canonical Asset-Detail Route
+
+- Canonical route: `/asset-cards/{asset_id}`
+- Route key: `asset_id` (UUID-backed identity)
+- Symbol/ticker is used only as lookup context when safely mappable to an existing `asset_id`.
+
+### Files Changed
+
+- Backend schemas:
+  - `apps/api/app/schemas/cockpit_daily_scoreboard.py`
+  - `apps/api/app/schemas/cockpit_eod_report.py`
+  - `apps/api/app/schemas/cockpit_in_flight_adjustments.py`
+  - `apps/api/app/schemas/cockpit_trade_close_explanations.py`
+  - `apps/api/app/schemas/cockpit_alerts_needing_attention.py`
+- Backend services:
+  - `apps/api/app/services/cockpit_daily_scoreboard_service.py`
+  - `apps/api/app/services/cockpit_eod_report_service.py`
+  - `apps/api/app/services/cockpit_in_flight_adjustments_service.py`
+  - `apps/api/app/services/cockpit_trade_close_explanations_service.py`
+  - `apps/api/app/services/cockpit_alerts_attention_service.py`
+- Backend tests:
+  - `apps/api/tests/test_cockpit_daily_scoreboard_service.py`
+  - `apps/api/tests/test_cockpit_eod_report_service.py`
+  - `apps/api/tests/test_cockpit_in_flight_adjustments_service.py`
+  - `apps/api/tests/test_cockpit_trade_close_explanations_service.py`
+  - `apps/api/tests/test_cockpit_alerts_attention_service.py`
+- Frontend shared helper/component:
+  - `apps/web/lib/cockpitAssetContext.ts`
+  - `apps/web/components/ui/AssetContextLink.tsx`
+  - `apps/web/components/ui/AssetContextLink.module.css`
+  - `apps/web/components/ui/index.ts`
+- Frontend API contracts/pages/styles:
+  - `apps/web/lib/api/cockpitDailyScoreboard.ts`
+  - `apps/web/lib/api/cockpitEodReport.ts`
+  - `apps/web/lib/api/cockpitInFlightAdjustments.ts`
+  - `apps/web/lib/api/cockpitTradeCloseExplanations.ts`
+  - `apps/web/lib/api/cockpitAlertsNeedingAttention.ts`
+  - `apps/web/app/cockpit/daily-scoreboard/page.tsx`
+  - `apps/web/app/cockpit/eod-report/page.tsx`
+  - `apps/web/app/cockpit/in-flight-adjustments/page.tsx`
+  - `apps/web/app/cockpit/trade-close-explanations/page.tsx`
+  - `apps/web/app/cockpit/alerts-needing-attention/page.tsx`
+  - `apps/web/styles/pages/cockpit-daily-scoreboard.module.css`
+  - `apps/web/styles/pages/cockpit-eod-report.module.css`
+  - `apps/web/styles/pages/cockpit-in-flight-adjustments.module.css`
+  - `apps/web/styles/pages/cockpit-trade-close-explanations.module.css`
+  - `apps/web/styles/pages/cockpit-alerts-needing-attention.module.css`
+- Frontend browser tests:
+  - `apps/web/tests/daily-scoreboard.spec.ts`
+  - `apps/web/tests/eod-report.spec.ts`
+  - `apps/web/tests/in-flight-adjustments.spec.ts`
+  - `apps/web/tests/trade-close-explanations.spec.ts`
+  - `apps/web/tests/alerts-needing-attention.spec.ts`
+- Docs:
+  - `docs/build-matrix.md`
+  - `docs/implementation-matrix.md`
+  - `docs/regression-qa-matrix.md`
+  - `docs/build-ledger.md`
+
+### Tests Run
+
+- Backend:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api`
+  - `.venv/bin/ruff check app tests`
+  - `.venv/bin/python -m pytest tests/ -q`
+- Frontend:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web`
+  - `npm run lint`
+  - `npm run build`
+- Learning:
+  - `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh`
+- Targeted Playwright:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web`
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'asset detail|asset context|asset-card|cockpit|daily-scoreboard|eod-report|in-flight|trade-close|alerts-needing-attention' --reporter=line`
+- TSX color-policy gates:
+  - `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Backend Ruff: **pass**
+- Backend full pytest: **2361 passed**
+- Web lint: **pass**
+- Web build: **pass**
+- Learning suite: **99 passed**
+- Targeted Playwright grep run: **26 passed**
+- TSX color gates: **pass/pass**
+
+### Safety Notes
+
+- All changes are read-focused and navigation-only.
+- No trade placement, position close, order modification, approval execution, or broker mutation paths were added.
+- No live-trading enablement or risk-enforcement behavior changes were introduced.
+- Asset context is only emitted when identity is directly resolvable from persisted data; otherwise `has_asset_context=false` and UI shows safe fallback text.
+
+### Known Limitations
+
+- Some cockpit items remain symbol-only or non-asset-scoped by design (monitor/risk/halt/incident records), so deep links are intentionally unavailable there.
+- Symbol-to-asset mapping depends on persisted `Asset` rows; unresolved symbols correctly produce no link.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-12 — Open-paper-positions live view (read-only, paper scope).
+

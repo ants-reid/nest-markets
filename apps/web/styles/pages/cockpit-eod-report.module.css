@@ -243,6 +243,10 @@
   line-height: 1.5;
 }
 
+.assetContextRow {
+  margin-top: 0.45rem;
+}
+
 .positionPnl {
   font-size: 1rem;
   font-weight: 700;

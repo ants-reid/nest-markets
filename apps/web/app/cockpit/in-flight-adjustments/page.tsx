@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import {
   getCockpitInFlightAdjustments,
@@ -244,6 +245,9 @@ export default function CockpitInFlightAdjustmentsPage() {
                     </span>
                   </div>
                   <p className={styles.detailType}>{prettyLabel(item.item_type)} • {item.status}</p>
+                  <div className={styles.assetContextRow}>
+                    <AssetContextLink context={item} fallbackSymbol={item.symbol} />
+                  </div>
                   <p className={styles.detailSummary}>{item.current_state_summary}</p>
                   <p className={styles.detailReason}>{item.reason}</p>
 

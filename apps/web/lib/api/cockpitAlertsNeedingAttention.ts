@@ -40,6 +40,11 @@ export interface CockpitAttentionItem {
   source: CockpitAttentionSource;
   title: string;
   message: string;
+  asset_id: string | null;
+  asset_symbol: string | null;
+  asset_name: string | null;
+  asset_detail_path: string | null;
+  has_asset_context: boolean;
   priority: CockpitAttentionPriority;
   status: string;
   detected_at: string | null;
