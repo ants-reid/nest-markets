@@ -13362,7 +13362,8 @@ still 100% green.
   - Focused backend suite: `136 passed` across broker-service, dry-run route, submit-decisions route, deferred-writer drift-lock, paper-preflight drift-lock, dry-run SHA drift-lock, and market-data route tests ✅
   - Frontend lint/build: `cd apps/web && npm run lint && npm run build` ✅
   - Learning suite: `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh` → `99 passed` ✅
-  - Full backend pytest: attempted multiple times (`cd apps/api && .venv/bin/python -m pytest tests/ -q`) but interrupted/terminated in-terminal before completion in this session (`EXIT_CODE:143`).
+  - Full backend pytest: ✅ clean on retry (`cd apps/api && .venv/bin/python -m pytest tests/ -q`) with durable file logging — `2363 passed in 189.04s` and `EXIT_CODE:0`.
+  - Prior `EXIT_CODE:143` runs were process/session termination events during tee/background monitoring, not an assertion failure in test output.
 - **Drift-Lock Confirmation:**
   - Auto-paper enforcement remains **OFF**.
   - Auto trading remains **OFF**.
