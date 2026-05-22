@@ -29,6 +29,24 @@ from app.schemas import broker_schemas as bs
 # stripped for portability).  This is intentionally byte-equal so a silent
 # retype is caught.
 EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
+    "SeriousPaperRouteCheckResponseSchema": {
+        "requested_mode": ("<class 'str'>", False),
+        "resolved_execution_source": ("str | None", False),
+        "resolved_route": ("str | None", False),
+        "simulator_route": ("<class 'str'>", False),
+        "simulator_allowed_for_serious_paper": ("<class 'bool'>", False),
+        "broker_account_mode_required": ("<class 'str'>", False),
+        "current_broker_account_mode": ("<class 'str'>", True),
+        "can_route_to_broker_paper": ("<class 'bool'>", True),
+        "blocked_reason": ("str | None", False),
+        "live_state": ("<class 'str'>", False),
+        "would_block": ("<class 'bool'>", True),
+        "is_submit": ("<class 'bool'>", False),
+        "next_required_action": ("<class 'str'>", True),
+        "serious_paper_source": ("<class 'str'>", False),
+        "canonical_paper_route": ("<class 'str'>", False),
+        "broker_mode": ("<class 'app.schemas.broker_schemas.BrokerModeSchema'>", True),
+    },
     "OrderRequestSchema": {
         "ticker": ("<class 'str'>", True),
         "side": ("<class 'str'>", True),
@@ -85,6 +103,11 @@ EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
 # index by; renaming or making optional any of them silently breaks
 # attribution.
 SAFETY_REQUIRED_FIELDS: set[tuple[str, str]] = {
+    ("SeriousPaperRouteCheckResponseSchema", "current_broker_account_mode"),
+    ("SeriousPaperRouteCheckResponseSchema", "can_route_to_broker_paper"),
+    ("SeriousPaperRouteCheckResponseSchema", "would_block"),
+    ("SeriousPaperRouteCheckResponseSchema", "next_required_action"),
+    ("SeriousPaperRouteCheckResponseSchema", "broker_mode"),
     ("OrderRequestSchema", "ticker"),
     ("OrderRequestSchema", "side"),
     ("OrderRequestSchema", "quantity"),

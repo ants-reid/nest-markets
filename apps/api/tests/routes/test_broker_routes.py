@@ -582,6 +582,69 @@ async def test_get_broker_control_endpoint_live_visible_but_blocked(client, monk
 
 
 @pytest.mark.asyncio
+async def test_get_canonical_paper_route_resolves_to_broker_orders_in_paper_mode(client):
+    """Serious-paper route-check must resolve only to /broker/orders in coherent paper mode."""
+    response = client.get("/broker/paper/canonical-route")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requested_mode"] == "serious_paper"
+    assert data["resolved_execution_source"] == "ibkr_paper"
+    assert data["resolved_route"] == "/broker/orders"
+    assert data["simulator_route"] == "/execution/paper"
+    assert data["simulator_allowed_for_serious_paper"] is False
+    assert data["current_broker_account_mode"] == "paper"
+    assert data["can_route_to_broker_paper"] is True
+    assert data["would_block"] is False
+    assert data["is_submit"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_canonical_paper_route_blocks_in_live_mode(monkeypatch):
+    """Serious-paper route-check must fail closed when broker mode is live."""
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("BROKER_MODE", "live")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    client = TestClient(create_app())
+    response = client.get("/broker/paper/canonical-route")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["resolved_execution_source"] is None
+    assert data["resolved_route"] is None
+    assert data["current_broker_account_mode"] == "live"
+    assert data["can_route_to_broker_paper"] is False
+    assert data["would_block"] is True
+    assert "live" in data["blocked_reason"].lower()
+    assert data["canonical_paper_route"] == "/broker/orders"
+    assert data["simulator_route"] == "/execution/paper"
+
+
+@pytest.mark.asyncio
+async def test_get_canonical_paper_route_blocks_in_unknown_mode(monkeypatch):
+    """Serious-paper route-check must fail closed when broker mode is not coherently paper."""
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    client = TestClient(create_app())
+    response = client.get("/broker/paper/canonical-route")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["resolved_execution_source"] is None
+    assert data["resolved_route"] is None
+    assert data["current_broker_account_mode"] == "unknown"
+    assert data["can_route_to_broker_paper"] is False
+    assert data["would_block"] is True
+    assert "coherently paper" in data["blocked_reason"].lower()
+    assert data["simulator_allowed_for_serious_paper"] is False
+
+
+@pytest.mark.asyncio
 async def test_submit_order_returns_403_when_live_mode_fully_configured(client, monkeypatch):
     """POST /broker/orders stays blocked in fully configured live mode for MH-36B."""
     monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")

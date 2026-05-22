@@ -7,11 +7,15 @@ post-lock submit safety remains fail-closed and auditable.
 
 from __future__ import annotations
 
+import ast
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import app.services.serious_paper_routing_service as serious_paper_routing_module
+import app.workers.signal_sweep_worker as signal_sweep_worker_module
 
 from app.clients.broker.broker_interface import OrderRequest, OrderResult
 from app.config import get_settings
@@ -30,9 +34,30 @@ from app.services.paper_source_contract import (
     live_locked_execution_sources,
     simulator_execution_sources,
 )
+from app.services.serious_paper_routing_service import SeriousPaperRoutingService
 from app.services.trading_control_service import LiveTradingNotArmedError
 from app.workers.async_bridge import run_async
 from app.workers.auto_paper_trader_worker import AutoPaperTraderWorker
+
+
+def _parse_module(path: Path) -> ast.Module:
+    return ast.parse(path.read_text(encoding="utf-8"))
+
+
+def _attr_call_names(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            names.add(node.func.attr)
+    return names
+
+
+def _imported_names(tree: ast.Module) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            result.setdefault(node.module, set()).update(alias.name for alias in node.names)
+    return result
 
 
 @pytest.fixture(autouse=True)
@@ -90,6 +115,57 @@ def test_broker_dry_run_sources_mark_canonical_paper_without_simulator_drift():
     assert broker_dry_run["is_canonical_paper"] is True
     assert broker_dry_run["canonical_paper_route"] == CANONICAL_PAPER_ROUTE
     assert broker_dry_run["broker_account_mode"] == "paper"
+
+
+def test_serious_paper_route_check_resolves_to_broker_orders_only_in_coherent_paper_mode(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    decision = SeriousPaperRoutingService().resolve_route()
+
+    assert decision.requested_mode == "serious_paper"
+    assert decision.resolved_execution_source == SOURCE_IBKR_PAPER
+    assert decision.resolved_route == CANONICAL_PAPER_ROUTE
+    assert decision.simulator_route == "/execution/paper"
+    assert decision.simulator_allowed_for_serious_paper is False
+    assert decision.current_broker_account_mode == "paper"
+    assert decision.can_route_to_broker_paper is True
+    assert decision.would_block is False
+    assert decision.is_submit is False
+
+
+def test_serious_paper_route_check_fails_closed_in_live_mode(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("BROKER_MODE", "live")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    decision = SeriousPaperRoutingService().resolve_route()
+
+    assert decision.resolved_execution_source is None
+    assert decision.resolved_route is None
+    assert decision.current_broker_account_mode == "live"
+    assert decision.can_route_to_broker_paper is False
+    assert decision.would_block is True
+    assert "live" in (decision.blocked_reason or "").lower()
+
+
+def test_serious_paper_route_check_fails_closed_in_unknown_mode(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    decision = SeriousPaperRoutingService().resolve_route()
+
+    assert decision.resolved_execution_source is None
+    assert decision.resolved_route is None
+    assert decision.current_broker_account_mode == "unknown"
+    assert decision.can_route_to_broker_paper is False
+    assert decision.would_block is True
+    assert "coherently paper" in (decision.blocked_reason or "").lower()
 
 
 def test_submit_decision_persistence_keeps_source_and_sanitizes_warning_payload():
@@ -209,6 +285,24 @@ def test_auto_paper_worker_submission_path_uses_auto_submit_gate_only():
     assert result.status == "SUBMITTED"
     fake_service.submit_auto_order.assert_awaited_once()
     fake_service.submit_order.assert_not_called()
+
+
+def test_signal_sweep_worker_does_not_call_broker_submit_seams():
+    tree = _parse_module(Path(signal_sweep_worker_module.__file__))
+    attr_calls = _attr_call_names(tree)
+    imports = _imported_names(tree)
+
+    assert "submit_auto_order" not in attr_calls
+    assert "submit_order" not in attr_calls
+    assert "BrokerService" not in imports.get("app.services.broker_service", set())
+
+
+def test_serious_paper_route_check_service_is_read_only():
+    tree = _parse_module(Path(serious_paper_routing_module.__file__))
+    attr_calls = _attr_call_names(tree)
+
+    assert "submit_auto_order" not in attr_calls
+    assert "submit_order" not in attr_calls
 
 
 def test_canonical_paper_contract_is_consistent_across_source_helpers():

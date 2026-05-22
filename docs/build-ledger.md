@@ -13555,6 +13555,76 @@ still 100% green.
 - Canonical serious-paper route remains `/broker/orders` only.
 - Live-config dry-run remains informational and non-submitting.
 
+## MH-BROKER-PAPER-CANONICAL-03 - Operational Serious-Paper Routing Contract
+
+- **Date:** 2026-05-22
+- **Status:** ✅ Complete
+- **Scope:** Add the first explicit operational routing contract for serious-paper workflows without introducing a new submit seam. Operators can now resolve whether serious paper may use the canonical IBKR paper path, while `/execution/paper` remains simulator-only and live remains locked.
+
+### Route And Service Added
+
+- `GET /broker/paper/canonical-route`
+- `apps/api/app/services/serious_paper_routing_service.py`
+
+### Operational Path Map
+
+- A. Internal simulator workflow: `POST /execution/paper` + `PaperExecutionService` + `PersistencePaperExecutionService`; purpose is internal simulation/demo/testing; labels remain `internal_mock_simulator`; writes app paper DB; does not talk to IBKR; cannot submit broker orders.
+- B. Broker serious-paper workflow: `POST /broker/orders` through `BrokerService.submit_order()`; requires coherent paper mode; runs preflight and decision persistence; labels remain `ibkr_paper`; talks to IBKR only through `BrokerService`; can submit IBKR paper orders only in coherent paper mode; can never submit live orders in this phase.
+- C. Workflow/recommendation path: `WorkflowService._run_paper_path()` still routes `paper` mode to internal simulation; `paper_recommendation_service.py` drafts/reviews recommendations and leaves execution manual; serious-paper routing is now an explicit operator route-check and future automation remains out of scope.
+- D. Worker path: `SignalSweepWorker` remains non-submitting; `AutoPaperTraderWorker` stays on a separate `submit_auto_order` seam and remains blocked by default unless a future phase explicitly arms auto trading; this phase grants no new worker broker-submit path.
+- E. Live path: locked as `ibkr_live_locked`; trading-control and mode-guard still block live submit.
+
+### Contract Outcome
+
+- Serious paper resolves to `/broker/orders` only when broker mode is coherently paper.
+- Serious paper never resolves to `/execution/paper`.
+- Live or unknown broker/account tuples fail closed with no resolved broker submit path.
+- The route-check is read-only (`is_submit=false`) and does not call `submit_order` or `submit_auto_order`.
+- `BrokerService` remains the only real serious-paper submit seam, so preflight, decision persistence, trading control, and live-lock behavior remain unchanged.
+
+### Files Changed
+
+- `apps/api/app/api/routes/broker.py`
+- `apps/api/app/schemas/broker_schemas.py`
+- `apps/api/app/services/serious_paper_routing_service.py`
+- `apps/api/tests/routes/test_broker_routes.py`
+- `apps/api/tests/test_post_lock_simulation_regression.py`
+- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused route + regression slice: `59 passed`
+- Backend lint: `cd apps/api && .venv/bin/ruff check app tests` -> pass
+- Backend targeted broker/paper/execution/workflow/worker slice: `684 passed, 1704 deselected`
+- Backend full suite: `2379 passed in 268.46s (0:04:28)`
+- Frontend lint: `cd apps/web && npm run lint` -> pass
+- Frontend build: `cd apps/web && npm run build` -> pass
+- Learning suite: `./scripts/test/test-learning.sh` -> `99 passed`
+
+### Safety Notes
+
+- No live trading enablement.
+- No live submit path activation.
+- No broker-preflight bypass.
+- No trading-control bypass.
+- No background-worker auto-submit expansion.
+- No route-check submit behavior.
+
+### Known Limitations
+
+- Workflow `paper` mode still targets internal simulation; this phase intentionally does not rewire workflow execution to broker paper.
+- Recommendation execution remains manual and explicit; this phase does not auto-submit approved recommendations.
+- `AutoPaperTraderWorker` still has a separately gated broker seam, but it is not part of this operational serious-paper routing contract and remains blocked by default.
+
+### Next Recommended Phase
+
+-> Wire selected operator-driven recommendation or workflow actions through the new serious-paper route-check before `POST /broker/orders`, while keeping workers non-submitting by default.
+
 ## MH-162 — Post-Lock Simulation Regression Suite
 
 - **Date:** 2026-05-22

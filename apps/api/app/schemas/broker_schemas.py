@@ -32,6 +32,27 @@ class BrokerHealthSchema(BaseModel):
     broker_mode: BrokerModeSchema
 
 
+class SeriousPaperRouteCheckResponseSchema(BaseModel):
+    """Read-only routing decision for intentional serious-paper workflows."""
+
+    requested_mode: str = "serious_paper"
+    resolved_execution_source: Optional[str] = None
+    resolved_route: Optional[str] = None
+    simulator_route: str = "/execution/paper"
+    simulator_allowed_for_serious_paper: bool = False
+    broker_account_mode_required: str = "paper"
+    current_broker_account_mode: str
+    can_route_to_broker_paper: bool
+    blocked_reason: Optional[str] = None
+    live_state: str = "ibkr_live_locked"
+    would_block: bool
+    is_submit: bool = False
+    next_required_action: str
+    serious_paper_source: str = "ibkr_paper"
+    canonical_paper_route: str = "/broker/orders"
+    broker_mode: BrokerModeSchema
+
+
 class OrderRequestSchema(BaseModel):
     """Request body for submitting an order."""
     ticker: str

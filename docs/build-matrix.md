@@ -113,6 +113,12 @@ MH-BROKER-PAPER-CANONICAL-02 delta:
 - `POST /broker/orders/dry-run` remains available in live-config environments for inspection only, but now emits live-locked balance/positions lineage (`ibkr_live_locked`) plus `broker_account_mode=live`, `live_state=ibkr_live_locked`, and `is_canonical_paper=false`.
 - Dry-run never upgrades a live-config environment into a canonical paper path and never unlocks live submission.
 
+MH-BROKER-PAPER-CANONICAL-03 delta:
+- `GET /broker/paper/canonical-route` is now the explicit read-only route-check for intentional serious-paper workflows.
+- Serious paper resolves only to `/broker/orders` in coherent paper mode and never resolves to `/execution/paper`.
+- Live or unknown broker/account tuples fail closed with no resolved submit path.
+- Background workers gain no new broker submit capability from this phase; the route-check is read-only and the existing auto worker seam remains separately gated.
+
 ---
 
 ## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)

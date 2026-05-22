@@ -38,6 +38,7 @@ from app.schemas.broker_schemas import (
     BrokerModeSchema,
     OrderRequestSchema,
     OrderResultSchema,
+    SeriousPaperRouteCheckResponseSchema,
 )
 from app.schemas.signal import SignalResponse
 
@@ -177,6 +178,30 @@ EXPECTED_ORDER_RESULT: dict[str, dict[str, Any]] = {
 }
 
 
+EXPECTED_SERIOUS_PAPER_ROUTE_CHECK: dict[str, dict[str, Any]] = {
+    "requested_mode": {"required": False, "default": "serious_paper", "annotation": "<class 'str'>"},
+    "resolved_execution_source": {"required": False, "default": None, "annotation": "str | None"},
+    "resolved_route": {"required": False, "default": None, "annotation": "str | None"},
+    "simulator_route": {"required": False, "default": "/execution/paper", "annotation": "<class 'str'>"},
+    "simulator_allowed_for_serious_paper": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "broker_account_mode_required": {"required": False, "default": "paper", "annotation": "<class 'str'>"},
+    "current_broker_account_mode": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "can_route_to_broker_paper": {"required": True, "default": "<no-default>", "annotation": "<class 'bool'>"},
+    "blocked_reason": {"required": False, "default": None, "annotation": "str | None"},
+    "live_state": {"required": False, "default": "ibkr_live_locked", "annotation": "<class 'str'>"},
+    "would_block": {"required": True, "default": "<no-default>", "annotation": "<class 'bool'>"},
+    "is_submit": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "next_required_action": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "serious_paper_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "canonical_paper_route": {"required": False, "default": "/broker/orders", "annotation": "<class 'str'>"},
+    "broker_mode": {
+        "required": True,
+        "default": "<no-default>",
+        "annotation": "<class 'app.schemas.broker_schemas.BrokerModeSchema'>",
+    },
+}
+
+
 # ── tests ───────────────────────────────────────────────────────────────
 
 
@@ -209,6 +234,10 @@ def test_order_request_safety_defaults_pinned():
 
 def test_order_result_schema_wire_contract_unchanged():
     _check(OrderResultSchema, EXPECTED_ORDER_RESULT)
+
+
+def test_serious_paper_route_check_schema_wire_contract_unchanged():
+    _check(SeriousPaperRouteCheckResponseSchema, EXPECTED_SERIOUS_PAPER_ROUTE_CHECK)
 
 
 def test_signal_response_required_safety_fields_present():

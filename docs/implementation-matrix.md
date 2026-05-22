@@ -72,6 +72,12 @@ Phase-02 route contract note:
 - `POST /broker/orders/dry-run` is read-only contract inspection in both paper and live-config modes; in live-config mode it must advertise live-locked account lineage instead of canonical paper lineage.
 - Append-only decision persistence now carries source metadata so dry-run and submit audits stay pinned to the mode-aware route contract.
 
+Phase-03 route contract note:
+- `GET /broker/paper/canonical-route` is the explicit read-only operational routing check for serious-paper workflows.
+- The route-check resolves `/broker/orders` only in coherent paper mode and never resolves `/execution/paper` for serious paper.
+- Live or unknown broker/account tuples fail closed with no resolved broker submit path.
+- Workflow and recommendation surfaces remain manual/explicit in this phase; no worker or background path is rewired onto a new submit seam.
+
 Clarification:
 - API-R06 (`/execution/paper`) is internal simulation and is not IBKR paper execution.
 - Serious pre-live paper proving is API-RX03 (`/broker/*`) in coherent paper mode.
@@ -96,7 +102,7 @@ Clarification:
 | API-R13 | `app/api/routes/prompt_adaptations.py` | prompt adaptation apply | implemented | manually verified | partial | WS-06 | POST /prompt-adaptations/apply creates a new PromptVersion row and never mutates an existing version in place; active route reclassified from stale BP3 backlog on 2026-05-19 |
 | API-RX01 | `app/api/routes/asset_cards.py` | asset cards route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX02 | `app/api/routes/baseline_candidates.py` | baseline candidates route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| API-RX03 | `app/api/routes/broker.py` | broker route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-RX03 | `app/api/routes/broker.py` | broker route surface | implemented | tested | documented | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. Updated 2026-05-22 during MH-BROKER-PAPER-CANONICAL-03 with read-only `GET /broker/paper/canonical-route` routing resolution for operational serious-paper workflows. |
 | API-RX04 | `app/api/routes/broker_submit_decisions.py` | broker submit decisions route surface | implemented | tested | documented | WS-01 | Updated 2026-05-22 during MH-148-C + MH-147 with active writer-backed audit feed and route/service test coverage. |
 | API-RX05 | `app/api/routes/cockpit_auto_paper_status.py` | cockpit auto paper status route surface | implemented | tested | documented | WS-01 | Updated 2026-05-21 during MH-AUTO-PAPER-RELIABILITY-001. The read-only `/cockpit/auto-paper/status` surface now returns richer operator posture fields for mode/selectable/armed state, last check/action, risk summaries, open-position cap, and locked live/auto-live notes. |
 | API-RX05A | `app/api/routes/cockpit_mode.py` | cockpit mode selector route surface | implemented | tested | documented | WS-01 | Added 2026-05-20 during MH-COCKPIT-03 as a safe `/cockpit/mode` GET/POST surface. Validation includes focused backend pytest and router drift-lock coverage. |

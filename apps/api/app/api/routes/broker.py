@@ -16,6 +16,7 @@ from app.schemas.broker_schemas import (
     BrokerOrderAuditTrailSchema,
     BrokerHealthSchema,
     BrokerModeSchema,
+    SeriousPaperRouteCheckResponseSchema,
     TradingControlSchema,
     OrderDryRunIssueSchema,
     OrderDryRunPreflightDecisionSchema,
@@ -41,6 +42,7 @@ from app.services.broker_mode_guard import (
 from app.services.broker_service import BrokerService
 from app.services.broker_service import PaperPreflightBlockedError
 from app.services.paper_source_contract import broker_sources_from_mode
+from app.services.serious_paper_routing_service import SeriousPaperRoutingService
 from app.services.trading_control_service import (
     AutoTradingBlockedError,
     LiveTradingNotArmedError,
@@ -123,6 +125,30 @@ async def get_broker_mode():
     """Return current broker mode status (paper/live isolation metadata)."""
     meta = get_broker_mode_metadata()
     return BrokerModeSchema(**meta)
+
+
+@router.get("/paper/canonical-route", response_model=SeriousPaperRouteCheckResponseSchema)
+async def get_canonical_paper_route_check():
+    """Return the read-only routing decision for intentional serious-paper workflows."""
+    decision = SeriousPaperRoutingService().resolve_route()
+    return SeriousPaperRouteCheckResponseSchema(
+        requested_mode=decision.requested_mode,
+        resolved_execution_source=decision.resolved_execution_source,
+        resolved_route=decision.resolved_route,
+        simulator_route=decision.simulator_route,
+        simulator_allowed_for_serious_paper=decision.simulator_allowed_for_serious_paper,
+        broker_account_mode_required=decision.broker_account_mode_required,
+        current_broker_account_mode=decision.current_broker_account_mode,
+        can_route_to_broker_paper=decision.can_route_to_broker_paper,
+        blocked_reason=decision.blocked_reason,
+        live_state=decision.live_state,
+        would_block=decision.would_block,
+        is_submit=decision.is_submit,
+        next_required_action=decision.next_required_action,
+        serious_paper_source=decision.serious_paper_source,
+        canonical_paper_route=decision.canonical_paper_route,
+        broker_mode=BrokerModeSchema(**decision.broker_mode),
+    )
 
 
 @router.get("/control", response_model=TradingControlSchema)
