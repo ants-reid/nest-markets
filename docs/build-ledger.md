@@ -13423,7 +13423,7 @@ still 100% green.
 
 - Backend Ruff: `cd apps/api && .venv/bin/ruff check app tests` ✅
 - Focused backend suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q -k "broker or trading_control or risk or submit_decision"` -> `442 passed, 1923 deselected` ✅
-- Full backend suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> running at ledger write time; final result recorded in command log for this block
+- Full backend suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2365 passed in 209.11s (0:03:29)`
 - Frontend lint/build: `cd apps/web && npm run lint && npm run build` ✅
 - Learning suite: `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh` -> `99 passed` ✅
 
