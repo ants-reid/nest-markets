@@ -13023,3 +13023,97 @@ still 100% green.
 
 -> MH-COCKPIT-10 — Alerts needing attention (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-10 — Alerts Needing Attention
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-MON-05
+
+### Scope
+
+- Added a read-only cockpit backend route at `GET /cockpit/alerts-needing-attention`.
+- Added a deterministic alerts-attention aggregation service that surfaces active alerts, unread notifications, unresolved incidents, monitor degradation, stale paper-order warnings, risk-limit warnings, and trading-halt context.
+- Added typed backend schemas with stable item/group fields, explicit priority/source labels, and `is_actionable=false` for all attention items.
+- Added a new cockpit page at `/cockpit/alerts-needing-attention` with paper-only wording, summary cards, grouped priority/source sections, attention item cards, monitor/risk notes, limitations, and recommended review actions.
+- Added a cockpit-hub link so operators can reach alerts-needing-attention directly from the cockpit overview.
+- Added focused backend and browser tests, including explicit no-mutation-button and responsive overflow coverage.
+
+### Files Changed
+
+- `apps/api/app/api/routes/cockpit_alerts_needing_attention.py`
+- `apps/api/app/main.py`
+- `apps/api/app/schemas/cockpit_alerts_needing_attention.py`
+- `apps/api/app/services/cockpit_alerts_attention_service.py`
+- `apps/api/tests/test_cockpit_alerts_attention_route.py`
+- `apps/api/tests/test_cockpit_alerts_attention_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/web/app/cockpit/alerts-needing-attention/page.tsx`
+- `apps/web/app/cockpit/page.tsx`
+- `apps/web/lib/api/cockpitAlertsNeedingAttention.ts`
+- `apps/web/styles/pages/cockpit-alerts-needing-attention.module.css`
+- `apps/web/tests/alerts-needing-attention.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Endpoint Path
+
+- `GET /cockpit/alerts-needing-attention`
+
+### UI Route
+
+- `/cockpit/alerts-needing-attention`
+
+### Tests Run
+
+- Focused backend checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_cockpit_alerts_attention_service.py tests/test_cockpit_alerts_attention_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q`
+- Focused browser checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/alerts-needing-attention.spec.ts --reporter=line`
+- Required targeted browser command:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'Alerts Needing Attention|alerts-needing-attention|attention|cockpit/alerts' --reporter=line`
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Focused backend checks: **15/15 passed**.
+- Focused browser checks (`alerts-needing-attention.spec.ts`): **4/4 passed**.
+- Required targeted Playwright rerun: **4/4 passed**.
+- Backend Ruff: **pass**.
+- Backend full pytest: **2361/2361 passed**.
+- Web lint: **pass**.
+- Web build: **pass**.
+- Learning suite: **99/99 passed**.
+- Theme-token grep gates: **pass/pass**.
+
+### Safety Notes
+
+- Backend surface is `GET`-only and read-focused.
+- Service does not call broker submit, live execution, position close/modify, or order mutation paths.
+- Service does not acknowledge alert rules, mark notifications as read, or resolve trading halts.
+- UI is paper-only and read-only with no execute/close/modify/approve/acknowledge/resolve controls.
+- Risk enforcement and broker execution behavior are unchanged.
+
+### Known Limitations
+
+- Active-alert and notification records do not currently include first-class detected timestamps, so those fields may be `null`.
+- Monitor degradation visibility depends on currently registered health probes and may be limited when probe data is unavailable.
+- Stale-data detection is deterministic and bounded to persisted incident text and paper-order age heuristics.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-11 — Asset-detail deep-link (paper scope, read-focused visibility).
+

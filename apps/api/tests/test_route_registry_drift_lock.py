@@ -72,6 +72,7 @@ EXPECTED_ROUTES: set[tuple[str, str]] = {
     ("GET", "/cockpit/eod-report"),
     ("GET", "/cockpit/in-flight-adjustments"),
     ("GET", "/cockpit/daily-scoreboard"),
+    ("GET", "/cockpit/alerts-needing-attention"),
     ("GET", "/cockpit/trade-close-explanations"),
     ("GET", "/cockpit/mode"),
     ("GET", "/cockpit/notifications/digest"),

@@ -164,7 +164,7 @@ These guards apply to ALL phases unless explicitly overridden by a phase spec:
 | MH-COCKPIT-07   | In-flight adjustments view                     | ✅ Complete | MH-COCKPIT-05         | Paper scope |
 | MH-COCKPIT-08   | Trade-close explanations                       | ✅ Complete | MH-150                | Audit-driven |
 | MH-COCKPIT-09   | Daily scoreboard                               | ✅ Complete | MH-157                | Read-only |
-| MH-COCKPIT-10   | Alerts needing attention                       | ⏳ Pending | MH-MON-05             | Surfacing only |
+| MH-COCKPIT-10   | Alerts needing attention                       | ✅ Complete | MH-MON-05             | Surfacing only |
 | MH-COCKPIT-11   | Asset-detail deep-link                         | ✅ Complete | MH-COCKPIT-02         | Read-only |
 | MH-COCKPIT-12   | Open-paper-positions live view                 | ⏳ Pending | MH-COCKPIT-05         | Read-only |
 | MH-COCKPIT-13   | Auto-paper status card                         | ✅ Complete | MH-141                | Read-only |

@@ -53,6 +53,12 @@ const SECTIONS: ReadonlyArray<{
           "Read-only daily paper scoreboard covering performance, activity, top contributors, and review priorities.",
       },
       {
+        href: "/cockpit/alerts-needing-attention",
+        title: "Alerts needing attention",
+        description:
+          "Read-only paper attention queue for alerts, unresolved incidents, monitor degradation, stale data, risk warnings, and halt context.",
+      },
+      {
         href: "/cockpit/eod-report",
         title: "End-of-Day report",
         description:

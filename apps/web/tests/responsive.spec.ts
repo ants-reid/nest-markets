@@ -31,6 +31,7 @@ const ROUTES = [
   { path: "/cockpit/in-flight-adjustments", name: "cockpit-in-flight-adjustments" },
   { path: "/cockpit/trade-close-explanations", name: "cockpit-trade-close-explanations" },
   { path: "/cockpit/daily-scoreboard", name: "cockpit-daily-scoreboard" },
+  { path: "/cockpit/alerts-needing-attention", name: "cockpit-alerts-needing-attention" },
   { path: "/monitor/feeds", name: "feed-monitor" },
 ];
 
