@@ -47,6 +47,12 @@ const SECTIONS: ReadonlyArray<{
           "Read-only paper-mode close reasoning for recently closed trades, including evidence, missing context, and learning notes.",
       },
       {
+        href: "/cockpit/daily-scoreboard",
+        title: "Daily scoreboard",
+        description:
+          "Read-only daily paper scoreboard covering performance, activity, top contributors, and review priorities.",
+      },
+      {
         href: "/cockpit/eod-report",
         title: "End-of-Day report",
         description:

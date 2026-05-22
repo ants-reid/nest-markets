@@ -40,6 +40,7 @@ from app.api.routes.cockpit_notifications import router as cockpit_notifications
 from app.api.routes.cockpit_auto_paper_status import router as cockpit_auto_paper_status_router
 from app.api.routes.cockpit_eod_report import router as cockpit_eod_report_router
 from app.api.routes.cockpit_in_flight_adjustments import router as cockpit_in_flight_adjustments_router
+from app.api.routes.cockpit_daily_scoreboard import router as cockpit_daily_scoreboard_router
 from app.api.routes.cockpit_trade_close_explanations import router as cockpit_trade_close_explanations_router
 from app.api.routes.cockpit_mode import router as cockpit_mode_router
 from app.api.routes.monitor_incidents import router as monitor_incidents_router
@@ -267,6 +268,7 @@ def create_app() -> FastAPI:
     app.include_router(cockpit_auto_paper_status_router)
     app.include_router(cockpit_eod_report_router)
     app.include_router(cockpit_in_flight_adjustments_router)
+    app.include_router(cockpit_daily_scoreboard_router)
     app.include_router(cockpit_trade_close_explanations_router)
     app.include_router(cockpit_mode_router)
     app.include_router(assets_router)

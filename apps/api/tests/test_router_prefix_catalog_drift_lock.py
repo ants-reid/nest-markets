@@ -46,6 +46,7 @@ EXPECTED_ROUTER_CATALOG: dict[str, tuple[str, tuple[str, ...]]] = {
     "app.api.routes.cockpit_auto_paper_status": ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_eod_report":     ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_in_flight_adjustments": ("/cockpit", ("cockpit",)),
+    "app.api.routes.cockpit_daily_scoreboard": ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_trade_close_explanations": ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_mode":           ("/cockpit", ("cockpit",)),
     "app.api.routes.cockpit_notifications":   ("/cockpit", ("cockpit",)),

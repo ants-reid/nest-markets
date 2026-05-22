@@ -12929,3 +12929,97 @@ still 100% green.
 
 -> MH-COCKPIT-09 — Daily scoreboard (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-09 — Daily Scoreboard
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-157
+
+### Scope
+
+- Added a read-only cockpit backend route at `GET /cockpit/daily-scoreboard`.
+- Added a deterministic daily-scoreboard aggregation service that surfaces paper-scope day summary, performance, activity, open/closed counts, top contributors, and review notes.
+- Added typed backend schemas with stable response keys, safe unknown handling, and explicit limitations.
+- Added a new cockpit page at `/cockpit/daily-scoreboard` with paper-only wording, day-status badge, summary/performance/activity panels, contributor rows, and limitation/review sections.
+- Added a cockpit-hub link so operators can reach daily scoreboard directly from the cockpit overview.
+- Added focused backend and browser tests, including explicit no-action-button and responsive overflow coverage.
+
+### Files Changed
+
+- `apps/api/app/api/routes/cockpit_daily_scoreboard.py`
+- `apps/api/app/main.py`
+- `apps/api/app/schemas/cockpit_daily_scoreboard.py`
+- `apps/api/app/services/cockpit_daily_scoreboard_service.py`
+- `apps/api/tests/test_cockpit_daily_scoreboard_route.py`
+- `apps/api/tests/test_cockpit_daily_scoreboard_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/web/app/cockpit/daily-scoreboard/page.tsx`
+- `apps/web/app/cockpit/page.tsx`
+- `apps/web/lib/api/cockpitDailyScoreboard.ts`
+- `apps/web/styles/pages/cockpit-daily-scoreboard.module.css`
+- `apps/web/tests/daily-scoreboard.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Endpoint Path
+
+- `GET /cockpit/daily-scoreboard`
+
+### UI Route
+
+- `/cockpit/daily-scoreboard`
+
+### Tests Run
+
+- Focused backend checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_cockpit_daily_scoreboard_service.py tests/test_cockpit_daily_scoreboard_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q`
+- Focused browser checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/daily-scoreboard.spec.ts --reporter=line`
+- Required targeted browser command:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'Daily Scoreboard|daily-scoreboard|scoreboard|cockpit/daily-scoreboard' --reporter=line`
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Focused backend checks: **14/14 passed**.
+- Focused browser checks (`daily-scoreboard.spec.ts`): **5/5 passed**.
+- Required targeted Playwright rerun: **4/4 passed**.
+- Backend Ruff: **pass**.
+- Backend full pytest: **2354/2354 passed**.
+- Web lint: **pass**.
+- Web build: **pass**.
+- Learning suite: **99/99 passed**.
+- Theme-token grep gates: **pass/pass**.
+
+### Safety Notes
+
+- Backend surface is `GET`-only and read-focused.
+- Service does not call broker submit, live execution, position close/modify, or any write path.
+- UI is paper-only and read-only with no execute/close/modify controls.
+- Missing or incomplete metrics stay `null`, `unknown`, or limitations instead of being invented.
+- Risk enforcement and broker execution behavior are unchanged.
+
+### Known Limitations
+
+- Day boundaries are UTC-based for deterministic reporting.
+- P&L rollups depend on persisted realized/unrealized fields and remain unavailable when source values are missing.
+- Contributor and activity summaries are limited to persisted paper rows for the current report day.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-10 — Alerts needing attention (paper scope, read-focused visibility).
+
