@@ -12842,3 +12842,90 @@ still 100% green.
 
 -> MH-COCKPIT-08 — Trade-close explanations (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-08 — Trade-Close Explanations
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-150
+
+### Scope
+
+- Added a read-only cockpit backend route at `GET /cockpit/trade-close-explanations`.
+- Added a deterministic trade-close aggregation service that surfaces recently closed paper positions and links each close to available paper-order, outcome, and risk context.
+- Added typed backend schemas with stable summary/explanation fields, deterministic close labels, setup-match visibility, evidence, missing-data notes, learning notes, and `is_actionable=false` for every row.
+- Added a new cockpit page at `/cockpit/trade-close-explanations` with paper-only wording, summary cards, sortable close table, detailed evidence/missing-data cards, and limitation/review-action panels.
+- Added a cockpit-hub link so operators can reach trade-close explanations from the cockpit overview.
+- Added focused backend and browser tests, including explicit no-action-button and responsive overflow checks.
+
+### Files Changed
+
+- `apps/api/app/api/routes/cockpit_trade_close_explanations.py`
+- `apps/api/app/main.py`
+- `apps/api/app/schemas/cockpit_trade_close_explanations.py`
+- `apps/api/app/services/cockpit_trade_close_explanations_service.py`
+- `apps/api/tests/test_cockpit_trade_close_explanations_route.py`
+- `apps/api/tests/test_cockpit_trade_close_explanations_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/web/app/cockpit/trade-close-explanations/page.tsx`
+- `apps/web/app/cockpit/page.tsx`
+- `apps/web/lib/api/cockpitTradeCloseExplanations.ts`
+- `apps/web/styles/pages/cockpit-trade-close-explanations.module.css`
+- `apps/web/tests/trade-close-explanations.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Endpoint Path
+
+- `GET /cockpit/trade-close-explanations`
+
+### UI Route
+
+- `/cockpit/trade-close-explanations`
+
+### Tests Run
+
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/trade-close-explanations.spec.ts tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'trade-close|Trade-Close|cockpit/trade-close' --reporter=line`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Backend Ruff: **pass**.
+- Backend full pytest: **2348/2348 passed**.
+- Web lint: **pass**.
+- Web build: **pass**.
+- Learning suite: **99/99 passed**.
+- Targeted Playwright rerun (trade-close route): **8/8 passed**.
+- Theme-token grep gates: **pass/pass**.
+
+### Safety Notes
+
+- Backend surface is `GET`-only and read-focused.
+- Service does not call broker submit, live execution, position close, or any write path.
+- Every explanation row is explicitly `is_actionable=false`.
+- UI is paper-only and read-only with no execute/close/modify controls.
+- Risk enforcement and broker execution behavior are unchanged.
+
+### Known Limitations
+
+- Close labels are deterministic inferences from persisted evidence and remain `unknown` when evidence is insufficient.
+- Missing links to paper orders or outcomes are surfaced explicitly as `missing_data` and limitations.
+- Explanations are bounded to recent closed paper rows and do not reconstruct historical context beyond available persisted records.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-09 — Daily scoreboard (paper scope, read-focused visibility).
+

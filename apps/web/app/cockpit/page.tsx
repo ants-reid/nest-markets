@@ -41,6 +41,12 @@ const SECTIONS: ReadonlyArray<{
           "Read-only paper-mode watchlist for open positions, orders, and recommendations that may need review.",
       },
       {
+        href: "/cockpit/trade-close-explanations",
+        title: "Trade-close explanations",
+        description:
+          "Read-only paper-mode close reasoning for recently closed trades, including evidence, missing context, and learning notes.",
+      },
+      {
         href: "/cockpit/eod-report",
         title: "End-of-Day report",
         description:
