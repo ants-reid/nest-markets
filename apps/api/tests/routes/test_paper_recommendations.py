@@ -1,6 +1,8 @@
 """Tests for paper trading recommendation service (MH-36)."""
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -162,3 +164,191 @@ def test_patch_review_recommendation_approve(client: TestClient):
     data = response.json()
     assert data["status"] == "approved"
     assert data["review_notes"] == "Approved by QA"
+
+
+def test_get_serious_paper_route_check_resolves_to_broker_orders_in_paper_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "AAPL",
+            "side": "BUY",
+            "quantity": 10.0,
+            "order_type": "MARKET",
+            "risk_score": 0.2,
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    with patch(
+        "app.services.broker_service.BrokerService.submit_order", new_callable=AsyncMock
+    ) as submit_order, patch(
+        "app.services.paper_execution_service.PaperExecutionService.submit_order"
+    ) as simulator_submit:
+        response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recommendation_id"] == rec_id
+    assert data["recommendation_status"] == "approved"
+    assert data["route_check_status"] == "eligible"
+    assert data["resolved_route"] == "/broker/orders"
+    assert data["resolved_execution_source"] == "ibkr_paper"
+    assert data["execution_source"] == "recommendation_route_check"
+    assert data["serious_paper_source"] == "ibkr_paper"
+    assert data["is_canonical_paper"] is True
+    assert data["broker_account_mode"] == "paper"
+    assert data["would_block"] is False
+    assert data["workers_allowed_to_submit"] is False
+    assert data["live_trading_enabled"] is False
+    assert data["is_submit"] is False
+    assert data["missing_data"] == []
+    submit_order.assert_not_called()
+    simulator_submit.assert_not_called()
+
+
+def test_get_serious_paper_route_check_blocks_in_live_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("BROKER_MODE", "live")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "MSFT",
+            "side": "SELL",
+            "quantity": 5.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route_check_status"] == "blocked"
+    assert data["resolved_route"] is None
+    assert data["resolved_execution_source"] is None
+    assert data["broker_account_mode"] == "live"
+    assert data["live_state"] == "ibkr_live_locked"
+    assert data["would_block"] is True
+    assert "live" in (data["blocked_reason"] or "").lower()
+    assert data["workers_allowed_to_submit"] is False
+    assert data["live_trading_enabled"] is False
+
+
+def test_get_serious_paper_route_check_blocks_in_unknown_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "TSLA",
+            "side": "BUY",
+            "quantity": 2.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    client.patch(f"/paper/recommendations/{rec_id}/review", json={"approved": True})
+
+    response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route_check_status"] == "blocked"
+    assert data["resolved_route"] is None
+    assert data["resolved_execution_source"] is None
+    assert data["broker_account_mode"] == "unknown"
+    assert data["live_state"] == "ibkr_live_locked"
+    assert data["would_block"] is True
+    assert "coherently paper" in (data["blocked_reason"] or "").lower()
+
+
+def test_get_serious_paper_route_check_returns_missing_context_for_unapproved_recommendation(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "NVDA",
+            "side": "BUY",
+            "quantity": 3.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+
+    response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recommendation_status"] == "draft"
+    assert data["route_check_status"] == "missing_context"
+    assert data["resolved_route"] is None
+    assert data["resolved_execution_source"] is None
+    assert data["would_block"] is True
+    assert data["blocked_reason"] is None
+    assert data["missing_data"] == [
+        "operator approval is required before manual IBKR paper submit"
+    ]
+    assert "operator approval" in data["next_required_action"].lower()
+
+
+def test_get_serious_paper_route_check_does_not_mutate_recommendation_state(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    post_response = client.post(
+        "/paper/recommendations",
+        json={
+            "ticker": "AMD",
+            "side": "BUY",
+            "quantity": 7.0,
+            "order_type": "MARKET",
+        },
+    )
+    rec_id = post_response.json()["id"]
+    review_response = client.patch(
+        f"/paper/recommendations/{rec_id}/review",
+        json={"approved": True, "review_notes": "operator approved for manual paper follow-up"},
+    )
+    reviewed = review_response.json()
+
+    response = client.get(f"/paper/recommendations/{rec_id}/serious-paper-route-check")
+    after = client.get(f"/paper/recommendations/{rec_id}")
+
+    assert response.status_code == 200
+    assert after.status_code == 200
+    data = after.json()
+    assert data["status"] == reviewed["status"] == "approved"
+    assert data["reviewed_at"] == reviewed["reviewed_at"]
+    assert data["review_notes"] == reviewed["review_notes"]
+    assert data["executed_at"] is None
+    assert data["paper_order_ids"] is None

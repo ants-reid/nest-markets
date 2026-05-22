@@ -29,6 +29,34 @@ from app.schemas import broker_schemas as bs
 # stripped for portability).  This is intentionally byte-equal so a silent
 # retype is caught.
 EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
+    "PaperRecommendationRouteCheckResponseSchema": {
+        "recommendation_id": ("<class 'uuid.UUID'>", True),
+        "recommendation_status": ("<class 'str'>", True),
+        "ticker": ("str | None", False),
+        "side": ("str | None", False),
+        "quantity": ("float | None", False),
+        "order_type": ("str | None", False),
+        "limit_price": ("float | None", False),
+        "estimated_notional": ("float | None", False),
+        "risk_score": ("float | None", False),
+        "route_check_status": ("<class 'str'>", True),
+        "resolved_route": ("str | None", False),
+        "resolved_execution_source": ("str | None", False),
+        "execution_source": ("<class 'str'>", False),
+        "serious_paper_source": ("<class 'str'>", False),
+        "is_canonical_paper": ("<class 'bool'>", False),
+        "broker_account_mode": ("<class 'str'>", True),
+        "live_state": ("<class 'str'>", False),
+        "would_block": ("<class 'bool'>", True),
+        "blocked_reason": ("str | None", False),
+        "missing_data": ("list[str]", False),
+        "next_required_action": ("<class 'str'>", True),
+        "is_submit": ("<class 'bool'>", False),
+        "workers_allowed_to_submit": ("<class 'bool'>", False),
+        "live_trading_enabled": ("<class 'bool'>", False),
+        "canonical_paper_route": ("<class 'str'>", False),
+        "broker_mode": ("<class 'app.schemas.broker_schemas.BrokerModeSchema'>", True),
+    },
     "SeriousPaperRouteCheckResponseSchema": {
         "requested_mode": ("<class 'str'>", False),
         "resolved_execution_source": ("str | None", False),
@@ -103,6 +131,12 @@ EXPECTED_SCHEMA_FIELDS: dict[str, dict[str, tuple[str, bool]]] = {
 # index by; renaming or making optional any of them silently breaks
 # attribution.
 SAFETY_REQUIRED_FIELDS: set[tuple[str, str]] = {
+    ("PaperRecommendationRouteCheckResponseSchema", "recommendation_id"),
+    ("PaperRecommendationRouteCheckResponseSchema", "route_check_status"),
+    ("PaperRecommendationRouteCheckResponseSchema", "broker_account_mode"),
+    ("PaperRecommendationRouteCheckResponseSchema", "would_block"),
+    ("PaperRecommendationRouteCheckResponseSchema", "next_required_action"),
+    ("PaperRecommendationRouteCheckResponseSchema", "broker_mode"),
     ("SeriousPaperRouteCheckResponseSchema", "current_broker_account_mode"),
     ("SeriousPaperRouteCheckResponseSchema", "can_route_to_broker_paper"),
     ("SeriousPaperRouteCheckResponseSchema", "would_block"),

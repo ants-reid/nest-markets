@@ -13625,6 +13625,80 @@ still 100% green.
 
 -> Wire selected operator-driven recommendation or workflow actions through the new serious-paper route-check before `POST /broker/orders`, while keeping workers non-submitting by default.
 
+## MH-BROKER-PAPER-CANONICAL-04 - Operator Recommendation Route-Check Before IBKR Paper Submit
+
+- **Date:** 2026-05-22
+- **Status:** ✅ Complete
+- **Scope:** Add a backend-first, read-only operator recommendation route-check that consumes the canonical serious-paper routing contract before manual IBKR paper submit. This phase stays non-submitting, leaves UI unchanged, keeps workers non-submitting by default, and preserves the live lock.
+
+### Route And Service Added
+
+- `GET /paper/recommendations/{recommendation_id}/serious-paper-route-check`
+- `apps/api/app/services/paper_recommendation_route_check_service.py`
+
+### UI Change
+
+- No UI code changed in this phase.
+- Recommendation eligibility remains backend-visible only for now; no new submit or approval button was introduced.
+
+### Contract Outcome
+
+- The new recommendation route-check loads a persisted recommendation and composes its operator context with the existing serious-paper routing contract.
+- Eligible recommendations resolve to `/broker/orders` only when the recommendation is operator-approved and broker mode is coherently paper.
+- Live or unknown broker/account tuples fail closed with no resolved submit path.
+- Recommendations that are not approved or that are missing required order context return `route_check_status=missing_context` instead of guessing submit intent.
+- The route-check is read-only (`is_submit=false`), never calls `BrokerService.submit_order()`, never calls the simulator path, never mutates recommendation execution state, and never expands worker submit behavior.
+- Actual submit still uses the existing guarded `POST /broker/orders` path with broker preflight, decision persistence, trading control, and live-lock enforcement unchanged.
+
+### Files Changed
+
+- `apps/api/app/api/routes/paper_recommendations.py`
+- `apps/api/app/schemas/broker_schemas.py`
+- `apps/api/app/services/paper_recommendation_route_check_service.py`
+- `apps/api/tests/routes/test_paper_recommendations.py`
+- `apps/api/tests/test_post_lock_simulation_regression.py`
+- `apps/api/tests/test_pydantic_model_field_catalog_drift_lock.py`
+- `apps/api/tests/test_pydantic_wire_contract_drift_lock.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Validation
+
+- Focused recommendation route-check + regression + drift-lock slice: `44 passed`
+- Route registry drift lock: `4 passed`
+- Backend lint: `cd apps/api && .venv/bin/ruff check app tests` -> pass
+- Backend targeted broker/paper/recommendation/validation/execution/workflow/worker slice: `706 passed, 1691 deselected in 201.40s (0:03:21)`
+- Backend full suite: `2397 passed in 215.05s (0:03:35)`
+- Frontend lint: `cd apps/web && npm run lint` -> pass
+- Frontend build: `cd apps/web && npm run build` -> pass
+- Learning suite: `./scripts/test/test-learning.sh` -> `99 passed`
+
+### Safety Notes
+
+- No live trading enablement.
+- No live submit path activation.
+- No broker-mode-guard weakening.
+- No trading-control bypass.
+- No broker-preflight bypass.
+- No risk-check bypass.
+- No automatic recommendation execution.
+- No worker broker-submit expansion.
+- No simulator fallback for serious paper.
+
+### Known Limitations
+
+- Recommendation route-check is backend-only in this phase; operators do not yet have a dedicated cockpit panel for this contract.
+- The route-check reports eligibility and next steps only; it does not build or submit a broker order payload.
+- Workflow `paper` mode still targets internal simulation and is intentionally not rewired to broker paper in this phase.
+- Recommendation execution remains manual and explicit through existing guarded broker routes.
+
+### Next Recommended Phase
+
+-> Add a narrow operator-facing review surface that displays recommendation route-check results and links the operator into the existing guarded broker dry-run/submit flow without introducing auto-submit.
+
 ## MH-162 — Post-Lock Simulation Regression Suite
 
 - **Date:** 2026-05-22

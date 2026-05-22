@@ -1,8 +1,10 @@
 """Pydantic schemas for broker endpoint requests/responses."""
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
 from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class BrokerModeSchema(BaseModel):
@@ -49,6 +51,37 @@ class SeriousPaperRouteCheckResponseSchema(BaseModel):
     is_submit: bool = False
     next_required_action: str
     serious_paper_source: str = "ibkr_paper"
+    canonical_paper_route: str = "/broker/orders"
+    broker_mode: BrokerModeSchema
+
+
+class PaperRecommendationRouteCheckResponseSchema(BaseModel):
+    """Read-only recommendation route-check result for manual serious-paper review."""
+
+    recommendation_id: UUID
+    recommendation_status: str
+    ticker: Optional[str] = None
+    side: Optional[str] = None
+    quantity: Optional[float] = None
+    order_type: Optional[str] = None
+    limit_price: Optional[float] = None
+    estimated_notional: Optional[float] = None
+    risk_score: Optional[float] = None
+    route_check_status: str
+    resolved_route: Optional[str] = None
+    resolved_execution_source: Optional[str] = None
+    execution_source: str = "recommendation_route_check"
+    serious_paper_source: str = "ibkr_paper"
+    is_canonical_paper: bool = False
+    broker_account_mode: str
+    live_state: str = "ibkr_live_locked"
+    would_block: bool
+    blocked_reason: Optional[str] = None
+    missing_data: list[str] = Field(default_factory=list)
+    next_required_action: str
+    is_submit: bool = False
+    workers_allowed_to_submit: bool = False
+    live_trading_enabled: bool = False
     canonical_paper_route: str = "/broker/orders"
     broker_mode: BrokerModeSchema
 

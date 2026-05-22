@@ -119,6 +119,12 @@ MH-BROKER-PAPER-CANONICAL-03 delta:
 - Live or unknown broker/account tuples fail closed with no resolved submit path.
 - Background workers gain no new broker submit capability from this phase; the route-check is read-only and the existing auto worker seam remains separately gated.
 
+MH-BROKER-PAPER-CANONICAL-04 delta:
+- `GET /paper/recommendations/{recommendation_id}/serious-paper-route-check` now lets an operator inspect whether a persisted recommendation is eligible for the canonical manual IBKR paper path.
+- Eligible recommendations resolve only to `/broker/orders` in coherent paper mode; the recommendation route-check never resolves `/execution/paper`.
+- Live or unknown broker/account tuples fail closed, and recommendations that are not yet operator-approved or are missing required order context return `route_check_status=missing_context` instead of guessing submit intent.
+- The recommendation route-check is read-only and non-submitting; actual submit still uses the existing guarded `POST /broker/orders` path, workers remain non-submitting by default, and live remains locked.
+
 ---
 
 ## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)

@@ -78,6 +78,12 @@ Phase-03 route contract note:
 - Live or unknown broker/account tuples fail closed with no resolved broker submit path.
 - Workflow and recommendation surfaces remain manual/explicit in this phase; no worker or background path is rewired onto a new submit seam.
 
+Phase-04 route contract note:
+- `GET /paper/recommendations/{recommendation_id}/serious-paper-route-check` adds a recommendation-owned operator pre-submit route-check without creating a new execution seam.
+- The endpoint loads the persisted recommendation, composes its operator context with the serious-paper routing contract, and returns `eligible`, `blocked`, or `missing_context` for manual IBKR paper follow-up.
+- Eligible recommendations resolve `/broker/orders` only in coherent paper mode; live or unknown broker/account tuples fail closed; unapproved or incomplete recommendations fail with `missing_context`.
+- The route-check never submits to IBKR, never falls back to `/execution/paper`, and does not change worker behavior.
+
 Clarification:
 - API-R06 (`/execution/paper`) is internal simulation and is not IBKR paper execution.
 - Serious pre-live paper proving is API-RX03 (`/broker/*`) in coherent paper mode.
@@ -122,7 +128,7 @@ Clarification:
 | API-RX14 | `app/api/routes/news_articles.py` | news articles route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX15 | `app/api/routes/news_in_decision_log.py` | news in decision log route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX16 | `app/api/routes/options.py` | options route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
-| API-RX17 | `app/api/routes/paper_recommendations.py` | paper recommendations route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
+| API-RX17 | `app/api/routes/paper_recommendations.py` | paper recommendations route surface | implemented | tested | documented | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. Updated 2026-05-22 during MH-BROKER-PAPER-CANONICAL-04 with read-only `GET /paper/recommendations/{recommendation_id}/serious-paper-route-check` operator eligibility checks for the canonical manual IBKR paper path. |
 | API-RX18 | `app/api/routes/paper_validation.py` | paper validation route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX19 | `app/api/routes/regime.py` | regime route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |
 | API-RX20 | `app/api/routes/research_data.py` | research data route surface | implemented | unverified | partial | WS-01 | Inventoried 2026-05-19 during MH-RESTART-004. |

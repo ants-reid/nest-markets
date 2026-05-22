@@ -38,6 +38,7 @@ from app.schemas.broker_schemas import (
     BrokerModeSchema,
     OrderRequestSchema,
     OrderResultSchema,
+    PaperRecommendationRouteCheckResponseSchema,
     SeriousPaperRouteCheckResponseSchema,
 )
 from app.schemas.signal import SignalResponse
@@ -202,6 +203,40 @@ EXPECTED_SERIOUS_PAPER_ROUTE_CHECK: dict[str, dict[str, Any]] = {
 }
 
 
+EXPECTED_PAPER_RECOMMENDATION_ROUTE_CHECK: dict[str, dict[str, Any]] = {
+    "recommendation_id": {"required": True, "default": "<no-default>", "annotation": "<class 'uuid.UUID'>"},
+    "recommendation_status": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "ticker": {"required": False, "default": None, "annotation": "str | None"},
+    "side": {"required": False, "default": None, "annotation": "str | None"},
+    "quantity": {"required": False, "default": None, "annotation": "float | None"},
+    "order_type": {"required": False, "default": None, "annotation": "str | None"},
+    "limit_price": {"required": False, "default": None, "annotation": "float | None"},
+    "estimated_notional": {"required": False, "default": None, "annotation": "float | None"},
+    "risk_score": {"required": False, "default": None, "annotation": "float | None"},
+    "route_check_status": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "resolved_route": {"required": False, "default": None, "annotation": "str | None"},
+    "resolved_execution_source": {"required": False, "default": None, "annotation": "str | None"},
+    "execution_source": {"required": False, "default": "recommendation_route_check", "annotation": "<class 'str'>"},
+    "serious_paper_source": {"required": False, "default": "ibkr_paper", "annotation": "<class 'str'>"},
+    "is_canonical_paper": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "broker_account_mode": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "live_state": {"required": False, "default": "ibkr_live_locked", "annotation": "<class 'str'>"},
+    "would_block": {"required": True, "default": "<no-default>", "annotation": "<class 'bool'>"},
+    "blocked_reason": {"required": False, "default": None, "annotation": "str | None"},
+    "missing_data": {"required": False, "default": "<no-default>", "annotation": "list[str]"},
+    "next_required_action": {"required": True, "default": "<no-default>", "annotation": "<class 'str'>"},
+    "is_submit": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "workers_allowed_to_submit": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "live_trading_enabled": {"required": False, "default": False, "annotation": "<class 'bool'>"},
+    "canonical_paper_route": {"required": False, "default": "/broker/orders", "annotation": "<class 'str'>"},
+    "broker_mode": {
+        "required": True,
+        "default": "<no-default>",
+        "annotation": "<class 'app.schemas.broker_schemas.BrokerModeSchema'>",
+    },
+}
+
+
 # ── tests ───────────────────────────────────────────────────────────────
 
 
@@ -238,6 +273,10 @@ def test_order_result_schema_wire_contract_unchanged():
 
 def test_serious_paper_route_check_schema_wire_contract_unchanged():
     _check(SeriousPaperRouteCheckResponseSchema, EXPECTED_SERIOUS_PAPER_ROUTE_CHECK)
+
+
+def test_paper_recommendation_route_check_schema_wire_contract_unchanged():
+    _check(PaperRecommendationRouteCheckResponseSchema, EXPECTED_PAPER_RECOMMENDATION_ROUTE_CHECK)
 
 
 def test_signal_response_required_safety_fields_present():

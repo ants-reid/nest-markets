@@ -9,12 +9,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
+from app.schemas.broker_schemas import (
+    BrokerModeSchema,
+    PaperRecommendationRouteCheckResponseSchema,
+)
 from app.schemas.paper_recommendation import (
     PaperRecommendationCreateRequest,
     PaperRecommendationListResponse,
     PaperRecommendationResponse,
     PaperRecommendationReviewRequest,
 )
+from app.services.paper_recommendation_route_check_service import PaperRecommendationRouteCheckService
 from app.services.paper_recommendation_service import PaperRecommendationService
 
 _logger = logging.getLogger(__name__)
@@ -103,6 +108,50 @@ def get_recommendation(
         raise HTTPException(status_code=404, detail=f"Recommendation {recommendation_id} not found")
 
     return PaperRecommendationResponse.model_validate(rec)
+
+
+@router.get(
+    "/{recommendation_id}/serious-paper-route-check",
+    response_model=PaperRecommendationRouteCheckResponseSchema,
+)
+def get_recommendation_serious_paper_route_check(
+    recommendation_id: UUID,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> PaperRecommendationRouteCheckResponseSchema:
+    """Return the read-only serious-paper route-check for one recommendation."""
+    decision = PaperRecommendationRouteCheckService(session).resolve_route_check(recommendation_id)
+
+    if not decision:
+        raise HTTPException(status_code=404, detail=f"Recommendation {recommendation_id} not found")
+
+    return PaperRecommendationRouteCheckResponseSchema(
+        recommendation_id=decision.recommendation_id,
+        recommendation_status=decision.recommendation_status,
+        ticker=decision.ticker,
+        side=decision.side,
+        quantity=decision.quantity,
+        order_type=decision.order_type,
+        limit_price=decision.limit_price,
+        estimated_notional=decision.estimated_notional,
+        risk_score=decision.risk_score,
+        route_check_status=decision.route_check_status,
+        resolved_route=decision.resolved_route,
+        resolved_execution_source=decision.resolved_execution_source,
+        execution_source=decision.execution_source,
+        serious_paper_source=decision.serious_paper_source,
+        is_canonical_paper=decision.is_canonical_paper,
+        broker_account_mode=decision.broker_account_mode,
+        live_state=decision.live_state,
+        would_block=decision.would_block,
+        blocked_reason=decision.blocked_reason,
+        missing_data=decision.missing_data,
+        next_required_action=decision.next_required_action,
+        is_submit=decision.is_submit,
+        workers_allowed_to_submit=decision.workers_allowed_to_submit,
+        live_trading_enabled=decision.live_trading_enabled,
+        canonical_paper_route=decision.canonical_paper_route,
+        broker_mode=BrokerModeSchema(**decision.broker_mode),
+    )
 
 
 @router.patch("/{recommendation_id}/review", response_model=PaperRecommendationResponse)

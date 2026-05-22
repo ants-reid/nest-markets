@@ -12,8 +12,10 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
+import app.services.paper_recommendation_route_check_service as recommendation_route_check_module
 import app.services.serious_paper_routing_service as serious_paper_routing_module
 import app.workers.signal_sweep_worker as signal_sweep_worker_module
 
@@ -23,6 +25,8 @@ from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.session import SessionLocal
 from app.services.broker_preflight_decision_service import BrokerPreflightDecisionService
 from app.services.broker_service import BrokerService
+from app.services.paper_recommendation_route_check_service import PaperRecommendationRouteCheckService
+from app.services.paper_recommendation_service import PaperRecommendationService
 from app.services.paper_source_contract import (
     CANONICAL_PAPER_ROUTE,
     SERIOUS_PAPER_SOURCE,
@@ -303,6 +307,80 @@ def test_serious_paper_route_check_service_is_read_only():
 
     assert "submit_auto_order" not in attr_calls
     assert "submit_order" not in attr_calls
+
+
+def test_operator_recommendation_route_check_resolves_to_canonical_broker_route_only_in_paper_mode(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "paper")
+    get_settings.cache_clear()
+
+    recommendation = SimpleNamespace(
+        id=uuid4(),
+        status="approved",
+        ticker="AAPL",
+        side="BUY",
+        quantity=Decimal("1"),
+        order_type="MARKET",
+        limit_price=None,
+        estimated_notional=Decimal("100"),
+        risk_score=Decimal("0.2"),
+    )
+
+    with patch.object(PaperRecommendationService, "get_recommendation", return_value=recommendation):
+        decision = PaperRecommendationRouteCheckService(MagicMock()).resolve_route_check(recommendation.id)
+
+    assert decision is not None
+    assert decision.route_check_status == "eligible"
+    assert decision.resolved_route == CANONICAL_PAPER_ROUTE
+    assert decision.resolved_execution_source == SOURCE_IBKR_PAPER
+    assert decision.execution_source == "recommendation_route_check"
+    assert decision.is_submit is False
+    assert decision.workers_allowed_to_submit is False
+    assert decision.live_trading_enabled is False
+
+
+def test_operator_recommendation_route_check_fails_closed_in_unknown_mode(monkeypatch):
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+    monkeypatch.setenv("BROKER_MODE", "paper")
+    monkeypatch.setenv("IBKR_ACCOUNT_TYPE", "live")
+    get_settings.cache_clear()
+
+    recommendation = SimpleNamespace(
+        id=uuid4(),
+        status="approved",
+        ticker="AAPL",
+        side="BUY",
+        quantity=Decimal("1"),
+        order_type="MARKET",
+        limit_price=None,
+        estimated_notional=Decimal("100"),
+        risk_score=Decimal("0.2"),
+    )
+
+    with patch.object(PaperRecommendationService, "get_recommendation", return_value=recommendation):
+        decision = PaperRecommendationRouteCheckService(MagicMock()).resolve_route_check(recommendation.id)
+
+    assert decision is not None
+    assert decision.route_check_status == "blocked"
+    assert decision.resolved_route is None
+    assert decision.resolved_execution_source is None
+    assert decision.broker_account_mode == "unknown"
+    assert decision.would_block is True
+
+
+def test_operator_recommendation_route_check_service_is_read_only():
+    tree = _parse_module(Path(recommendation_route_check_module.__file__))
+    attr_calls = _attr_call_names(tree)
+    imports = _imported_names(tree)
+
+    assert "submit_auto_order" not in attr_calls
+    assert "submit_order" not in attr_calls
+    assert "mark_executed" not in attr_calls
+    assert "create_order" not in attr_calls
+    assert "simulate_fill" not in attr_calls
+    assert "app.services.broker_service" not in imports
+    assert "app.services.paper_execution_service" not in imports
 
 
 def test_canonical_paper_contract_is_consistent_across_source_helpers():
