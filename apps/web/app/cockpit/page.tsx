@@ -35,6 +35,12 @@ const SECTIONS: ReadonlyArray<{
     heading: "Operator overviews",
     items: [
       {
+        href: "/cockpit/in-flight-adjustments",
+        title: "In-flight adjustments",
+        description:
+          "Read-only paper-mode watchlist for open positions, orders, and recommendations that may need review.",
+      },
+      {
         href: "/cockpit/eod-report",
         title: "End-of-Day report",
         description:

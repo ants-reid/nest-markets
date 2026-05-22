@@ -12748,3 +12748,97 @@ still 100% green.
 
 -> MH-COCKPIT-07 — In-flight adjustments view (paper scope, read-focused visibility).
 
+---
+
+## MH-COCKPIT-07 — In-Flight Adjustments View
+
+**Date**: 2026-05-22
+**Status**: Validation complete
+**Depends On**: MH-COCKPIT-05
+
+### Scope
+
+- Added a read-only cockpit backend route at `GET /cockpit/in-flight-adjustments`.
+- Added a deterministic in-flight aggregation service that surfaces open paper positions, active paper orders, active paper recommendations, linked risk context, and monitor/feed notes.
+- Added typed backend schemas with stable item-level fields including `attention_level`, `adjustment_label`, `missing_data`, and `is_actionable=false`.
+- Added a new cockpit page at `/cockpit/in-flight-adjustments` with paper-only wording, summary cards, attention list/table, detailed reason/evidence cards, monitor notes, risk notes, recommended review actions, and limitation notes.
+- Added a cockpit-hub link so operators can reach in-flight adjustments directly from the cockpit overview.
+- Added focused backend and browser tests, including explicit no-action-button and 390px overflow checks.
+
+### Files Changed
+
+- `apps/api/app/api/routes/cockpit_in_flight_adjustments.py`
+- `apps/api/app/main.py`
+- `apps/api/app/schemas/cockpit_in_flight_adjustments.py`
+- `apps/api/app/services/cockpit_in_flight_adjustments_service.py`
+- `apps/api/tests/test_cockpit_in_flight_adjustments_route.py`
+- `apps/api/tests/test_cockpit_in_flight_adjustments_service.py`
+- `apps/api/tests/test_route_registry_drift_lock.py`
+- `apps/api/tests/test_router_prefix_catalog_drift_lock.py`
+- `apps/web/app/cockpit/in-flight-adjustments/page.tsx`
+- `apps/web/app/cockpit/page.tsx`
+- `apps/web/lib/api/cockpitInFlightAdjustments.ts`
+- `apps/web/styles/pages/cockpit-in-flight-adjustments.module.css`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### Endpoint Path
+
+- `GET /cockpit/in-flight-adjustments`
+
+### UI Route
+
+- `/cockpit/in-flight-adjustments`
+
+### Tests Run
+
+- Focused backend checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_cockpit_in_flight_adjustments_service.py tests/test_cockpit_in_flight_adjustments_route.py tests/test_route_registry_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py -q`
+- Focused browser checks:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts tests/routes.spec.ts tests/responsive.spec.ts --grep 'In-Flight|in-flight|adjustments|cockpit/in-flight' --reporter=line`
+- Required targeted browser command:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'In-Flight|in-flight|adjustments|cockpit/in-flight' --reporter=line`
+- Full validation suite:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build`
+  - `/Users/ants/Documents/market-hunter-mvp/scripts/test/test-learning.sh`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+
+### Validation Results
+
+- Focused backend checks: **14/14 passed**.
+- Focused browser checks: **8/8 passed** (after one CSS overflow fix rerun).
+- Required targeted Playwright rerun: **4/4 passed**.
+- Backend Ruff: **pass**.
+- Backend full pytest: **2342/2342 passed**.
+- Web lint: **pass**.
+- Web build: **pass**.
+- Learning suite: **99/99 passed**.
+- Theme-token grep gates: **pass/pass**.
+
+### Safety Notes
+
+- Backend surface is `GET`-only and read-focused.
+- Service does not call broker submit, live execution, paper close/modify, or auto-adjustment paths.
+- Every item is explicitly `is_actionable=false`.
+- UI is paper-only and read-only with no execute/close/modify controls.
+- Risk enforcement and broker execution behavior are unchanged.
+
+### Known Limitations
+
+- Item attention and labels are deterministic heuristics from currently persisted fields; they do not compute executable adjustments.
+- Missing or incomplete source fields are surfaced as `missing_data`, `unknown`, or limitations instead of inferred values.
+- Monitor/risk notes are bounded to recent rows and may not include older historical context.
+
+### Next Recommended Phase
+
+-> MH-COCKPIT-08 — Trade-close explanations (paper scope, read-focused visibility).
+

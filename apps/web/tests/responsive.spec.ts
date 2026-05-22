@@ -28,6 +28,7 @@ const ROUTES = [
   { path: "/analytics", name: "analytics" },
   { path: "/cockpit", name: "cockpit" },
   { path: "/cockpit/eod-report", name: "cockpit-eod-report" },
+  { path: "/cockpit/in-flight-adjustments", name: "cockpit-in-flight-adjustments" },
   { path: "/monitor/feeds", name: "feed-monitor" },
 ];
 

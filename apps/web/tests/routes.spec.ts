@@ -29,6 +29,7 @@ const ROUTES: { id: string; path: string; heading: RegExp | string }[] = [
   { id: "QA-R17", path: "/strategy-lab", heading: /strategy lab/i },
   { id: "QA-R18A", path: "/cockpit", heading: /cockpit/i },
   { id: "QA-R18B", path: "/cockpit/eod-report", heading: /end-of-day report/i },
+  { id: "QA-R18C", path: "/cockpit/in-flight-adjustments", heading: /in-flight adjustments/i },
   { id: "QA-R19", path: "/data-quality", heading: /data quality review/i },
   { id: "QA-R20", path: "/monitor/feeds", heading: /feed monitor/i },
 ];
