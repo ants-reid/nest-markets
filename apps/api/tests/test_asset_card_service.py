@@ -161,12 +161,26 @@ def test_filter_by_asset_class():
 def test_inactive_excluded_by_default():
     s = SessionLocal()
     try:
-        _make_asset(s, symbol_suffix="INACTIVE", is_active=False)
-        snap = get_asset_card_snapshot(s, limit=200)
+        _make_asset(
+            s,
+            symbol_suffix="INACTIVE",
+            asset_class=AssetClass.COMMODITY_PROXY,
+            is_active=False,
+        )
+        snap = get_asset_card_snapshot(
+            s,
+            asset_class=AssetClass.COMMODITY_PROXY,
+            limit=200,
+        )
         symbols = [c["symbol"] for c in snap["items"]]
         assert f"{_TEST_PREFIX}INACTIVE" not in symbols
 
-        snap_all = get_asset_card_snapshot(s, limit=200, active_only=False)
+        snap_all = get_asset_card_snapshot(
+            s,
+            asset_class=AssetClass.COMMODITY_PROXY,
+            limit=200,
+            active_only=False,
+        )
         symbols_all = [c["symbol"] for c in snap_all["items"]]
         assert f"{_TEST_PREFIX}INACTIVE" in symbols_all
     finally:

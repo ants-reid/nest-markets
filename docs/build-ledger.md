@@ -13746,3 +13746,95 @@ still 100% green.
 
 -> Continue Bucket 3 hardening and maintenance phases after reviewing full-suite timing windows.
 
+## Operator Recommendation Route-Check Review Surface
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing review surface for recommendation serious-paper route checks on `/cockpit/in-flight-adjustments`, keep it read-only and non-submitting, recover the unrelated full API asset-card baseline failure, and commit only after the full validation matrix returns green.
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a recommendation-only route-check panel for paper recommendations.
+- The panel fetches the existing read-only backend contract from `GET /paper/recommendations/{recommendation_id}/serious-paper-route-check` and displays `eligible`, `blocked`, `missing_context`, and safe fetch-error states.
+- The panel introduces no submit button. It links only to the existing guarded `/broker#broker-overview` and `/broker#broker-execution` surfaces for manual dry-run / paper workflow follow-up.
+
+### API Helper / Component Added
+
+- `apps/web/lib/api/paperRecommendations.ts` — typed frontend helper for the recommendation route-check contract.
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` — read-only operator panel.
+- `apps/web/components/RecommendationRouteCheckPanel.module.css` — panel styling.
+- `apps/web/app/cockpit/in-flight-adjustments/page.tsx` — recommendation items now mount the review panel.
+- `apps/web/lib/api/index.ts` — exports the new API helper.
+- `apps/web/tests/in-flight-adjustments.spec.ts` — Playwright coverage expanded for route-check panel rendering and deterministic mock routing by recommendation id.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- The backend route/service contract from MH-BROKER-PAPER-CANONICAL-04 remained unchanged and was reused as-is.
+
+### Asset-Card Baseline Fix
+
+- Full API validation initially failed on `tests/test_asset_card_service.py::test_inactive_excluded_by_default`.
+- Classification: **stale test expectation**, not a production regression and not caused by the route-check feature.
+- Root cause: the test inserted an inactive asset that now sorts beyond the first 200 globally ordered assets, so `active_only=False` still did not guarantee inclusion under the service's documented `limit <= 200` cap.
+- Minimal fix: scope that test to `asset_class=AssetClass.COMMODITY_PROXY` so it still verifies `active_only` semantics without depending on unrelated global asset-volume ordering.
+- Production `asset_card_service.py` behavior did not change.
+
+### Safety Confirmation
+
+- Route-check surface remains non-submitting.
+- Workers remain non-submitting by default.
+- Live remains locked.
+- No broker submit behavior changed.
+- No auto-submit or auto-approval was introduced.
+
+### Files Changed
+
+- `apps/api/tests/test_asset_card_service.py`
+- `apps/web/app/cockpit/in-flight-adjustments/page.tsx`
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/components/RecommendationRouteCheckPanel.module.css`
+- `apps/web/lib/api/index.ts`
+- `apps/web/lib/api/paperRecommendations.ts`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Backend focused asset-card reproduction before fix:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_asset_card_service.py::test_inactive_excluded_by_default -q -vv`
+  - Result: failed, confirming a stale baseline expectation.
+- Backend focused validation after fix:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_asset_card_service.py::test_inactive_excluded_by_default -q` -> `1 passed`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/test_asset_card_service.py -q` -> `8 passed`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/ruff check app tests` -> pass
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/routes/test_paper_recommendations.py tests/test_post_lock_simulation_regression.py -q` -> `33 passed`
+- Full backend validation:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/api && .venv/bin/python -m pytest tests/ -q` -> `2397 passed`
+- Frontend validation:
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run lint` -> pass
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && npm run build` -> pass
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line` -> `8 passed`
+  - `cd /Users/ants/Documents/market-hunter-mvp/apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line` -> `4 passed`
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` -> no matches
+  - `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'` -> no matches
+- Learning validation:
+  - `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh` -> `99 passed`
+
+### Runtime Recovery Note
+
+- The web validation runtime hit the known stale Next.js chunk problem after `next build` while `next dev` was active.
+- Final browser validation was recovered by stopping the stale dev runtime, removing `apps/web/.next`, and rerunning Playwright against a clean dev server on `127.0.0.1:3100`.
+
+### Known Limitations
+
+- The operator review surface is intentionally narrow and recommendation-only within the in-flight page.
+- The panel exposes review state and guarded navigation only; it does not construct or submit broker orders.
+
+### Next Recommended Phase
+
+-> Continue with the next paper-safe operator review surfaces or adjacent cockpit maintenance work, keeping recommendation route review read-only unless a future phase explicitly expands guarded manual workflow support.
+

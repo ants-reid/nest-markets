@@ -21,3 +21,4 @@ export * from "./feedMonitor";
 export * from "./cockpitNotifications";
 export * from "./workerRunLog";
 export * from "./cockpitAutoPaperStatus";
+export * from "./paperRecommendations";

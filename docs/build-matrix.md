@@ -125,6 +125,11 @@ MH-BROKER-PAPER-CANONICAL-04 delta:
 - Live or unknown broker/account tuples fail closed, and recommendations that are not yet operator-approved or are missing required order context return `route_check_status=missing_context` instead of guessing submit intent.
 - The recommendation route-check is read-only and non-submitting; actual submit still uses the existing guarded `POST /broker/orders` path, workers remain non-submitting by default, and live remains locked.
 
+Operator review surface delta — 2026-05-23:
+- `/cockpit/in-flight-adjustments` now renders a narrow operator-facing recommendation route-check panel for paper recommendations only.
+- The panel is read-only, displays `eligible` / `blocked` / `missing_context` results from the existing backend contract, and links operators back into the guarded `/broker` dry-run/manual paper flow without adding any submit button.
+- Validation recovery also repaired an unrelated asset-card baseline test expectation so the full API suite returned to green; no broker, worker, or live-trading behavior changed.
+
 ---
 
 ## Post-MH-141 Phase Registry (Locked-In via MH-142 Safety Review, 2026-05-02)

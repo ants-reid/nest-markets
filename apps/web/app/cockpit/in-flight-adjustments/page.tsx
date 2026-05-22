@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { RecommendationRouteCheckPanel } from "../../../components/RecommendationRouteCheckPanel";
 import { AssetContextLink } from "../../../components/ui/AssetContextLink";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import {
@@ -290,6 +291,10 @@ export default function CockpitInFlightAdjustmentsPage() {
                     <h4>Recommended review action</h4>
                     <p>{item.recommended_review_action}</p>
                   </div>
+
+                  {item.item_type === "paper_recommendation" ? (
+                    <RecommendationRouteCheckPanel recommendationId={item.id} symbol={item.symbol} />
+                  ) : null}
                 </article>
               ))}
             </section>

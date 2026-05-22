@@ -1,0 +1,245 @@
+.panel {
+  margin-top: 0.9rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-canvas) 72%, var(--bg-surface));
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.titleWrap {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  font-size: 0.9rem;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border-default);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.statusEligible {
+  border-color: var(--state-success);
+  background: color-mix(in srgb, var(--state-success) 16%, var(--bg-surface));
+}
+
+.statusBlocked {
+  border-color: var(--state-danger);
+  background: color-mix(in srgb, var(--state-danger) 16%, var(--bg-surface));
+}
+
+.statusMissing {
+  border-color: var(--state-warning);
+  background: color-mix(in srgb, var(--state-warning) 16%, var(--bg-surface));
+}
+
+.statusUnknown {
+  border-color: var(--state-info);
+  background: color-mix(in srgb, var(--state-info) 16%, var(--bg-surface));
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.button {
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.inlineError {
+  border-radius: 0.75rem;
+  border: 1px solid var(--state-danger);
+  background: color-mix(in srgb, var(--state-danger) 10%, var(--bg-surface));
+  padding: 0.7rem 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.summary {
+  border-radius: 0.8rem;
+  padding: 0.8rem 0.9rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.summaryEligible {
+  border: 1px solid var(--state-success);
+  background: color-mix(in srgb, var(--state-success) 10%, var(--bg-surface));
+}
+
+.summaryBlocked {
+  border: 1px solid var(--state-danger);
+  background: color-mix(in srgb, var(--state-danger) 10%, var(--bg-surface));
+}
+
+.summaryMissing {
+  border: 1px solid var(--state-warning);
+  background: color-mix(in srgb, var(--state-warning) 10%, var(--bg-surface));
+}
+
+.summaryUnknown {
+  border: 1px solid var(--state-info);
+  background: color-mix(in srgb, var(--state-info) 10%, var(--bg-surface));
+}
+
+.summaryTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.summaryText {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.field {
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  padding: 0.65rem 0.75rem;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.value {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.listBlock {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.listTitle {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+}
+
+.emptyText {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.navLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.linkPill {
+  text-decoration: none;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.helperText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .panel {
+    padding: 0.8rem;
+  }
+
+  .controls,
+  .navLinks {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .statusPill {
+    white-space: normal;
+  }
+}
