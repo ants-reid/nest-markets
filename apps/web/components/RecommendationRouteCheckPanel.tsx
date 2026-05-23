@@ -15,6 +15,7 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "interaction_spec_ready_for_future_phase" ||
     status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
@@ -34,6 +35,7 @@ function statusClassName(status: string): string {
     status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "action_not_available" ||
+    status === "operator_action_review_required" ||
     status === "handoff_required" ||
     status === "preflight_contract_required" ||
     status === "design_review_required" ||
@@ -49,6 +51,7 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "interaction_spec_ready_for_future_phase" ||
     status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
@@ -68,6 +71,7 @@ function summaryClassName(status: string): string {
     status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "action_not_available" ||
+    status === "operator_action_review_required" ||
     status === "handoff_required" ||
     status === "preflight_contract_required" ||
     status === "design_review_required" ||
@@ -438,6 +442,58 @@ type GuardedOperatorActionReview = {
   nextRequiredActionDetail: string;
 };
 
+type FinalGuardedSubmitInteractionSpecStatus =
+  | "interaction_spec_ready_for_future_phase"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "operator_action_review_required"
+  | "unknown";
+
+type FinalGuardedSubmitInteractionSpecChecklistItem = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
+type FinalGuardedSubmitInteractionSpecRequirement = {
+  code: string;
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type FinalGuardedSubmitInteractionSpec = {
+  status: FinalGuardedSubmitInteractionSpecStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: FinalGuardedSubmitInteractionSpecChecklistItem[];
+  futureInteractionContract: FinalGuardedSubmitInteractionSpecRequirement[];
+  finalOperatorConfirmations: FinalGuardedSubmitInteractionSpecRequirement[];
+  finalPayloadPreview: FinalGuardedSubmitInteractionSpecRequirement[];
+  submitTimeChecks: FinalGuardedSubmitInteractionSpecRequirement[];
+  futureDecisionRecords: FinalGuardedSubmitInteractionSpecRequirement[];
+  laterInteractionSequence: string[];
+  statesKeepingInteractionReadOnly: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureInteractionName: string;
+  futureInteractionRoute: string | null;
+  actionAvailableNow: boolean;
+  interactionSpecReviewOnly: boolean;
+  decisionWritePerformedNow: boolean;
+  submittedOrder: boolean;
+  liveState: string;
+  workersAllowedToSubmit: boolean;
+  liveTradingEnabled: boolean;
+  submitTimeChecksRerunLater: boolean;
+  noSubmitControlPresent: boolean;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -525,6 +581,17 @@ function formatGuardedOperatorActionReviewStatus(
   if (status === "design_review_required") return "design review required first";
   if (status === "submit_decision_review_required") return "submit-decision review required first";
   if (status === "action_not_available") return "action not available";
+  return formatStatus(status);
+}
+
+function formatFinalGuardedSubmitInteractionSpecStatus(
+  status: FinalGuardedSubmitInteractionSpecStatus,
+): string {
+  if (status === "interaction_spec_ready_for_future_phase") {
+    return "interaction spec ready for future phase";
+  }
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "operator_action_review_required") return "operator action review required first";
   return formatStatus(status);
 }
 
@@ -3283,6 +3350,303 @@ function deriveGuardedOperatorActionReview(
   };
 }
 
+function deriveFinalGuardedSubmitInteractionSpec(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  preflightContract: ManualPaperSubmitPreflightContract,
+  submitDecisionReview: GuardedSubmitDecisionReview,
+  operatorActionReview: GuardedOperatorActionReview,
+): FinalGuardedSubmitInteractionSpec {
+  const routeMissingContext =
+    result.route_check_status === "missing_context" ||
+    preview?.dry_run_status === "missing_context" ||
+    operatorActionReview.status === "missing_context";
+  const routeBlocked = result.route_check_status === "blocked" || operatorActionReview.status === "blocked";
+  const dryRunPreviewCompleted = preview !== null && preview.dry_run_executed;
+  const operatorActionReviewReady = operatorActionReview.status === "action_review_ready_for_future_manual_step";
+  const futureInteractionName = operatorActionReview.futureActionName;
+  const canonicalRouteIsBrokerOrders =
+    operatorActionReview.futureActionRoute === "/broker/orders" &&
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders";
+  const liveLocked = operatorActionReview.liveState === "ibkr_live_locked";
+  const workersNonSubmitting = operatorActionReview.workersAllowedToSubmit === false;
+  const actionAvailableNow = false;
+  const interactionSpecReviewOnly = true;
+  const decisionWritePerformedNow = false;
+  const submittedOrder = false;
+  const noSubmitControlPresent = true;
+  const submitTimeChecksRerunLater = true;
+  const futureInteractionRoute = operatorActionReviewReady && canonicalRouteIsBrokerOrders ? "/broker/orders" : null;
+
+  const blockedReasons = uniqueMessages([
+    ...operatorActionReview.blockedReasons,
+    !canonicalRouteIsBrokerOrders
+      ? "The final interaction spec must keep the future manual interaction pinned to guarded /broker/orders only when safe."
+      : null,
+    !liveLocked
+      ? "Live trading remains fail-closed. Any live or unknown broker posture must keep the interaction spec read-only."
+      : null,
+    !workersNonSubmitting
+      ? "Workers remain non-submitting. Any worker-submit-allowed posture must keep the interaction spec read-only."
+      : null,
+  ]);
+  const missingData = uniqueMessages([
+    ...operatorActionReview.missingData,
+    ...preflightContract.missingData,
+    ...preflightContract.missingPayloadFields.map((field) => `Missing interaction field: ${field}`),
+  ]);
+  const warnings = uniqueMessages([
+    ...operatorActionReview.warnings,
+    ...submitDecisionReview.warnings,
+    ...preflightContract.warnings,
+  ]);
+
+  let status: FinalGuardedSubmitInteractionSpecStatus = "unknown";
+  if (routeMissingContext) {
+    status = "missing_context";
+  } else if (routeBlocked || !liveLocked || !workersNonSubmitting) {
+    status = "blocked";
+  } else if (!dryRunPreviewCompleted) {
+    status = "dry_run_required";
+  } else if (!operatorActionReviewReady) {
+    status = "operator_action_review_required";
+  } else if (
+    canonicalRouteIsBrokerOrders &&
+    futureInteractionName === "manual_ibkr_paper_submit" &&
+    operatorActionReview.actionAvailableNow === false &&
+    operatorActionReview.decisionWritePerformedNow === false &&
+    operatorActionReview.submittedOrder === false
+  ) {
+    status = "interaction_spec_ready_for_future_phase";
+  }
+
+  let title = "Final guarded submit interaction spec is unknown";
+  let body =
+    "Interaction spec only, no order submitted. This read-only section shows how a future guarded manual paper interaction would work while keeping action_available_now false in this phase.";
+  let nextRequiredAction = "review_interaction_spec";
+  let nextRequiredActionDetail =
+    "Use this section for review only. Future manual paper submit would still use guarded /broker/orders when safe, but no submit button is available here and no decision is written now.";
+
+  if (status === "missing_context") {
+    title = "Missing context before final interaction spec";
+    body =
+      "Interaction spec only, no order submitted. Recommendation, dry-run, or review-chain context is still incomplete, so the final guarded manual interaction cannot be specified safely yet.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail =
+      "Complete the missing recommendation or review-chain context first. The final interaction spec stays unavailable and fail-closed until that evidence exists.";
+  } else if (status === "blocked") {
+    title = "Blocked before final interaction spec";
+    body =
+      "Interaction spec only, no order submitted. Live-lock, worker-submit, route, or other fail-closed findings still block the future guarded manual interaction from being specified as ready.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail =
+      "Resolve the blocking safety posture first. The final interaction spec remains read-only while any route, live-lock, worker-submit, or preflight fail-closed condition remains.";
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before final interaction spec";
+    body =
+      "Interaction spec only, no order submitted. The route-check is eligible, but the guarded broker dry-run preview must run first so the final future interaction can inherit current broker preflight evidence safely.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail =
+      "Run the existing guarded broker dry-run preview first. The final interaction spec cannot be reviewed coherently until the current non-submitting preflight evidence is present.";
+  } else if (status === "operator_action_review_required") {
+    title = "Operator action review required before final interaction spec";
+    body =
+      "Interaction spec only, no order submitted. The final interaction spec still depends on the guarded operator action review being ready first, because the future action name, route, operator confirmations, rerun checks, and decision trail remain part of the canonical guarded submit seam.";
+    nextRequiredAction = "complete_operator_action_review";
+    nextRequiredActionDetail =
+      "Use the existing operator action review first so the final interaction spec stays tied to manual_ibkr_paper_submit, guarded /broker/orders, submit-time reruns, and append-only decision persistence.";
+  } else if (status === "interaction_spec_ready_for_future_phase") {
+    title = "Final interaction spec ready for future phase";
+    body =
+      "Interaction spec only, no order submitted. The review chain is now ready to show exactly how a later approved guarded manual IBKR paper submit interaction would work while still stopping short of execution in this phase.";
+    nextRequiredAction = "interaction_spec_ready_for_future_phase";
+    nextRequiredActionDetail =
+      "This phase stops at final interaction visibility only. Future manual paper submit would still use guarded /broker/orders, action_available_now remains false, no decision is written now, and no submit button is available here.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist: [
+      {
+        code: "dry_run_preview_completed",
+        label: "dry_run_preview_completed",
+        satisfied: dryRunPreviewCompleted,
+        detail: "The existing guarded broker dry-run preview must already exist before the final interaction spec is coherent.",
+      },
+      {
+        code: "operator_action_review_ready",
+        label: "operator_action_review_ready",
+        satisfied: operatorActionReviewReady,
+        detail: "The operator action review must already be ready before the final interaction spec can describe the later manual interaction precisely.",
+      },
+      {
+        code: "future_interaction_name_manual_ibkr_paper_submit",
+        label: "future_interaction_name_manual_ibkr_paper_submit",
+        satisfied: futureInteractionName === "manual_ibkr_paper_submit",
+        detail: "The future interaction remains a manual IBKR paper submit only.",
+      },
+      {
+        code: "future_interaction_route_guarded_broker_orders",
+        label: "future_interaction_route_guarded_broker_orders",
+        satisfied: canonicalRouteIsBrokerOrders,
+        detail: "The later interaction must stay pinned to guarded /broker/orders only when safe.",
+      },
+      {
+        code: "action_available_now_false",
+        label: "action_available_now_false",
+        satisfied: actionAvailableNow === false,
+        detail: "The interaction remains unavailable in this phase.",
+      },
+      {
+        code: "decision_write_performed_now_false",
+        label: "decision_write_performed_now_false",
+        satisfied: decisionWritePerformedNow === false,
+        detail: "No decision row is written now from this read-only surface.",
+      },
+      {
+        code: "submitted_order_false",
+        label: "submitted_order_false",
+        satisfied: submittedOrder === false,
+        detail: "No order has been submitted from this interaction spec.",
+      },
+      {
+        code: "submit_time_checks_rerun_later",
+        label: "submit_time_checks_rerun_later",
+        satisfied: submitTimeChecksRerunLater,
+        detail: "Submit-time broker guard, trading-control, risk, halt, validation, and preflight checks would still rerun later.",
+      },
+      {
+        code: "live_locked",
+        label: "live_locked",
+        satisfied: liveLocked,
+        detail: "Live trading remains locked in this review phase.",
+      },
+      {
+        code: "workers_non_submitting",
+        label: "workers_non_submitting",
+        satisfied: workersNonSubmitting,
+        detail: "Workers remain non-submitting; the future interaction stays operator-driven only.",
+      },
+      {
+        code: "no_submit_control_present",
+        label: "no_submit_control_present",
+        satisfied: noSubmitControlPresent,
+        detail: "No submit control is rendered in this interaction spec surface.",
+      },
+    ],
+    futureInteractionContract: [
+      {
+        code: "future_interaction_name",
+        label: "future_interaction_name",
+        value: futureInteractionName,
+        detail: "The later operator-driven interaction would still be manual_ibkr_paper_submit.",
+      },
+      {
+        code: "future_interaction_route",
+        label: "future_interaction_route",
+        value: futureInteractionRoute ?? "not available",
+        detail: "The actual future manual submit would still use guarded /broker/orders only when safe.",
+      },
+      {
+        code: "action_available_now",
+        label: "action_available_now",
+        value: actionAvailableNow ? "true" : "false",
+        detail: "Execution remains intentionally unavailable in this phase.",
+      },
+      {
+        code: "decision_write_performed_now",
+        label: "decision_write_performed_now",
+        value: decisionWritePerformedNow ? "true" : "false",
+        detail: "No decision write occurs from this interaction spec.",
+      },
+      {
+        code: "submitted_order",
+        label: "submitted_order",
+        value: submittedOrder ? "true" : "false",
+        detail: "No order is submitted from this interaction spec.",
+      },
+      {
+        code: "submit_time_checks_rerun_later",
+        label: "submit_time_checks_rerun_later",
+        value: submitTimeChecksRerunLater ? "true" : "false",
+        detail: "Submit-time checks would rerun later on the canonical guarded seam.",
+      },
+      {
+        code: "live_allowed_now",
+        label: "live_allowed_now",
+        value: "false",
+        detail: "Live trading remains locked and cannot be enabled from this phase.",
+      },
+      {
+        code: "workers_allowed_now",
+        label: "workers_allowed_now",
+        value: "false",
+        detail: "Workers remain unable to submit broker orders.",
+      },
+    ],
+    finalOperatorConfirmations: operatorActionReview.finalOperatorConfirmations.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+    })),
+    finalPayloadPreview: operatorActionReview.finalPayloadPreview.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+    })),
+    submitTimeChecks: operatorActionReview.submitTimeChecks.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+    })),
+    futureDecisionRecords: operatorActionReview.futureDecisionRecords.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+    })),
+    laterInteractionSequence: [
+      "Review this interaction spec only. No submit button is available here and no /broker/orders call is made from this cockpit surface.",
+      "A later approved phase could expose manual_ibkr_paper_submit only after the existing guarded operator action review is ready.",
+      "That later interaction would still require explicit operator confirmation before any submit attempt.",
+      "That later interaction would still rerun submit-time broker, trading-control, risk, halt, validation, and preflight checks.",
+      "That later interaction would still persist append-only submit_preflight and submit_attempt decision rows on the canonical guarded seam.",
+      "This phase stops before execution: no decision is written now, no order is submitted, live remains locked, and workers cannot submit.",
+    ],
+    statesKeepingInteractionReadOnly: [
+      "Interaction spec only. The future manual interaction is not enabled in this phase.",
+      "Any live or unknown broker/account tuple must keep the interaction spec read-only.",
+      "Any worker-submit-allowed posture must keep the interaction spec read-only.",
+      "Any would_block, blocked, invalid, error, or unknown preflight outcome must keep the interaction spec read-only.",
+      "Any missing recommendation context or missing final payload field must keep the interaction spec read-only.",
+      "No submit button is available here and no /broker/orders call is made from this cockpit surface.",
+    ],
+    blockedReasons,
+    missingData,
+    warnings,
+    futureInteractionName,
+    futureInteractionRoute,
+    actionAvailableNow,
+    interactionSpecReviewOnly,
+    decisionWritePerformedNow,
+    submittedOrder,
+    liveState: operatorActionReview.liveState,
+    workersAllowedToSubmit: operatorActionReview.workersAllowedToSubmit,
+    liveTradingEnabled: operatorActionReview.liveTradingEnabled,
+    submitTimeChecksRerunLater,
+    noSubmitControlPresent,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -3477,6 +3841,16 @@ export function RecommendationRouteCheckPanel({
             submitDecisionReview,
           )
         : null;
+  const finalGuardedSubmitInteractionSpec =
+    result && preflightContract && submitDecisionReview && operatorActionReview
+      ? deriveFinalGuardedSubmitInteractionSpec(
+          result,
+          preview,
+          preflightContract,
+          submitDecisionReview,
+          operatorActionReview,
+        )
+      : null;
 
   return (
     <section
@@ -5335,6 +5709,225 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Action review only, no order submitted. Future action is not enabled in this phase. Future manual paper submit would still use guarded /broker/orders. No submit button is available here. No decision is written now. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {finalGuardedSubmitInteractionSpec ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-final-guarded-submit-interaction-spec-${recommendationId}`}
+              aria-label={`Final guarded submit interaction spec for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Submit interaction spec</p>
+                  <h5 className={styles.previewTitle}>Final guarded operator submit interaction spec</h5>
+                  <p className={styles.subtitle}>
+                    Interaction spec only, no order submitted. This section shows exactly how a future guarded manual paper submit interaction would work while keeping action_available_now false in this phase.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(finalGuardedSubmitInteractionSpec.status)}`}
+                  data-testid={`recommendation-final-guarded-submit-interaction-spec-status-${recommendationId}`}
+                >
+                  {formatFinalGuardedSubmitInteractionSpecStatus(finalGuardedSubmitInteractionSpec.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(finalGuardedSubmitInteractionSpec.status)}`}
+                data-testid={`recommendation-final-guarded-submit-interaction-spec-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{finalGuardedSubmitInteractionSpec.title}</p>
+                <p className={styles.summaryText}>{finalGuardedSubmitInteractionSpec.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>final_guarded_submit_interaction_spec_status</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.status}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future_interaction_name</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.futureInteractionName}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future_interaction_route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(finalGuardedSubmitInteractionSpec.futureInteractionRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>action_available_now</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.actionAvailableNow ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>interaction_spec_review_only</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.interactionSpecReviewOnly ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>decision_write_performed_now</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.decisionWritePerformedNow ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submitted_order</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.submittedOrder ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_state</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.liveState}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>workers_allowed_to_submit</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.workersAllowedToSubmit ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_trading_enabled</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.liveTradingEnabled ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_time_checks_rerun_later</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.submitTimeChecksRerunLater ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>no_submit_control_present</span>
+                  <span className={styles.value}>{finalGuardedSubmitInteractionSpec.noSubmitControlPresent ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>next required action</span>
+                  <span className={styles.value}>{formatStatus(finalGuardedSubmitInteractionSpec.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Interaction evidence checklist</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future interaction contract</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.futureInteractionContract.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Final operator confirmations</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.finalOperatorConfirmations.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future /broker/orders payload preview fields</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.finalPayloadPreview.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Submit-time checks that rerun later</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.submitTimeChecks.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future submit-decision records</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.futureDecisionRecords.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Later interaction sequence</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.laterInteractionSequence.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>States keeping interaction read-only</h5>
+                <ul className={styles.list}>
+                  {finalGuardedSubmitInteractionSpec.statesKeepingInteractionReadOnly.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {finalGuardedSubmitInteractionSpec.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current final interaction spec.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {finalGuardedSubmitInteractionSpec.blockedReasons.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {finalGuardedSubmitInteractionSpec.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current final interaction spec.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {finalGuardedSubmitInteractionSpec.missingData.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {finalGuardedSubmitInteractionSpec.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current final interaction spec.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {finalGuardedSubmitInteractionSpec.warnings.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{finalGuardedSubmitInteractionSpec.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Interaction spec only, no order submitted. Future manual paper submit would still use guarded /broker/orders only when safe. No submit button is available here. No /broker/orders call is made from this cockpit surface. No decision is written now. Submit-time checks would rerun later. Live trading remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}

@@ -483,6 +483,33 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
   await expect(page.getByTestId("recommendation-operator-action-review-recommendation-1")).toContainText(
     /no submit button is available here/i,
   );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-status-recommendation-1")).toContainText(
+    /dry-run required first/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-summary-recommendation-1")).toContainText(
+    /interaction spec only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /future_interaction_namemanual_ibkr_paper_submit/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /future_interaction_route: not available/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /action_available_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /decision_write_performed_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submitted_orderfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit_time_checks_rerun_latertrue/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /no submit button is available here/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
@@ -727,6 +754,57 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
     /live trading remains locked/i,
   );
   await expect(page.getByTestId("recommendation-operator-action-review-recommendation-1")).toContainText(
+    /workers cannot submit/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-status-recommendation-1")).toContainText(
+    /interaction spec ready for future phase/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-summary-recommendation-1")).toContainText(
+    /interaction spec only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /final_guarded_submit_interaction_spec_statusinteraction_spec_ready_for_future_phase/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /future_interaction_namemanual_ibkr_paper_submit/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /future_interaction_route\/broker\/orders/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /action_available_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /interaction_spec_review_onlytrue/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /decision_write_performed_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submitted_orderfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit_time_checks_rerun_latertrue/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /future_interaction_route_guarded_broker_orders: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /operator_action_review_ready: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit_preflight_decision_required: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit_attempt_decision_required: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit-time checks would rerun later/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /live trading remains locked/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
     /workers cannot submit/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
@@ -1251,6 +1329,7 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await expect(page.getByTestId("recommendation-submit-preflight-contract-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-decision-review-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-operator-action-review-status-recommendation-live-blocked")).toContainText(/blocked/i);
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByRole("link", { name: /open guarded broker dry-run/i })).toHaveCount(0);
 
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
@@ -1275,6 +1354,9 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
     /missing context/i,
   );
   await expect(page.getByTestId("recommendation-operator-action-review-status-recommendation-missing-context")).toContainText(
+    /missing context/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-status-recommendation-missing-context")).toContainText(
     /missing context/i,
   );
   expect(dryRunPreviewCalls).toBe(0);
@@ -1349,6 +1431,12 @@ test("cockpit/in-flight-adjustments expanded recommendation route-check has no h
   );
   await expect(page.getByTestId("recommendation-operator-action-review-recommendation-1")).toContainText(
     /future action is not enabled in this phase/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /final guarded operator submit interaction spec/i,
+  );
+  await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
+    /submit-time checks would rerun later/i,
   );
 
   const overflow = await page.evaluate(() => ({
