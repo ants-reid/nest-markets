@@ -20,3 +20,22 @@ def test_recommendation_route_check_panel_does_not_import_submit_broker_order():
     assert 'from "../lib/api/paperRecommendations"' in source
     assert "submitBrokerOrder" not in source
     assert 'from "../lib/api/broker"' not in source
+
+
+def test_manual_paper_submit_confirmation_page_does_not_import_submit_broker_order():
+    repo_root = Path(__file__).resolve().parents[3]
+    page_path = (
+        repo_root
+        / "apps"
+        / "web"
+        / "app"
+        / "cockpit"
+        / "manual-paper-submit-confirmation"
+        / "page.tsx"
+    )
+
+    source = page_path.read_text(encoding="utf-8")
+
+    assert 'from "../../../lib/api/paperRecommendations"' in source
+    assert "submitBrokerOrder" not in source
+    assert 'from "../../../lib/api/broker"' not in source

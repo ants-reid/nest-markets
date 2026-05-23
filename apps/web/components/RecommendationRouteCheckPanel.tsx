@@ -606,6 +606,10 @@ function uniqueMessages(values: Array<string | null | undefined>): string[] {
     .filter((value, index, all) => all.indexOf(value) === index);
 }
 
+function buildManualConfirmationHref(recommendationId: string, symbol: string): string {
+  return `/cockpit/manual-paper-submit-confirmation?recommendationId=${encodeURIComponent(recommendationId)}&symbol=${encodeURIComponent(symbol)}`;
+}
+
 function deriveManualPaperSubmitReadiness(
   result: PaperRecommendationRouteCheck,
   preview: PaperRecommendationBrokerDryRunPreview | null,
@@ -5882,6 +5886,15 @@ export function RecommendationRouteCheckPanel({
                 </ul>
               </div>
 
+              <div className={styles.navLinks}>
+                <Link
+                  href={buildManualConfirmationHref(result.recommendation_id, result.ticker ?? symbol)}
+                  className={styles.linkPill}
+                >
+                  Manual IBKR paper submit confirmation
+                </Link>
+              </div>
+
               <div className={styles.listBlock}>
                 <h5 className={styles.listTitle}>Blocked reasons</h5>
                 {finalGuardedSubmitInteractionSpec.blockedReasons.length === 0 ? (
@@ -5894,7 +5907,7 @@ export function RecommendationRouteCheckPanel({
                   </ul>
                 )}
               </div>
-
+                                Interaction spec only, no order submitted. Future manual paper submit would still use guarded /broker/orders. Open the dedicated confirmation surface for the design-only final confirmation layout. No submit button is available here. No decision is written now. Live trading remains locked. Workers cannot submit.
               <div className={styles.listBlock}>
                 <h5 className={styles.listTitle}>Missing context</h5>
                 {finalGuardedSubmitInteractionSpec.missingData.length === 0 ? (

@@ -30,6 +30,7 @@ const ROUTES: { id: string; path: string; heading: RegExp | string }[] = [
   { id: "QA-R18A", path: "/cockpit", heading: /cockpit/i },
   { id: "QA-R18B", path: "/cockpit/eod-report", heading: /end-of-day report/i },
   { id: "QA-R18C", path: "/cockpit/in-flight-adjustments", heading: /in-flight adjustments/i },
+  { id: "QA-R18C2", path: "/cockpit/manual-paper-submit-confirmation", heading: /manual ibkr paper submit confirmation/i },
   { id: "QA-R18D", path: "/cockpit/trade-close-explanations", heading: /trade-close explanations/i },
   { id: "QA-R18E", path: "/cockpit/daily-scoreboard", heading: /daily scoreboard/i },
   { id: "QA-R18F", path: "/cockpit/alerts-needing-attention", heading: /alerts needing attention/i },

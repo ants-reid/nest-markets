@@ -14832,3 +14832,77 @@ still 100% green.
 
 -> If a later phase needs a true manual IBKR paper submit control, keep `/broker/orders` as the only submit seam, host the control behind an explicit confirmation surface, rerun all submit-time guards immediately before execution, persist append-only decisions for both blocked and allowed attempts, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
 
+## Manual IBKR Paper Submit Confirmation Surface Design
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add a dedicated cockpit confirmation surface that shows what a future manual IBKR paper submit confirmation would contain while remaining entirely non-executable. This block adds no enabled submit button, no `/broker/orders` UI call, no new submit route, no new `BrokerService.submit_order` path, no submit-decision write, no worker authority expansion, and no live unlock.
+
+### A. What Was Added
+
+- New route page: `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`.
+- New page styling: `apps/web/styles/pages/manual-paper-submit-confirmation.module.css`.
+- New dedicated Playwright coverage: `apps/web/tests/manual-paper-submit-confirmation.spec.ts`.
+- Updated in-flight review host link: `apps/web/components/RecommendationRouteCheckPanel.tsx` now exposes a navigation-only link into the dedicated confirmation surface.
+- Updated route coverage: `apps/web/tests/routes.spec.ts` and `apps/web/tests/responsive.spec.ts` now include the new route.
+- Updated static drift lock: `apps/api/tests/test_recommendation_route_check_panel_submit_boundary.py` now proves both the review panel and the dedicated confirmation page do not import `submitBrokerOrder`.
+
+### B. Surface Behavior
+
+- The page reads only existing recommendation route-check and guarded broker dry-run preview evidence.
+- The page renders a design-only status summary including `confirmation_surface_status=design_only_not_enabled`, `submit_enabled_now=false`, `order_submitted=false`, live-locked posture, and worker non-submitting posture.
+- The page shows the future guarded route as `/broker/orders` with IBKR paper-only, paper-account-only constraints.
+- The page renders the future payload preview, submit-time rerun checklist, blocking states, decision persistence requirements, and final confirmation wording preview.
+- The only visual placeholder is a disabled button labelled `Submit not enabled in this phase`.
+- The page includes a navigation-only return link back to the review chain.
+
+### C. Safety Invariants Preserved
+
+- No `/broker/orders` call is made from the UI.
+- No `submitBrokerOrder` import is added to the confirmation page or the in-flight review panel.
+- No backend route, service, or worker submit seam changes in this phase.
+- No submit-decision records are written from this UI.
+- Live remains locked.
+- Workers remain non-submitting.
+- `/broker/orders` remains the only serious-paper submit seam for any future executable phase.
+
+### D. Build And Validation Notes
+
+- The first production build failed because the page consumed `useSearchParams()` directly; Next required the client consumer to sit behind a `Suspense` boundary for prerender.
+- The page was updated to wrap the `useSearchParams()` consumer in `Suspense`, which restored a clean production build without changing the route to an executable surface.
+- One Playwright assertion was narrowed from whole-page forbidden text matching to forbidden button-label matching because the allowed explanatory copy legitimately mentions later `live submit` availability as a blocked future state.
+
+### E. Files Changed
+
+- `apps/api/tests/test_recommendation_route_check_panel_submit_boundary.py`
+- `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/styles/pages/manual-paper-submit-confirmation.module.css`
+- `apps/web/tests/manual-paper-submit-confirmation.spec.ts`
+- `apps/web/tests/responsive.spec.ts`
+- `apps/web/tests/routes.spec.ts`
+- `docs/build-matrix.md`
+- `docs/build-ledger.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### F. Validation
+
+- `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q` -> `2 passed`
+- `cd apps/web && npm run lint` -> passed
+- `cd apps/web && npm run build` -> passed after the `Suspense` fix
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/manual-paper-submit-confirmation.spec.ts --reporter=line` -> `2 passed`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit' --reporter=line` -> `30 passed`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` -> no matches
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'` -> no matches
+
+### G. Known Limitations
+
+- The surface is strictly design-only and does not perform confirmation gating, payload locking, submit-time reruns, or decision persistence; it only documents those future requirements.
+- The route is query-parameter aware but must also render safely without recommendation context for route and responsive coverage.
+- Broader repo-wide backend validation remains separate from this focused phase and was not changed here.
+
+### Next Recommended Phase
+
+-> If a later phase needs a true manual IBKR paper submit control, keep this dedicated confirmation surface as the host, continue to reuse the existing `OrderRequestSchema` contract, rerun all submit-time guards immediately before execution, persist append-only blocked and allowed decisions through the current decision services, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
+
