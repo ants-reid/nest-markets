@@ -14330,3 +14330,100 @@ still 100% green.
 
 -> If a future phase needs a true guarded manual paper submit handoff or submit decision review, keep the cockpit preflight surface read-only and continue routing any real submission only through the existing guarded `/broker/orders` boundary with no worker expansion and no live unlock.
 
+## Guarded Manual Paper Submit Design Spec / Submit-Decision Review
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe design/spec artifact and read-only future submit review foundation on top of the existing recommendation route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, approval package, and preflight contract. This phase remains design/spec only, adds no submit button, adds no `/broker/orders` UI call, adds no new `BrokerService.submit_order` path, keeps workers non-submitting, and leaves live locked.
+
+### Submit Path Map
+
+#### A. Existing backend submit seam
+
+- Route: `POST /broker/orders` in `apps/api/app/api/routes/broker.py`
+- Service owner: `BrokerService.submit_order(...)` in `apps/api/app/services/broker_service.py`
+- Guards before submit: broker mode guard, trading-control submit gating, request validation, risk limits, trading halt posture, broker preflight advisory, and broker preflight decision enforcement
+- Decision persistence: `BrokerSubmitDecisionService.persist(...)` writes append-only decision rows with submit-time status, allow/deny result, blocked reasons, warnings, source metadata, and guard metadata
+- Paper/live behavior: coherent paper mode owns the guarded serious-paper submit seam; live remains fail-closed and locked in this phase
+
+#### B. Existing frontend submit surfaces
+
+- Current submit helper: `submitBrokerOrder(...)` in `apps/web/lib/api/broker.ts`
+- Current call site: `apps/web/app/broker/page.tsx`
+- Cockpit review surface: `apps/web/app/cockpit/in-flight-adjustments/page.tsx` plus `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- Safety note: the cockpit review surface does not import the submit helper and remains read-only in this phase
+
+#### C. Current operator review chain
+
+- recommendation route-check
+- guarded broker dry-run preview
+- manual paper submit readiness review
+- manual paper submit handoff review
+- manual paper submit audit package
+- manual paper submit approval package
+- guarded manual paper submit preflight contract
+- future manual submit design review
+
+#### D. Future manual paper submit design
+
+- Future route remains `POST /broker/orders`
+- Actual future submit still uses the existing guarded `/broker/orders` path
+- Existing backend owner remains `BrokerService.submit_order(...)`
+- Preferred future frontend host remains the cockpit review chain in `RecommendationRouteCheckPanel`, but only in a later guarded operator-action phase
+- Submit-time mode, risk, preflight, stale-data, source-label checks, live-lock recheck, and decision logging would rerun in a later phase
+- Final operator confirmations would still be required before any future guarded manual submit
+- Workers cannot submit and no worker submit path is added in this phase
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Future manual submit design review` section inside `RecommendationRouteCheckPanel` after the preflight contract.
+- The section summarizes the future `/broker/orders` seam, existing backend owner, future cockpit host, submit-time rerun checks, final operator confirmations, decision logging requirements, locked payload fields, worker restrictions, block states, required tests before later enablement, and intentionally not implemented items.
+- The section is design only, not enabled. It adds no submit button, no `/broker/orders` UI call, and no submit-like control text.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No read-only backend endpoint was added.
+- No new `BrokerService.submit_order` path was added.
+
+### Safety Confirmation
+
+- This is design/spec only.
+- No submit controls were added.
+- No submit button was added.
+- No `/broker/orders` UI call was added.
+- No new `BrokerService.submit_order` path was added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line`
+- Frontend lint: `cd apps/web && npm run lint`
+- Frontend build: `cd apps/web && npm run build`
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|audit package|approval package|preflight contract|design review|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line`
+- TSX colour gates: `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` and `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- Full backend regression: `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+
+### Known Limitations
+
+- This phase adds design/spec visibility only; it does not enable a guarded operator submit action.
+- The future manual submit design review is derived from existing read-only evidence and documentation rather than a new backend contract.
+- Any future enablement phase must still prove the existing `/broker/orders` seam remains the only submit path and must keep live locked plus workers non-submitting unless explicitly redesigned under a separate safety phase.
+
+### Next Recommended Phase
+
+-> If a later phase needs a true guarded operator submit-decision review, keep the cockpit design review read-only until the final operator action is separately specified, then layer that action onto the existing guarded `/broker/orders` seam with submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
+

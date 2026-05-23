@@ -25,7 +25,7 @@ async function routeRecommendationRouteChecks(
   await page.route("**/paper/recommendations/**/serious-paper-route-check*", async (route) => {
     const requestUrl = new URL(route.request().url());
 
-    if (requestUrl.origin !== API_ORIGIN) {
+    if (requestUrl.pathname !== `/paper/recommendations/${requestUrl.pathname.split("/")[3]}/serious-paper-route-check`) {
       await route.continue();
       return;
     }
@@ -50,7 +50,7 @@ async function routeRecommendationDryRunPreviews(
   await page.route("**/paper/recommendations/**/broker-dry-run-preview*", async (route) => {
     const requestUrl = new URL(route.request().url());
 
-    if (requestUrl.origin !== API_ORIGIN) {
+    if (requestUrl.pathname !== `/paper/recommendations/${requestUrl.pathname.split("/")[3]}/broker-dry-run-preview`) {
       await route.continue();
       return;
     }
@@ -166,7 +166,13 @@ async function mockInFlightReport(
   payload = buildInFlightReport(),
 ) {
   await page.route("**/cockpit/in-flight-adjustments*", async (route) => {
-    if (!isApiRequest(route.request().url(), "/cockpit/in-flight-adjustments")) {
+    const request = route.request();
+    const requestUrl = new URL(request.url());
+
+    if (
+      request.resourceType() !== "fetch" ||
+      requestUrl.pathname !== "/cockpit/in-flight-adjustments"
+    ) {
       await route.continue();
       return;
     }
@@ -530,6 +536,60 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
   );
   await expect(page.getByTestId("recommendation-submit-preflight-contract-recommendation-1")).toContainText(
     /operator_confirmation_required: required later/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /future manual submit design review/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-status-recommendation-1")).toContainText(
+    /design only, not enabled/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-summary-recommendation-1")).toContainText(
+    /design only, not enabled/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /future submit route/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /\/broker\/orders/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /future submit statusdesign_only_not_enabled/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /final_operator_confirmation_requiredtrue/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit_time_preflight_rerun_requiredtrue/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit_time_decision_persistence_requiredtrue/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit_time_live_lock_recheck_requiredtrue/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit_time_worker_submit_allowedfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit_button_availablefalse/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /order_submittedfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /enabled_in_this_phasefalse/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /decision logging would be required/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /submit-time checks would rerun/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /live remains locked/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /workers cannot submit/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
 });
@@ -1113,6 +1173,12 @@ test("cockpit/in-flight-adjustments expanded recommendation route-check has no h
   await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
   await page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1").click();
   await expect(page.getByTestId("recommendation-route-check-summary-recommendation-1")).toBeVisible();
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /future manual submit design review/i,
+  );
+  await expect(page.getByTestId("recommendation-future-manual-submit-design-review-recommendation-1")).toContainText(
+    /no submit button available/i,
+  );
 
   const overflow = await page.evaluate(() => ({
     bodyScrollWidth: document.body.scrollWidth,

@@ -276,6 +276,40 @@ type ManualPaperSubmitPreflightContract = {
   nextRequiredActionDetail: string;
 };
 
+type FutureManualSubmitDesignReviewStatus = "design_only_not_enabled";
+
+type FutureManualSubmitDesignReviewRequirement = {
+  code: string;
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type FutureManualSubmitDesignReview = {
+  status: FutureManualSubmitDesignReviewStatus;
+  title: string;
+  body: string;
+  futureSubmitRoute: string;
+  existingBackendOwner: string;
+  futureFrontendSurface: string;
+  futureFrontendOwner: string;
+  submitTimeChecks: FutureManualSubmitDesignReviewRequirement[];
+  finalOperatorConfirmations: FutureManualSubmitDesignReviewRequirement[];
+  decisionRecords: FutureManualSubmitDesignReviewRequirement[];
+  lockedPayloadFields: FutureManualSubmitDesignReviewRequirement[];
+  blockStates: string[];
+  requiredTestsBeforeEnablement: string[];
+  intentionallyNotImplemented: string[];
+  finalOperatorConfirmationRequired: boolean;
+  submitTimePreflightRerunRequired: boolean;
+  submitTimeDecisionPersistenceRequired: boolean;
+  submitTimeLiveLockRecheckRequired: boolean;
+  submitTimeWorkerSubmitAllowed: boolean;
+  submitButtonAvailable: boolean;
+  orderSubmitted: boolean;
+  enabledInThisPhase: boolean;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -327,6 +361,13 @@ function formatPreflightContractStatus(status: ManualPaperSubmitPreflightContrac
   if (status === "audit_package_required") return "audit package required first";
   if (status === "approval_package_required") return "approval package required first";
   if (status === "preflight_not_available") return "preflight not available";
+  return formatStatus(status);
+}
+
+function formatFutureManualSubmitDesignReviewStatus(
+  status: FutureManualSubmitDesignReviewStatus,
+): string {
+  if (status === "design_only_not_enabled") return "design only, not enabled";
   return formatStatus(status);
 }
 
@@ -1963,6 +2004,147 @@ function deriveManualPaperSubmitPreflightContract(
   };
 }
 
+function deriveFutureManualSubmitDesignReview(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+): FutureManualSubmitDesignReview {
+  return {
+    status: "design_only_not_enabled",
+    title: "Future manual submit design review",
+    body: "Design only, not enabled. This review maps the future guarded manual IBKR paper submit seam, submit-time checks, final operator confirmations, and decision logging requirements without adding any submit control or submit call.",
+    futureSubmitRoute: "/broker/orders",
+    existingBackendOwner: "POST /broker/orders -> broker.py -> BrokerService.submit_order",
+    futureFrontendSurface: "/cockpit/in-flight-adjustments",
+    futureFrontendOwner: "RecommendationRouteCheckPanel future guarded operator step",
+    submitTimeChecks: [
+      {
+        code: "broker_mode_guard",
+        label: "broker_mode_guard",
+        value: "required later",
+        detail: "The existing broker_mode_guard must still resolve to coherent paper mode immediately before any future guarded manual submit.",
+      },
+      {
+        code: "trading_control_service",
+        label: "trading_control_service",
+        value: "required later",
+        detail: "trading_control_service must rerun and keep live_order_submission_allowed false while paper order submission remains explicitly guarded.",
+      },
+      {
+        code: "risk_limit_service",
+        label: "risk_limit_service",
+        value: "required later",
+        detail: "risk_limit_service must rerun order notional, exposure, and position-cap checks at the existing submit boundary.",
+      },
+      {
+        code: "trading_halt_service",
+        label: "trading_halt_service",
+        value: "required later",
+        detail: "trading_halt_service must still allow paper continuation and fail closed for active halt states before submit.",
+      },
+      {
+        code: "broker_preflight_decision_service",
+        label: "broker_preflight_decision_service",
+        value: "required later",
+        detail: "broker_preflight_decision_service must rerun and keep would_block or blocking findings fail-closed at submit time.",
+      },
+      {
+        code: "stale_data_and_source_labels",
+        label: "stale_data_and_source_labels",
+        value: "required later",
+        detail: "The latest stale-data warnings and source labels must be rechecked so execution_source, serious_paper_source, canonical_paper_route, broker_account_mode, and live_state still match the guarded paper contract.",
+      },
+    ],
+    finalOperatorConfirmations: [
+      {
+        code: "final_operator_confirmation_required",
+        label: "final_operator_confirmation_required",
+        value: "true",
+        detail: "A human operator would still need to explicitly confirm the final payload and accept the latest preflight findings before any future guarded manual paper submit.",
+      },
+      {
+        code: "submit_time_live_lock_recheck_required",
+        label: "submit_time_live_lock_recheck_required",
+        value: "true",
+        detail: "An operator would still confirm that live remains locked and that this flow stays paper-only at actual submit time.",
+      },
+      {
+        code: "submit_time_worker_submit_allowed",
+        label: "submit_time_worker_submit_allowed",
+        value: "false",
+        detail: "Workers remain non-submitting; any future guarded paper submit stays operator-driven only.",
+      },
+    ],
+    decisionRecords: [
+      {
+        code: "broker_submit_decision_row",
+        label: "broker_submit_decision_row",
+        value: "required later",
+        detail: "BrokerSubmitDecision persistence must write the submit-time decision_status, allowed_to_submit flag, blocked reasons, warnings, source metadata, and submit gate JSON before a future guarded manual paper submit completes.",
+      },
+      {
+        code: "audit_log_entry",
+        label: "audit_log_entry",
+        value: "required later",
+        detail: "The existing broker route audit log must still record submit attempts, blocked states, and resulting broker_order_id or error metadata.",
+      },
+    ],
+    lockedPayloadFields: [
+      {
+        code: "symbol_side_quantity",
+        label: "symbol_side_quantity",
+        value: `${result.ticker} ${result.side} ${result.quantity}`,
+        detail: "Symbol, side, and quantity remain locked to the approved recommendation context and must still match the final guarded broker payload.",
+      },
+      {
+        code: "order_type_and_prices",
+        label: "order_type_and_prices",
+        value: `${result.order_type}${result.limit_price === null ? "" : ` / ${result.limit_price}`}`,
+        detail: "order_type, limit_price, and any future stop_price context must still pass request validation on the existing /broker/orders path.",
+      },
+      {
+        code: "client_and_correlation_ids",
+        label: "client_and_correlation_ids",
+        value: result.recommendation_id,
+        detail: "recommendation_id, client_order_id, and future correlation identifiers remain review fields so BrokerSubmitDecision and audit trails stay tied to the intended recommendation.",
+      },
+      {
+        code: "account_and_route_labels",
+        label: "account_and_route_labels",
+        value: `${preview?.broker_account_mode ?? result.broker_account_mode} / /broker/orders`,
+        detail: "broker_account_mode, canonical_paper_route, execution_source, and serious_paper_source remain locked review fields before any future submit enablement.",
+      },
+    ],
+    blockStates: [
+      "Block if route-check, dry-run preview, readiness review, handoff review, audit package, approval package, or preflight contract evidence is stale, missing, or blocked.",
+      "Block if broker_mode_guard no longer resolves coherent paper mode.",
+      "Block if trading_control_service or trading_halt_service reports live, halted, or unknown execution posture.",
+      "Block if risk_limit_service, broker_preflight_decision_service, or request validation returns would_block, blocking, invalid, or unknown state.",
+      "Block if source labels drift away from /broker/orders as the canonical paper route or if workers would be allowed to submit.",
+    ],
+    requiredTestsBeforeEnablement: [
+      "Backend route tests must prove the future manual submit step still uses POST /broker/orders only and never creates a second submit seam.",
+      "Backend service tests must prove submit-time broker mode, trading control, trading halt, risk, preflight, and BrokerSubmitDecision persistence rerun immediately before submit.",
+      "Frontend tests must prove the cockpit review surface remains read-only until a later phase explicitly enables a guarded operator action.",
+      "Responsive and browser tests must prove the review chain still has no horizontal overflow and still renders no submit-like controls in this phase.",
+    ],
+    intentionallyNotImplemented: [
+      "No submit button was added in this block.",
+      "No /broker/orders UI call was added in this block.",
+      "No new BrokerService.submit_order path was added in this block.",
+      "No worker or background submit path was added in this block.",
+      "No live trading unlock or live submit enablement was added in this block.",
+    ],
+    finalOperatorConfirmationRequired: true,
+    submitTimePreflightRerunRequired: true,
+    submitTimeDecisionPersistenceRequired: true,
+    submitTimeLiveLockRecheckRequired: true,
+    submitTimeWorkerSubmitAllowed: false,
+    submitButtonAvailable: false,
+    orderSubmitted: false,
+    enabledInThisPhase: false,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -2092,6 +2274,9 @@ export function RecommendationRouteCheckPanel({
     : null;
   const preflightContract = result && readiness && handoff && auditPackage && approvalPackage
     ? deriveManualPaperSubmitPreflightContract(result, preview, readiness, handoff, auditPackage, approvalPackage)
+    : null;
+  const futureManualSubmitDesignReview = result
+    ? deriveFutureManualSubmitDesignReview(result, preview)
     : null;
 
   return (
@@ -3361,6 +3546,164 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Preflight contract only, no order submitted. Future manual paper submit would still require guarded /broker/orders. Submit-time preflight would rerun. Submit-time mode and risk checks would rerun. Submit-time decision logging would be required. No submit button is available here. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {futureManualSubmitDesignReview ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-future-manual-submit-design-review-${recommendationId}`}
+              aria-label={`Future manual submit design review for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Design review</p>
+                  <h5 className={styles.previewTitle}>Future manual submit design review</h5>
+                  <p className={styles.subtitle}>
+                    Design only, not enabled. This section documents the future guarded manual IBKR paper submit path without adding any submit control.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${styles.statusUnknown}`}
+                  data-testid={`recommendation-future-manual-submit-design-review-status-${recommendationId}`}
+                >
+                  {formatFutureManualSubmitDesignReviewStatus(futureManualSubmitDesignReview.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${styles.summaryUnknown}`}
+                data-testid={`recommendation-future-manual-submit-design-review-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{futureManualSubmitDesignReview.title}</p>
+                <p className={styles.summaryText}>{futureManualSubmitDesignReview.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future submit route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{futureManualSubmitDesignReview.futureSubmitRoute}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future submit status</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.status}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Existing backend owner</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.existingBackendOwner}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future frontend surface</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.futureFrontendSurface}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>final_operator_confirmation_required</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.finalOperatorConfirmationRequired ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_time_preflight_rerun_required</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.submitTimePreflightRerunRequired ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_time_decision_persistence_required</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.submitTimeDecisionPersistenceRequired ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_time_live_lock_recheck_required</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.submitTimeLiveLockRecheckRequired ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_time_worker_submit_allowed</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.submitTimeWorkerSubmitAllowed ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_button_available</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.submitButtonAvailable ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>order_submitted</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.orderSubmitted ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>enabled_in_this_phase</span>
+                  <span className={styles.value}>{futureManualSubmitDesignReview.enabledInThisPhase ? "true" : "false"}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Submit-time checks would rerun</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.submitTimeChecks.map((entry) => (
+                    <li key={entry.code}>
+                      {entry.label}: {entry.value}. {entry.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Final operator confirmations required later</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.finalOperatorConfirmations.map((entry) => (
+                    <li key={entry.code}>
+                      {entry.label}: {entry.value}. {entry.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Decision logging would be required</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.decisionRecords.map((entry) => (
+                    <li key={entry.code}>
+                      {entry.label}: {entry.value}. {entry.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Locked payload fields to review later</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.lockedPayloadFields.map((entry) => (
+                    <li key={entry.code}>
+                      {entry.label}: {entry.value}. {entry.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>States that must block future submit</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.blockStates.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Tests required before any later enablement</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.requiredTestsBeforeEnablement.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Intentionally not implemented in this phase</h5>
+                <ul className={styles.list}>
+                  {futureManualSubmitDesignReview.intentionallyNotImplemented.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className={styles.helperText}>
+                Design only, not enabled. No submit button available. No /broker/orders call was made from this panel. Decision logging would be required later. Submit-time checks would rerun. Live remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}
