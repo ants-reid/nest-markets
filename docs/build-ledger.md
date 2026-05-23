@@ -14728,3 +14728,107 @@ still 100% green.
 
 -> If a later phase needs a true guarded operator submit control, keep this final interaction spec read-only until a separate safety phase authorizes execution, then layer the control onto the existing guarded `/broker/orders` seam with immediate submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
 
+## Submit-Readiness Architecture Checkpoint
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Record a checkpoint verdict before any future manual IBKR paper submit control is considered. This block is checkpoint/spec only. It adds no submit button, no submit route, no new execution seam, no `/broker/orders` UI call, no new `BrokerService.submit_order` path, no worker authority, and no live unlock.
+
+### A. Current Submit Seam
+
+- The only current serious-paper submit route is `POST /broker/orders` in `apps/api/app/api/routes/broker.py`.
+- That route builds `OrderRequest` from `OrderRequestSchema` and delegates to `BrokerService.submit_order`.
+- `BrokerService.submit_order` routes through `_submit_order_for_intent(..., intent="manual")`, which remains the controlling submit seam.
+- `/execution/paper` remains simulator-only and is not the serious-paper submit seam.
+
+### B. Current Review-Only Chain
+
+- The cockpit host remains `apps/web/app/cockpit/in-flight-adjustments/page.tsx`, which renders `RecommendationRouteCheckPanel` as a read-only operator review surface.
+- The panel uses only recommendation-owned helpers from `apps/web/lib/api/paperRecommendations.ts`.
+- The chain remains additive and read-only: recommendation route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, approval package, preflight contract, design review, submit-decision review, operator action review, and final guarded submit interaction spec.
+- The panel does not import `submitBrokerOrder`, does not import `apps/web/lib/api/broker.ts`, and does not create a UI submit seam.
+
+### C. Readiness Verdict
+
+- Verdict: `ready_to_design_manual_paper_submit_control_next`.
+- The backend already has a guarded submit owner, submit-time preflight reruns, live lock, worker lock, halt enforcement, and append-only decision persistence.
+- This is not approval to expose an executable control in the current phase.
+- Any future manual control must be layered onto the existing seam, not added beside it.
+
+### D. Recommended Host Surface
+
+- The future control should live behind an explicit guarded confirmation surface launched from the existing in-flight review chain.
+- Prefer a dedicated confirmation panel or modal over direct inline one-click execution inside the current read-only review sections.
+- `RecommendationRouteCheckPanel` may remain the evidence host, but it should not become a new backend seam owner.
+
+### E. Future Payload Contract
+
+- Reuse the existing `OrderRequestSchema` contract.
+- Required fields remain `ticker`, `side`, `quantity`, and `order_type`.
+- Optional guarded fields remain `limit_price`, `stop_price`, `tif`, `outside_rth`, and `client_order_id`.
+- Do not invent a separate cockpit-only submit payload and do not switch this phase to a notional-only contract.
+
+### F. Submit-Time Rerun Requirements
+
+- Re-run `assert_order_submission_allowed(...)` at submit time.
+- Re-run paper-mode dry-run/preflight through `dry_run_order(... persist_decision=True, decision_source="submit_preflight", intent="manual")` before broker execution.
+- Fail closed on `blocking_count > 0`, `would_block_count > 0`, or blocked/error/unknown/invalid decision statuses.
+- Re-check route, payload, and source coherence immediately before broker execution; review-time evidence is not sufficient by itself.
+
+### G. Blocking States
+
+- Live mode remains blocked for submit.
+- Unknown or incoherent broker/account mode remains blocked.
+- Active trading halt remains blocked.
+- Invalid request payload remains blocked.
+- Preflight `would_block` and `blocked` findings remain fail-closed submit blockers.
+- Missing recommendation context, stale evidence, or payload drift between review and confirmation must block the future control.
+
+### H. Decision Persistence Requirements
+
+- Keep `broker_submit_decisions` append-only.
+- Preserve the existing decision sources: `dry_run`, `submit_preflight`, and `submit_attempt`.
+- Persist blocked attempts and allowed submit attempts through the existing decision services rather than adding a new write path.
+- Preserve sanitization, caps, and secret scrubbing on persisted warning and reason payloads.
+
+### I. Required Tests Before Any Actual Submit Button
+
+- Keep route tests proving recommendation route-check and recommendation dry-run preview stay non-submitting.
+- Keep route and service tests proving `POST /broker/orders` blocks on live mode, active halts, and would-block preflight findings.
+- Add a static drift test proving `RecommendationRouteCheckPanel.tsx` does not import `submitBrokerOrder` or `apps/web/lib/api/broker.ts` while the surface remains review-only.
+- Before any future executable control, add dedicated tests for confirmation gating, payload locking, submit-time reruns, blocked decision writes, allowed decision writes, and no worker/live expansion.
+
+### J. Allowed And Forbidden Labels
+
+- Allowed labels now: `manual_ibkr_paper_submit` as future-only review/spec language, guarded `/broker/orders`, `manual`, `submit_preflight`, `submit_attempt`, `dry_run`, `ibkr_paper`, and `ibkr_live_locked`.
+- Forbidden labels now: any new cockpit submit route, any `/execution/paper` serious-paper label, any current `action_available_now=true` language, any worker-submit authority label, and any label implying live execution is armed.
+
+### K. Explicit Non-Goals
+
+- No submit button.
+- No new backend submit route.
+- No new execution seam.
+- No new `BrokerService.submit_order` entry path.
+- No worker authority expansion.
+- No live unlock.
+- No risk-limit re-architecture in this checkpoint.
+
+### Files Changed
+
+- `apps/api/tests/test_recommendation_route_check_panel_submit_boundary.py`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Targeted boundary test: `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q`
+- Full backend regression: `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+- Whitespace check: `cd /Users/ants/Documents/market-hunter-mvp && git diff --check`
+
+### Next Recommended Phase
+
+-> If a later phase needs a true manual IBKR paper submit control, keep `/broker/orders` as the only submit seam, host the control behind an explicit confirmation surface, rerun all submit-time guards immediately before execution, persist append-only decisions for both blocked and allowed attempts, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
+
