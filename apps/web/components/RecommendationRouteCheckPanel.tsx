@@ -15,6 +15,7 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
   ) {
@@ -25,6 +26,7 @@ function statusClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "handoff_required" ||
     status === "readiness_required"
   ) {
     return styles.statusMissing;
@@ -36,6 +38,7 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
   ) {
@@ -46,6 +49,7 @@ function summaryClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "handoff_required" ||
     status === "readiness_required"
   ) {
     return styles.summaryMissing;
@@ -98,6 +102,7 @@ type ManualPaperSubmitHandoffStatus =
   | "blocked"
   | "missing_context"
   | "dry_run_required"
+  | "handoff_required"
   | "readiness_required"
   | "unknown";
 
@@ -131,6 +136,53 @@ type ManualPaperSubmitHandoffReview = {
   nextRequiredActionDetail: string;
 };
 
+type ManualPaperSubmitAuditPackageStatus =
+  | "package_ready_for_future_manual_review"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "readiness_required"
+  | "handoff_required"
+  | "unknown";
+
+type ManualPaperSubmitAuditChecklistItem = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
+type ManualPaperSubmitAuditReference = {
+  code: string;
+  label: string;
+  available: boolean;
+  value: string;
+  detail: string;
+};
+
+type ManualPaperSubmitAuditSourceLabel = {
+  code: string;
+  label: string;
+  value: string;
+};
+
+type ManualPaperSubmitAuditPackage = {
+  status: ManualPaperSubmitAuditPackageStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: ManualPaperSubmitAuditChecklistItem[];
+  sourceLabels: ManualPaperSubmitAuditSourceLabel[];
+  decisionReferences: ManualPaperSubmitAuditReference[];
+  futurePayloadPreviewFields: ManualPaperSubmitHandoffPayloadField[];
+  missingPayloadFields: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureManualSubmitRoute: string | null;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -147,7 +199,16 @@ function formatReadinessStatus(status: ManualPaperSubmitReadinessStatus): string
 function formatHandoffStatus(status: ManualPaperSubmitHandoffStatus): string {
   if (status === "handoff_ready_for_future_manual_step") return "ready for future manual handoff";
   if (status === "dry_run_required") return "dry-run required first";
+  if (status === "handoff_required") return "handoff review required";
   if (status === "readiness_required") return "readiness review required";
+  return formatStatus(status);
+}
+
+function formatAuditPackageStatus(status: ManualPaperSubmitAuditPackageStatus): string {
+  if (status === "package_ready_for_future_manual_review") return "package ready for future manual review";
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "readiness_required") return "readiness review required";
+  if (status === "handoff_required") return "handoff review required";
   return formatStatus(status);
 }
 
@@ -333,6 +394,9 @@ function deriveManualPaperSubmitHandoffReview(
     (preview?.workers_allowed_to_submit ?? false) === false;
   const noSubmitControlPresent = true;
   const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const advisoryReviewRequired =
+    (preview?.preflight_decision?.advisory_count ?? 0) > 0 ||
+    (preview?.warnings.length ?? 0) > 0;
   const blockedReasons = uniqueMessages([
     result.blocked_reason,
     preview?.blocked_reason,
@@ -496,6 +560,8 @@ function deriveManualPaperSubmitHandoffReview(
     !readinessReviewReady
   ) {
     status = "readiness_required";
+  } else if (readinessReviewReady && advisoryReviewRequired) {
+    status = "handoff_required";
   } else if (hardSafetyBlocked || readiness.status === "blocked") {
     status = "blocked";
   } else if (futureManualSubmitRoute === "/broker/orders") {
@@ -527,6 +593,11 @@ function deriveManualPaperSubmitHandoffReview(
     body = "Handoff review only, no order submitted. Guarded dry-run evidence exists, but the readiness review has not yet cleared this recommendation for future manual paper handoff.";
     nextRequiredAction = "complete_readiness_review";
     nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+  } else if (status === "handoff_required") {
+    title = "Handoff review required";
+    body = "Handoff review only, no order submitted. Readiness cleared, but advisory dry-run evidence still needs operator handoff review before a future guarded manual paper submit package can be considered ready.";
+    nextRequiredAction = "complete_handoff_review";
+    nextRequiredActionDetail = warnings[0] ?? "Review advisory warnings and non-blocking preflight evidence before considering any future guarded manual paper submit step.";
   } else if (status === "handoff_ready_for_future_manual_step") {
     title = "Ready for future manual handoff";
     body = "Handoff review only, no order submitted. Future manual paper submit would still use guarded /broker/orders after operator review, with broker mode guard and preflight checks rerun at submit time.";
@@ -550,6 +621,353 @@ function deriveManualPaperSubmitHandoffReview(
       "Live trading remains locked even if a client attempts to bypass this review surface.",
       "Workers remain non-submitting and gain no submit authority from this handoff review.",
     ],
+    futureManualSubmitRoute,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
+function deriveManualPaperSubmitAuditPackage(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+  handoff: ManualPaperSubmitHandoffReview,
+): ManualPaperSubmitAuditPackage {
+  const routeCheckEligible = result.route_check_status === "eligible";
+  const dryRunCompleted = preview !== null && preview.dry_run_executed;
+  const preflightStatus = preview?.preflight_decision?.decision_status ?? "not evaluated";
+  const dryRunNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.dry_run_status === "ready" &&
+    preview.would_block === false &&
+    ["allowed", "advisory"].includes(String(preflightStatus).toLowerCase());
+  const readinessReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const handoffReady = handoff.status === "handoff_ready_for_future_manual_step";
+  const resolvedRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const liveLocked =
+    result.live_state === "ibkr_live_locked" &&
+    result.live_trading_enabled === false &&
+    (preview?.live_trading_enabled ?? false) === false;
+  const workersNonSubmitting =
+    result.workers_allowed_to_submit === false &&
+    (preview?.workers_allowed_to_submit ?? false) === false;
+  const noSubmitControlPresent = true;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...readiness.blockedReasons,
+    ...handoff.blockedReasons,
+    ...(preview?.preflight_decision?.blocking_items.map((item) => item.message) ?? []),
+    ...(preview?.preflight_decision?.would_block_items.map((item) => item.message) ?? []),
+  ]);
+  const missingData = uniqueMessages([
+    ...result.missing_data,
+    ...(preview?.missing_data ?? []),
+    ...readiness.missingData,
+    ...handoff.missingData,
+  ]);
+  const warnings = uniqueMessages([
+    ...readiness.warnings,
+    ...handoff.warnings,
+    ...(preview?.warnings.map((warning) => warning.message) ?? []),
+  ]);
+
+  const futurePayloadPreviewFields: ManualPaperSubmitHandoffPayloadField[] = [
+    ...handoff.requiredFuturePayloadFields,
+    {
+      code: "estimated_notional",
+      label: "quantity / estimated_notional",
+      required: false,
+      satisfied: result.quantity !== null || (preview?.estimated_notional ?? null) !== null,
+      value:
+        result.quantity !== null
+          ? `${formatMaybeNumber(result.quantity)} shares`
+          : (preview?.estimated_notional ?? null) !== null
+            ? formatMaybeNumber(preview?.estimated_notional ?? null)
+            : "missing",
+      detail: "The guarded broker contract uses quantity; estimated notional remains review-only context.",
+    },
+    {
+      code: "account_mode",
+      label: "account_mode",
+      required: true,
+      satisfied: brokerModePaper,
+      value: preview?.broker_account_mode ?? result.broker_account_mode,
+      detail: "Future guarded manual submit remains paper-only and blocks outside coherent paper mode.",
+    },
+    {
+      code: "execution_source",
+      label: "execution_source",
+      required: true,
+      satisfied: (preview?.serious_paper_source ?? result.serious_paper_source) === "ibkr_paper",
+      value: preview?.dry_run_execution_source ?? result.execution_source,
+      detail: "This package is review-only; future guarded submit would still resolve through canonical IBKR paper routing.",
+    },
+    {
+      code: "dry_run_decision_reference",
+      label: "dry_run_decision_reference",
+      required: false,
+      satisfied: preview !== null,
+      value: preview ? `${preview.dry_run_execution_source ?? "broker_dry_run"}:${preflightStatus}` : "not generated yet",
+      detail: "Read-only reference to the current guarded dry-run evidence.",
+    },
+    {
+      code: "broker_submit_decision_reference",
+      label: "broker_submit_decision_reference",
+      required: false,
+      satisfied: false,
+      value: "not generated in this review-only layer",
+      detail: "A broker submit decision reference only exists during a future guarded /broker/orders submit review, not in this audit package.",
+    },
+  ];
+
+  const missingPayloadFields = futurePayloadPreviewFields
+    .filter((field) => field.required && !field.satisfied)
+    .map((field) => field.label);
+
+  const futureManualSubmitRoute =
+    handoffReady && missingPayloadFields.length === 0 ? "/broker/orders" : null;
+
+  const evidenceChecklist: ManualPaperSubmitAuditChecklistItem[] = [
+    {
+      code: "recommendation_loaded",
+      label: "Recommendation loaded",
+      satisfied: true,
+      detail: `Recommendation ${result.recommendation_id} is loaded into this review-only package.`,
+    },
+    {
+      code: "route_check_completed",
+      label: "Route-check completed",
+      satisfied: true,
+      detail: "The current route-check evidence is present in this review surface.",
+    },
+    {
+      code: "route_check_eligible",
+      label: "Route-check eligible",
+      satisfied: routeCheckEligible,
+      detail: "The future guarded manual path only stays available when the recommendation is route-check eligible.",
+    },
+    {
+      code: "dry_run_preview_completed",
+      label: "Dry-run preview completed",
+      satisfied: dryRunCompleted,
+      detail: "The audit package expects guarded broker dry-run evidence before any future manual handoff review.",
+    },
+    {
+      code: "dry_run_non_blocking",
+      label: "Dry-run non-blocking",
+      satisfied: dryRunNonBlocking,
+      detail: "Preflight would-block and blocking findings must stay clear before the package can be ready.",
+    },
+    {
+      code: "readiness_review_completed",
+      label: "Readiness review completed",
+      satisfied: true,
+      detail: "Readiness is derived locally from route-check and dry-run evidence in this read-only panel.",
+    },
+    {
+      code: "readiness_review_ready",
+      label: "Readiness review ready",
+      satisfied: readinessReady,
+      detail: "The recommendation must pass readiness review before the audit package can progress beyond readiness-required.",
+    },
+    {
+      code: "handoff_review_completed",
+      label: "Handoff review completed",
+      satisfied: true,
+      detail: "Handoff review is derived locally and stays non-submitting.",
+    },
+    {
+      code: "handoff_review_ready",
+      label: "Handoff review ready",
+      satisfied: handoffReady,
+      detail: "The audit package only becomes ready when the current handoff review is ready and all required payload fields are available.",
+    },
+    {
+      code: "resolved_route_is_broker_orders",
+      label: "Resolved route is /broker/orders",
+      satisfied: resolvedRouteIsBrokerOrders,
+      detail: "The canonical future manual paper route remains guarded /broker/orders only when all paper-mode checks align.",
+    },
+    {
+      code: "broker_mode_paper",
+      label: "Broker mode paper",
+      satisfied: brokerModePaper,
+      detail: "The package fails closed outside coherent paper mode.",
+    },
+    {
+      code: "live_locked",
+      label: "Live locked",
+      satisfied: liveLocked,
+      detail: "Live trading remains locked in this review-only layer.",
+    },
+    {
+      code: "workers_non_submitting",
+      label: "Workers non-submitting",
+      satisfied: workersNonSubmitting,
+      detail: "Background workers gain no broker submit authority from this package.",
+    },
+    {
+      code: "no_submit_control_present",
+      label: "No submit control present",
+      satisfied: noSubmitControlPresent,
+      detail: "This surface exposes evidence only and does not render a submit button.",
+    },
+    {
+      code: "no_order_submitted",
+      label: "No order submitted",
+      satisfied: noOrderSubmitted,
+      detail: "No /broker/orders call is made from this panel and no order is submitted here.",
+    },
+  ];
+
+  const sourceLabels: ManualPaperSubmitAuditSourceLabel[] = [
+    { code: "route_execution_source", label: "route execution source", value: result.execution_source },
+    {
+      code: "resolved_execution_source",
+      label: "resolved execution source",
+      value: result.resolved_execution_source ?? "not resolved",
+    },
+    {
+      code: "dry_run_execution_source",
+      label: "dry-run execution source",
+      value: preview?.dry_run_execution_source ?? "not run",
+    },
+    { code: "serious_paper_source", label: "serious paper source", value: preview?.serious_paper_source ?? result.serious_paper_source },
+    { code: "balance_source", label: "balance source", value: preview?.balance_source ?? "not run" },
+    { code: "fees_source", label: "fees source", value: preview?.fees_source ?? "not run" },
+    { code: "fills_source", label: "fills source", value: preview?.fills_source ?? "not run" },
+    { code: "positions_source", label: "positions source", value: preview?.positions_source ?? "not run" },
+  ];
+
+  const decisionReferences: ManualPaperSubmitAuditReference[] = [
+    {
+      code: "recommendation_reference",
+      label: "recommendation reference",
+      available: true,
+      value: result.recommendation_id,
+      detail: "Primary recommendation identity for future operator handoff correlation.",
+    },
+    {
+      code: "route_check_reference",
+      label: "route-check decision reference",
+      available: true,
+      value: `${result.execution_source}:${result.route_check_status}`,
+      detail: "Read-only route-check decision reference from the current operator review chain.",
+    },
+    {
+      code: "dry_run_reference",
+      label: "dry-run decision reference",
+      available: preview !== null,
+      value: preview ? `${preview.dry_run_execution_source ?? "broker_dry_run"}:${preflightStatus}` : "not generated yet",
+      detail: "Current guarded broker dry-run preview reference, if the preview has been executed.",
+    },
+    {
+      code: "broker_submit_reference",
+      label: "broker submit decision reference",
+      available: false,
+      value: "not surfaced before a future guarded submit step",
+      detail: "A broker submit decision reference is intentionally unavailable in this non-submitting audit package.",
+    },
+  ];
+
+  const hardBlocked =
+    !brokerModePaper ||
+    !resolvedRouteIsBrokerOrders ||
+    !liveLocked ||
+    !workersNonSubmitting ||
+    !noOrderSubmitted ||
+    (preview?.would_block ?? result.would_block) ||
+    result.live_trading_enabled ||
+    (preview?.live_trading_enabled ?? false);
+
+  let status: ManualPaperSubmitAuditPackageStatus = "unknown";
+  if (result.route_check_status === "blocked" || handoff.status === "blocked") {
+    status = "blocked";
+  } else if (
+    result.route_check_status === "missing_context" ||
+    readiness.status === "missing_context" ||
+    handoff.status === "missing_context" ||
+    missingData.length > 0 ||
+    missingPayloadFields.length > 0
+  ) {
+    status = "missing_context";
+  } else if (hardBlocked) {
+    status = "blocked";
+  } else if (!routeCheckEligible) {
+    status = "unknown";
+  } else if (!dryRunCompleted) {
+    status = "dry_run_required";
+  } else if (handoff.status === "readiness_required" || !readinessReady) {
+    status = "readiness_required";
+  } else if (handoff.status === "handoff_required" || !handoffReady) {
+    status = "handoff_required";
+  } else if (!readinessReady) {
+    status = "readiness_required";
+  } else if (futureManualSubmitRoute === "/broker/orders") {
+    status = "package_ready_for_future_manual_review";
+  }
+
+  let title = "Manual paper submit audit package is unknown";
+  let body = "Audit package only, no order submitted. Use this consolidated package to review route, dry-run, readiness, and handoff evidence before any future guarded manual paper submit step.";
+  let nextRequiredAction = "no_action_available";
+  let nextRequiredActionDetail = handoff.nextRequiredActionDetail;
+
+  if (status === "missing_context") {
+    title = "Missing context before audit package review";
+    body = "Audit package only, no order submitted. Recommendation or payload context is still missing, so the future guarded manual paper submit package cannot be completed yet.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = missingData[0] ?? missingPayloadFields[0] ?? handoff.nextRequiredActionDetail;
+  } else if (status === "blocked") {
+    title = "Blocked before audit package review";
+    body = "Audit package only, no order submitted. Broker mode, live-lock, worker-submit, route, or preflight safety gates still block any future guarded manual paper submit handoff package.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail = blockedReasons[0] ?? handoff.nextRequiredActionDetail;
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before audit package review";
+    body = "Audit package only, no order submitted. The route-check is eligible, but a guarded broker dry-run preview is still required before the future manual paper submit package can be reviewed.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail = "Run the guarded broker dry-run preview before relying on this manual paper submit audit package.";
+  } else if (status === "readiness_required") {
+    title = "Readiness review required before audit package review";
+    body = "Audit package only, no order submitted. Dry-run evidence exists, but readiness review has not yet cleared this recommendation for future guarded manual paper submit review.";
+    nextRequiredAction = "complete_readiness_review";
+    nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+  } else if (status === "handoff_required") {
+    title = "Handoff review required before audit package review";
+    body = "Audit package only, no order submitted. Readiness is clear, but handoff review evidence still needs operator attention before this future guarded manual paper submit package can be considered ready.";
+    nextRequiredAction = "complete_handoff_review";
+    nextRequiredActionDetail = handoff.nextRequiredActionDetail;
+  } else if (status === "package_ready_for_future_manual_review") {
+    title = "Package ready for future manual review";
+    body = "Audit package only, no order submitted. This consolidated package is ready for operator review before any future guarded manual paper submit step, which would still use /broker/orders with all existing broker-mode, trading-control, validation, and preflight checks rerun.";
+    nextRequiredAction = "package_ready_for_future_manual_review";
+    nextRequiredActionDetail = "Use this package for operator review only. No submit button is available here, no /broker/orders call was made from this surface, live trading remains locked, and workers cannot submit.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist,
+    sourceLabels,
+    decisionReferences,
+    futurePayloadPreviewFields,
+    missingPayloadFields,
+    blockedReasons,
+    missingData,
+    warnings,
     futureManualSubmitRoute,
     nextRequiredAction,
     nextRequiredActionDetail,
@@ -677,6 +1095,9 @@ export function RecommendationRouteCheckPanel({
     : [];
   const readiness = result ? deriveManualPaperSubmitReadiness(result, preview) : null;
   const handoff = result && readiness ? deriveManualPaperSubmitHandoffReview(result, preview, readiness) : null;
+  const auditPackage = result && readiness && handoff
+    ? deriveManualPaperSubmitAuditPackage(result, preview, readiness, handoff)
+    : null;
 
   return (
     <section
@@ -1279,6 +1700,216 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Handoff review only, no order submitted. No submit button is available here, no /broker/orders call was made from this surface, live trading remains locked, and workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {auditPackage && readiness && handoff ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-audit-package-${recommendationId}`}
+              aria-label={`Manual paper submit audit package for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Audit package</p>
+                  <h5 className={styles.previewTitle}>Manual paper submit audit package</h5>
+                  <p className={styles.subtitle}>
+                    Audit package only, no order submitted. Use this consolidated review package before any future manual IBKR paper submit handoff. No submit button is available here.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(auditPackage.status)}`}
+                  data-testid={`recommendation-submit-audit-package-status-${recommendationId}`}
+                >
+                  {formatAuditPackageStatus(auditPackage.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(auditPackage.status)}`}
+                data-testid={`recommendation-submit-audit-package-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{auditPackage.title}</p>
+                <p className={styles.summaryText}>{auditPackage.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Recommendation ID</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{result.recommendation_id}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Asset / symbol</span>
+                  <span className={styles.value}>{result.ticker ?? symbol}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Side</span>
+                  <span className={styles.value}>{result.side ?? "unknown"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Quantity / notional</span>
+                  <span className={styles.value}>
+                    {result.quantity !== null
+                      ? `${formatMaybeNumber(result.quantity)} shares`
+                      : (preview?.estimated_notional ?? null) !== null
+                        ? formatMaybeNumber(preview?.estimated_notional ?? null)
+                        : "unknown"}
+                  </span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Order type</span>
+                  <span className={styles.value}>{result.order_type ?? "unknown"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Route-check result</span>
+                  <span className={styles.value}>{formatStatus(result.route_check_status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Dry-run preview result</span>
+                  <span className={styles.value}>{preview ? formatStatus(preview.dry_run_status) : "not run"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Readiness review result</span>
+                  <span className={styles.value}>{formatReadinessStatus(readiness.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Handoff review result</span>
+                  <span className={styles.value}>{formatHandoffStatus(handoff.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Broker mode</span>
+                  <span className={styles.value}>{preview?.broker_mode.mode ?? result.broker_mode.mode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Resolved future route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(auditPackage.futureManualSubmitRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live-lock state</span>
+                  <span className={styles.value}>{preview?.live_state ?? result.live_state}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Workers allowed to submit</span>
+                  <span className={styles.value}>{preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Preflight / would block</span>
+                  <span className={styles.value}>{preview ? `${preview.preflight_decision?.decision_status ?? "not evaluated"} · would block ${preview.would_block ? "yes" : "no"}` : `not evaluated · would block ${result.would_block ? "yes" : "no"}`}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>No order submitted</span>
+                  <span className={styles.value}>{result.is_submit === false && (preview?.is_submit ?? false) === false ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Next required action</span>
+                  <span className={styles.value}>{formatStatus(auditPackage.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Evidence checklist</h5>
+                <ul className={styles.list}>
+                  {auditPackage.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Source labels</h5>
+                <ul className={styles.list}>
+                  {auditPackage.sourceLabels.map((label) => (
+                    <li key={label.code}>
+                      {label.label}: {label.value}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Audit and decision references</h5>
+                <ul className={styles.list}>
+                  {auditPackage.decisionReferences.map((reference) => (
+                    <li key={reference.code}>
+                      {reference.label}: {reference.value}. {reference.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future /broker/orders payload preview fields</h5>
+                <ul className={styles.list}>
+                  {auditPackage.futurePayloadPreviewFields.map((field) => (
+                    <li key={field.code}>
+                      {field.label}: {field.required ? "required" : "optional"} · {field.satisfied ? "ready" : "missing"} · {field.value}. {field.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing payload fields</h5>
+                {auditPackage.missingPayloadFields.length === 0 ? (
+                  <p className={styles.emptyText}>No required payload fields are currently missing in this audit package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {auditPackage.missingPayloadFields.map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {auditPackage.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current audit package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {auditPackage.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {auditPackage.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current audit package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {auditPackage.missingData.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {auditPackage.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current audit package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {auditPackage.warnings.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{auditPackage.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Audit package only, no order submitted. Future manual paper submit would still use guarded /broker/orders. No submit button is available here. Live trading remains locked. Workers cannot submit. Use this package for review before a future manual paper submit step.
               </p>
             </section>
           ) : null}

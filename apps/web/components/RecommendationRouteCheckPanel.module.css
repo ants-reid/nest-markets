@@ -6,6 +6,7 @@
   padding: 0.95rem;
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .header {
@@ -195,6 +196,8 @@
   display: grid;
   gap: 0.3rem;
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .emptyText {
@@ -229,6 +232,7 @@
   padding-top: 0.85rem;
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .previewHeader {

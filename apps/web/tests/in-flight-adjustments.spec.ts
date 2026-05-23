@@ -369,6 +369,24 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
   await expect(page.getByTestId("recommendation-submit-handoff-recommendation-1")).toContainText(
     /no order submitted/i,
   );
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-1")).toContainText(
+    /dry-run required first/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-summary-recommendation-1")).toContainText(
+    /audit package only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /manual paper submit audit package/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /future \/broker\/orders payload preview fields/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /not available/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /no order submitted: yes/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
@@ -415,6 +433,27 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
     /\/broker\/orders/i,
   );
   await expect(page.getByTestId("recommendation-submit-handoff-recommendation-1")).toContainText(
+    /no order submitted: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-1")).toContainText(
+    /package ready for future manual review/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-summary-recommendation-1")).toContainText(
+    /future guarded manual paper submit step/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /resolved future route/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /\/broker\/orders/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /account_mode: required · ready · paper/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /broker submit decision reference: not surfaced before a future guarded submit step/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /no order submitted: yes/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
@@ -515,6 +554,135 @@ test("In-Flight Adjustments recommendation handoff review shows readiness requir
     /future manual submit route/i,
   );
   await expect(page.getByTestId("recommendation-submit-handoff-recommendation-1")).toContainText(
+    /not available/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-1")).toContainText(
+    /readiness review required/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-summary-recommendation-1")).toContainText(
+    /audit package only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /resolved future route/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /not available/i,
+  );
+  await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
+});
+
+test("In-Flight Adjustments recommendation audit package shows handoff required for advisory review", async ({ page }) => {
+  await mockInFlightReport(page);
+
+  await page.unroute("**/paper/recommendations/**/broker-dry-run-preview*");
+  await routeRecommendationDryRunPreviews(page, {
+    "recommendation-1": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        recommendation_id: "recommendation-1",
+        recommendation_status: "approved",
+        ticker: "NVDA",
+        side: "BUY",
+        quantity: 3,
+        order_type: "MARKET",
+        limit_price: null,
+        estimated_notional: 300,
+        risk_score: 0.18,
+        route_check_status: "eligible",
+        dry_run_status: "ready",
+        dry_run_only: true,
+        dry_run_executed: true,
+        allowed_to_submit: true,
+        resolved_route: "/broker/orders",
+        resolved_execution_source: "ibkr_paper",
+        dry_run_execution_source: "broker_dry_run",
+        balance_source: "ibkr_paper",
+        fees_source: "pending_broker_report",
+        fills_source: "pending_broker_fill",
+        positions_source: "ibkr_paper",
+        serious_paper_source: "ibkr_paper",
+        is_canonical_paper: true,
+        broker_account_mode: "paper",
+        live_state: "ibkr_live_locked",
+        would_block: false,
+        blocked_reason: null,
+        missing_data: [],
+        next_required_action: "Review advisory dry-run evidence before considering any future manual paper handoff.",
+        is_submit: false,
+        workers_allowed_to_submit: false,
+        live_trading_enabled: false,
+        canonical_paper_route: "/broker/orders",
+        broker_mode: {
+          broker: "ibkr",
+          mode: "paper",
+          live_execution_enabled: false,
+          paper_trading_enabled: true,
+        },
+        mode_guard_ok: true,
+        request_valid: true,
+        issues: [],
+        warnings: [
+          {
+            code: "stale_position_snapshot",
+            message: "Advisory only: position snapshot is older than the current recommendation review time.",
+          },
+        ],
+        preflight_decision: {
+          decision_status: "advisory",
+          submit_gate: "not_applied",
+          advisory_count: 1,
+          would_block_count: 0,
+          blocking_count: 0,
+          advisory_items: [
+            {
+              code: "stale_position_snapshot",
+              message: "Advisory only: position snapshot is older than the current recommendation review time.",
+              severity: "warning",
+              source: "broker_preflight_advisory_service",
+              enforcement_enabled: false,
+              classification: "advisory",
+            },
+          ],
+          would_block_items: [],
+          blocking_items: [],
+        },
+        preflight_context: {
+          cash_balance: null,
+          buying_power: null,
+          open_position_count: null,
+          current_symbol_exposure: null,
+          estimated_post_trade_symbol_exposure: null,
+          current_total_exposure: null,
+          estimated_post_trade_total_exposure: null,
+          daily_pnl: null,
+          daily_loss: null,
+          risk_limit_snapshot: null,
+        },
+        paper_path_note: "Dry-run validates the IBKR paper submit path without placing an order.",
+      }),
+    },
+  });
+
+  await page.goto("/cockpit/in-flight-adjustments");
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
+  await page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1").click();
+
+  await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-1")).toContainText(
+    /ready for future manual paper submit/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-1")).toContainText(
+    /handoff review required/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-1")).toContainText(
+    /handoff review required/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
+    /advisory only: position snapshot is older than the current recommendation review time/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /not available/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
@@ -662,6 +830,7 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-live-blocked")).toContainText(/live submit remains locked/i);
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-live-blocked")).toContainText(/blocked/i);
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByRole("link", { name: /open guarded broker dry-run/i })).toHaveCount(0);
 
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
@@ -671,6 +840,9 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
     /missing context/i,
   );
   await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-missing-context")).toContainText(
+    /missing context/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-missing-context")).toContainText(
     /missing context/i,
   );
   expect(dryRunPreviewCalls).toBe(0);

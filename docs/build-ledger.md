@@ -14085,3 +14085,86 @@ still 100% green.
 
 -> If a future phase needs a true operator handoff from this review surface into actual guarded manual paper submit, keep the cockpit surface read-only and route any real submission only through the existing guarded `/broker/orders` path with no worker expansion and no live unlock.
 
+## Manual Paper Submit Audit/Handoff Package
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing audit/handoff package on top of the existing recommendation route-check, guarded broker dry-run preview, readiness review, and handoff review. This phase remains review-only, non-submitting, adds no submit button, adds no `/broker/orders` call from the in-flight surface, keeps workers non-submitting, and leaves live locked.
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Manual paper submit audit package` section inside `RecommendationRouteCheckPanel` after the handoff review.
+- The audit package consolidates recommendation identity, symbol, side, quantity/notional context, order type, route-check result, guarded dry-run result, readiness review result, handoff review result, source labels, decision references, safety state, payload preview fields, blocked reasons, missing context, warnings, next required action, and explicit no-order-submitted confirmation.
+- The panel stays review-only and explicitly states that no submit button is available here, no `/broker/orders` call is made from this surface, live remains locked, and workers cannot submit.
+
+### Package Helper / Component Added
+
+- No new backend API helper was required.
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` now derives a frontend-only `deriveManualPaperSubmitAuditPackage(...)` helper from the existing route-check, guarded dry-run preview, readiness evidence, and handoff evidence.
+- The same component now tightens the handoff review to surface `handoff_required` when advisory dry-run evidence still needs operator review before the package can be considered ready.
+- `apps/web/tests/in-flight-adjustments.spec.ts` now covers audit-package states for `dry_run_required`, `readiness_required`, `handoff_required`, `blocked`, `missing_context`, and `package_ready_for_future_manual_review`.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No read-only audit package endpoint was added because the existing route-check and guarded broker dry-run preview already exposed the required review evidence.
+- No call to `BrokerService.submit_order` was added.
+- No call to `/broker/orders` was added from the frontend in this phase.
+
+### Package Statuses Implemented
+
+- `package_ready_for_future_manual_review`
+- `blocked`
+- `missing_context`
+- `dry_run_required`
+- `readiness_required`
+- `handoff_required`
+- `unknown`
+
+### Safety Confirmation
+
+- Audit package is non-submitting.
+- No submit button was added.
+- No `/broker/orders` call was added from this UI block.
+- No submit controls were added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- Actual future submit still uses the existing guarded `/broker/orders` path.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/components/RecommendationRouteCheckPanel.module.css`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line` -> `12 passed`
+- Frontend lint: `cd apps/web && npm run lint` -> passed
+- Frontend build: `cd apps/web && npm run build` -> passed
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|audit package|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line` -> `4 passed`
+- TSX colour gates:
+  - `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+  - no matches
+- Full backend pytest: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2405 passed`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh` -> `99 passed`
+
+### Known Limitations
+
+- Audit package is derived in the frontend from existing read-only evidence; it does not create a new server-side audit package contract.
+- Even when the package is ready for future manual review, no order is submitted and no submit control is rendered.
+- Broker submit decision references are intentionally unavailable in this read-only layer and only exist during a future guarded `/broker/orders` submit review.
+- STOP and STOP_LIMIT future handoff remains blocked by missing persisted `stop_price` context.
+- Future manual submit still requires a separate guarded operator action on `/broker/orders` in a later phase.
+
+### Next Recommended Phase
+
+-> Add a read-only operator-facing future manual submit audit trail or approval package that remains visibility-only, preserves the current guarded `/broker/orders` boundary, and still avoids any submit control, worker expansion, or live unlock.
+
