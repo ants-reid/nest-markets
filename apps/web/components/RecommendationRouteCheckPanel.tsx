@@ -15,6 +15,7 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
     status === "preflight_contract_ready_for_future_manual_step" ||
     status === "package_ready_for_future_manual_review" ||
@@ -28,9 +29,12 @@ function statusClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "approval_required" ||
     status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "handoff_required" ||
+    status === "preflight_contract_required" ||
+    status === "design_review_required" ||
     status === "readiness_required"
   ) {
     return styles.statusMissing;
@@ -42,6 +46,7 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
     status === "preflight_contract_ready_for_future_manual_step" ||
     status === "package_ready_for_future_manual_review" ||
@@ -55,9 +60,12 @@ function summaryClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "approval_required" ||
     status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "handoff_required" ||
+    status === "preflight_contract_required" ||
+    status === "design_review_required" ||
     status === "readiness_required"
   ) {
     return styles.summaryMissing;
@@ -310,6 +318,62 @@ type FutureManualSubmitDesignReview = {
   enabledInThisPhase: boolean;
 };
 
+type GuardedSubmitDecisionReviewStatus =
+  | "ready_for_future_decision_review"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "approval_required"
+  | "preflight_contract_required"
+  | "design_review_required"
+  | "unknown";
+
+type GuardedSubmitDecisionReviewChecklistItem = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
+type GuardedSubmitDecisionReviewRequirement = {
+  code: string;
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type GuardedSubmitDecisionReview = {
+  status: GuardedSubmitDecisionReviewStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: GuardedSubmitDecisionReviewChecklistItem[];
+  existingDecisionWriters: GuardedSubmitDecisionReviewRequirement[];
+  existingDecisionReaders: GuardedSubmitDecisionReviewRequirement[];
+  futureDecisionRecords: GuardedSubmitDecisionReviewRequirement[];
+  persistedFieldChecklist: GuardedSubmitDecisionReviewRequirement[];
+  reviewEvidenceLinks: GuardedSubmitDecisionReviewRequirement[];
+  failClosedRules: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureSubmitRoute: string | null;
+  decisionPersistenceOwner: string;
+  futureDecisionSource: string;
+  futureOrderCorrelationId: string;
+  dryRunDecisionReference: string;
+  accountMode: string;
+  executionSource: string;
+  liveState: string;
+  workersAllowedToSubmit: boolean;
+  liveTradingEnabled: boolean;
+  submittedOrder: boolean;
+  decisionWritePerformedNow: boolean;
+  reviewOnly: boolean;
+  noSubmitControlPresent: boolean;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -368,6 +432,17 @@ function formatFutureManualSubmitDesignReviewStatus(
   status: FutureManualSubmitDesignReviewStatus,
 ): string {
   if (status === "design_only_not_enabled") return "design only, not enabled";
+  return formatStatus(status);
+}
+
+function formatGuardedSubmitDecisionReviewStatus(
+  status: GuardedSubmitDecisionReviewStatus,
+): string {
+  if (status === "ready_for_future_decision_review") return "ready for future decision review";
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "approval_required") return "approval package required first";
+  if (status === "preflight_contract_required") return "preflight contract required first";
+  if (status === "design_review_required") return "design review required first";
   return formatStatus(status);
 }
 
@@ -2145,6 +2220,540 @@ function deriveFutureManualSubmitDesignReview(
   };
 }
 
+function deriveGuardedSubmitDecisionReview(
+  result: PaperRecommendationRouteCheck,
+  fallbackSymbol: string,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+  handoff: ManualPaperSubmitHandoffReview,
+  auditPackage: ManualPaperSubmitAuditPackage,
+  approvalPackage: ManualPaperSubmitApprovalPackage,
+  preflightContract: ManualPaperSubmitPreflightContract,
+  futureManualSubmitDesignReview: FutureManualSubmitDesignReview,
+): GuardedSubmitDecisionReview {
+  const preflightDecisionStatus = String(preview?.preflight_decision?.decision_status ?? "unknown").toLowerCase();
+  const routeCheckCompleted = result.route_check_status === "eligible";
+  const routeMissingContext =
+    result.route_check_status === "missing_context" ||
+    result.missing_data.length > 0 ||
+    !result.ticker ||
+    !result.side ||
+    result.quantity === null ||
+    !result.order_type;
+  const routeBlocked =
+    result.route_check_status === "blocked" ||
+    result.live_trading_enabled ||
+    result.workers_allowed_to_submit ||
+    result.live_state !== "ibkr_live_locked";
+  const dryRunDecisionAvailable = preview !== null && preview.dry_run_executed;
+  const dryRunNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.mode_guard_ok === true &&
+    preview.request_valid === true &&
+    preview.would_block === false &&
+    ["allowed", "advisory"].includes(preflightDecisionStatus);
+  const readinessReviewReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const handoffReviewReady = handoff.status === "handoff_ready_for_future_manual_step";
+  const auditPackageReady = auditPackage.status === "package_ready_for_future_manual_review";
+  const approvalPackageReady = approvalPackage.status === "approval_package_ready_for_future_manual_review";
+  const preflightContractReady = preflightContract.status === "preflight_contract_ready_for_future_manual_step";
+  const submitDesignReviewReady = futureManualSubmitDesignReview.status === "design_only_not_enabled";
+  const liveLocked =
+    (preview?.live_state ?? preflightContract.liveState ?? result.live_state) === "ibkr_live_locked";
+  const workersNonSubmitting =
+    (preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit) === false;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const noSubmitControlPresent = true;
+  const futureDecisionSourceDefined = true;
+  const submitTimeDecisionPersistenceRequired = true;
+  const secretScrubbingRequired = true;
+  const futureSubmitRoute = preflightContractReady ? "/broker/orders" : null;
+  const futureOrderCorrelationId = `manual_paper_submit:${result.recommendation_id}`;
+
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    !liveLocked ? "Live remains fail-closed. Any live-mode attempt must be recorded as blocked and not submitted." : null,
+    !workersNonSubmitting ? "Workers cannot gain broker submit authority. Any worker-submit-allowed posture must fail closed." : null,
+    preview !== null && !dryRunNonBlocking
+      ? "Dry-run evidence is present but still contains would-block, blocking, invalid, or unknown submit findings."
+      : null,
+    routeBlocked ? "Route-check safety posture is blocked before any future submit-decision review can be considered." : null,
+  ]);
+
+  const missingData = uniqueMessages([
+    ...result.missing_data,
+    ...(preview?.missing_data ?? []),
+    routeMissingContext ? "Recommendation route-check context remains incomplete for future submit-decision review." : null,
+    !dryRunDecisionAvailable ? "Guarded broker dry-run evidence is not yet available." : null,
+  ]);
+
+  const warnings = uniqueMessages([
+    ...(preview?.warnings ?? []).map((entry) => entry.message),
+    ...preflightContract.warnings,
+    ...auditPackage.warnings,
+  ]);
+
+  let status: GuardedSubmitDecisionReviewStatus = "unknown";
+  if (routeMissingContext || (preview?.dry_run_status ?? null) === "missing_context") {
+    status = "missing_context";
+  } else if (routeBlocked) {
+    status = "blocked";
+  } else if (!dryRunDecisionAvailable) {
+    status = "dry_run_required";
+  } else if (!dryRunNonBlocking || !liveLocked || !workersNonSubmitting || preflightContract.liveTradingEnabled) {
+    status = "blocked";
+  } else if (!approvalPackageReady) {
+    status = "approval_required";
+  } else if (!preflightContractReady) {
+    status = "preflight_contract_required";
+  } else if (!submitDesignReviewReady) {
+    status = "design_review_required";
+  } else if (
+    routeCheckCompleted &&
+    readinessReviewReady &&
+    handoffReviewReady &&
+    auditPackageReady &&
+    approvalPackageReady &&
+    preflightContractReady
+  ) {
+    status = "ready_for_future_decision_review";
+  }
+
+  let title = "Guarded operator submit-decision review is unknown";
+  let body =
+    "Submit-decision review only, no decision written and no order submitted. Use this read-only section to inspect what the existing guarded /broker/orders path would need to persist later.";
+  let nextRequiredAction = "review_submit_decision_requirements";
+  let nextRequiredActionDetail =
+    "Use this section for operator review only. No decision write is performed now, no submit button is available here, and no /broker/orders call was made from this panel.";
+
+  if (status === "missing_context") {
+    title = "Missing context before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. Recommendation, route-check, or dry-run context is still incomplete, so the future submit-decision trail cannot be reviewed coherently yet.";
+    nextRequiredAction = "complete_missing_context";
+    nextRequiredActionDetail =
+      "Complete the missing recommendation or review-chain context first. The submit-decision review stays fail-closed until that evidence exists.";
+  } else if (status === "blocked") {
+    title = "Blocked before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. Broker mode, live-lock, worker-submit, route, or dry-run preflight findings still block any future guarded manual paper submit decision trail.";
+    nextRequiredAction = "resolve_blocking_safety_findings";
+    nextRequiredActionDetail =
+      "Resolve the blocking safety posture first. A future submit-decision review cannot proceed while any route, live-lock, worker-submit, or preflight fail-closed condition remains.";
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. The route-check is eligible, but the guarded broker dry-run decision evidence is still required before future submit-decision persistence can be reviewed.";
+    nextRequiredAction = "run_guarded_broker_dry_run_preview";
+    nextRequiredActionDetail =
+      "Run the existing guarded broker dry-run preview first so the current dry-run decision source, would-block state, warnings, and scrubbed evidence can be reviewed.";
+  } else if (status === "approval_required") {
+    title = "Approval package required before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. The future decision trail depends on the approval package being ready first, because that package consolidates the last operator-facing approval evidence before submit time.";
+    nextRequiredAction = "complete_approval_package_review";
+    nextRequiredActionDetail =
+      "Use the existing approval package to close the remaining upstream review gaps before relying on this future submit-decision review.";
+  } else if (status === "preflight_contract_required") {
+    title = "Preflight contract required before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. The future decision trail depends on the final preflight contract being ready first, because submit-time reruns and operator confirmations must already be defined.";
+    nextRequiredAction = "complete_preflight_contract_review";
+    nextRequiredActionDetail =
+      "Use the existing preflight contract section to confirm the final rerun requirements, source-label rechecks, and operator confirmations before relying on future decision persistence requirements.";
+  } else if (status === "design_review_required") {
+    title = "Design review required before submit-decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. The future manual submit design review must still be present so the operator can see the intended guarded submit seam and later decision ownership.";
+    nextRequiredAction = "complete_design_review";
+    nextRequiredActionDetail =
+      "Use the existing design review section first. The submit-decision review depends on the future /broker/orders seam and backend ownership already being mapped clearly.";
+  } else if (status === "ready_for_future_decision_review") {
+    title = "Submit-decision review ready for future decision review";
+    body =
+      "Submit-decision review only, no decision written and no order submitted. The current review chain is ready to show what the existing guarded /broker/orders path would persist later: a submit_preflight decision before submit, a submit_attempt decision at submit time, and blocked or live-locked attempt rows when guards fail closed.";
+    nextRequiredAction = "review_future_submit_decision_trail";
+    nextRequiredActionDetail =
+      "Use this section to review the future decision trail only. Actual submit still stays on the existing guarded /broker/orders path, submit-time decision persistence would happen later, and no submit control is available here.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist: [
+      {
+        code: "route_check_completed",
+        label: "route_check_completed",
+        satisfied: routeCheckCompleted,
+        detail: "The serious-paper route-check must already be eligible before a future submit-decision review can rely on the guarded paper path.",
+      },
+      {
+        code: "dry_run_decision_available",
+        label: "dry_run_decision_available",
+        satisfied: dryRunDecisionAvailable,
+        detail: "Existing dry-run decision evidence comes from BrokerService.dry_run_order with decision persistence enabled.",
+      },
+      {
+        code: "dry_run_non_blocking",
+        label: "dry_run_non_blocking",
+        satisfied: dryRunNonBlocking,
+        detail: "The latest dry-run decision must stay non-blocking, fail-closed on unknown, and keep would_block false before future submit review can proceed.",
+      },
+      {
+        code: "readiness_review_ready",
+        label: "readiness_review_ready",
+        satisfied: readinessReviewReady,
+        detail: "The existing readiness review must already be green before later decision review can be considered coherent.",
+      },
+      {
+        code: "handoff_review_ready",
+        label: "handoff_review_ready",
+        satisfied: handoffReviewReady,
+        detail: "The existing handoff review must already expose the future guarded /broker/orders route and payload context.",
+      },
+      {
+        code: "audit_package_ready",
+        label: "audit_package_ready",
+        satisfied: auditPackageReady,
+        detail: "The audit package must already consolidate the current source labels and decision references for later operator review.",
+      },
+      {
+        code: "approval_package_ready",
+        label: "approval_package_ready",
+        satisfied: approvalPackageReady,
+        detail: "The approval package must be ready before relying on a future submit-decision review.",
+      },
+      {
+        code: "preflight_contract_ready",
+        label: "preflight_contract_ready",
+        satisfied: preflightContractReady,
+        detail: "The preflight contract must already define submit-time reruns and operator confirmations before later decision persistence is credible.",
+      },
+      {
+        code: "submit_design_review_ready",
+        label: "submit_design_review_ready",
+        satisfied: submitDesignReviewReady,
+        detail: "The design review must already map the future guarded submit seam and backend owner.",
+      },
+      {
+        code: "future_decision_source_defined",
+        label: "future_decision_source_defined",
+        satisfied: futureDecisionSourceDefined,
+        detail: "The future submit source is defined as manual_paper_submit for this review layer.",
+      },
+      {
+        code: "submit_time_decision_persistence_required",
+        label: "submit_time_decision_persistence_required",
+        satisfied: submitTimeDecisionPersistenceRequired,
+        detail: "BrokerSubmitDecision persistence would still be required later at submit time.",
+      },
+      {
+        code: "secret_scrubbing_required",
+        label: "secret_scrubbing_required",
+        satisfied: secretScrubbingRequired,
+        detail: "Secret-like fields and raw portfolio context must stay scrubbed from decision payloads; warnings are reduced to safe audit fields only.",
+      },
+      {
+        code: "live_locked",
+        label: "live_locked",
+        satisfied: liveLocked,
+        detail: "Live remains locked. Any live-mode attempt would be recorded as a blocked submit attempt and never submitted.",
+      },
+      {
+        code: "workers_non_submitting",
+        label: "workers_non_submitting",
+        satisfied: workersNonSubmitting,
+        detail: "Workers cannot submit. Any future guarded paper submit remains operator-driven only.",
+      },
+      {
+        code: "no_submit_control_present",
+        label: "no_submit_control_present",
+        satisfied: noSubmitControlPresent,
+        detail: "This review surface remains read-only and renders no submit control.",
+      },
+      {
+        code: "no_order_submitted",
+        label: "no_order_submitted",
+        satisfied: noOrderSubmitted,
+        detail: "No order has been submitted from this review chain.",
+      },
+    ],
+    existingDecisionWriters: [
+      {
+        code: "dry_run_writer",
+        label: "BrokerService.dry_run_order -> BrokerPreflightDecisionService.persist_submit_decision -> BrokerSubmitDecisionService.persist",
+        value: "source=dry_run before any submit",
+        detail: "The guarded broker dry-run preview already writes a scrubbed append-only decision row today and never submits an order.",
+      },
+      {
+        code: "submit_preflight_writer",
+        label: "BrokerService.submit_order preflight path",
+        value: "source=submit_preflight before broker submit",
+        detail: "The existing guarded /broker/orders seam writes a pre-submit decision row before any broker execution attempt.",
+      },
+      {
+        code: "submit_attempt_writer",
+        label: "BrokerService.submit_order submit attempt path",
+        value: "source=submit_attempt after guard/preflight outcome",
+        detail: "The existing guarded /broker/orders seam writes a submit attempt row for allowed submits, blocked submits, fail-closed errors, and live-lock blocks.",
+      },
+    ],
+    existingDecisionReaders: [
+      {
+        code: "recent_decision_route",
+        label: "GET /broker/submit-decisions/recent",
+        value: "audit-only reader",
+        detail: "This read route returns recent append-only decision rows and never writes state.",
+      },
+      {
+        code: "audit_surfaces",
+        label: "/cockpit/audit and /cockpit/audit/broker-submit-decisions",
+        value: "existing UI readers",
+        detail: "Current UI readers expose the audit feed, but the in-flight review panel does not import that read helper today.",
+      },
+    ],
+    futureDecisionRecords: [
+      {
+        code: "submit_preflight_decision_required",
+        label: "submit_preflight_decision_required",
+        value: "yes",
+        detail: "A pre-submit decision row would need to be written before any future guarded manual paper submit proceeds.",
+      },
+      {
+        code: "submit_attempt_decision_required",
+        label: "submit_attempt_decision_required",
+        value: "yes",
+        detail: "A submit-attempt decision row would need to be written when the future guarded submit step actually evaluates the request.",
+      },
+      {
+        code: "blocked_attempt_decision_required_if_any_guard_blocks",
+        label: "blocked_attempt_decision_required_if_any_guard_blocks",
+        value: "yes",
+        detail: "If broker mode, trading control, request validation, risk, halt, or preflight blocks, the blocked attempt must still be recorded and fail closed.",
+      },
+      {
+        code: "live_locked_attempt_record_required_if_live_mode",
+        label: "live_locked_attempt_record_required_if_live_mode",
+        value: "yes",
+        detail: "A live-locked posture must still produce a blocked submit_attempt record with no broker order submission.",
+      },
+      {
+        code: "dry_run_decision_reference",
+        label: "dry_run_decision_reference",
+        value: preview?.dry_run_executed ? "existing dry_run decision row" : "not available yet",
+        detail: "The future submit trail would reference the latest dry_run decision evidence already produced by the guarded preview path.",
+      },
+      {
+        code: "recommendation_id",
+        label: "recommendation_id",
+        value: result.recommendation_id,
+        detail: "The future submit trail must stay tied to the reviewed recommendation.",
+      },
+      {
+        code: "future_order_correlation_id",
+        label: "future_order_correlation_id",
+        value: futureOrderCorrelationId,
+        detail: "A future correlation identifier would link the later submit_preflight row, submit_attempt row, and broker/audit logs.",
+      },
+      {
+        code: "future_source",
+        label: "future_source",
+        value: "manual_paper_submit",
+        detail: "The future operator-driven source label for this submit-decision trail would be manual_paper_submit.",
+      },
+      {
+        code: "account_mode",
+        label: "account_mode",
+        value: "paper only",
+        detail: "This review layer remains paper-only; live stays locked.",
+      },
+      {
+        code: "execution_source",
+        label: "execution_source",
+        value: "ibkr_paper",
+        detail: "The future guarded paper submit path still resolves to IBKR paper only when safe.",
+      },
+    ],
+    persistedFieldChecklist: [
+      {
+        code: "source",
+        label: "source",
+        value: "required later",
+        detail: "Persist the decision source label such as dry_run, submit_preflight, submit_attempt, or future manual_paper_submit correlation metadata.",
+      },
+      {
+        code: "symbol",
+        label: "symbol",
+        value: result.ticker ?? fallbackSymbol,
+        detail: "The intended symbol must remain tied to the recommendation context.",
+      },
+      {
+        code: "side",
+        label: "side",
+        value: result.side ?? "unknown",
+        detail: "The intended side must remain tied to the recommendation context.",
+      },
+      {
+        code: "quantity_or_notional",
+        label: "quantity/notional",
+        value: result.quantity !== null ? String(result.quantity) : formatMaybeNumber(preview?.estimated_notional ?? null),
+        detail: "Quantity or notional review must match the later guarded broker payload.",
+      },
+      {
+        code: "order_type",
+        label: "order_type",
+        value: result.order_type ?? "unknown",
+        detail: "The order type and any related price fields must still pass the existing request validation path.",
+      },
+      {
+        code: "broker_account_mode",
+        label: "broker_account_mode",
+        value: preview?.broker_account_mode ?? result.broker_account_mode,
+        detail: "The decision record must retain the paper-mode account context.",
+      },
+      {
+        code: "execution_source",
+        label: "execution_source",
+        value: preview?.resolved_execution_source ?? result.resolved_execution_source ?? "ibkr_paper",
+        detail: "The decision record must retain the resolved execution source and canonical paper route labels.",
+      },
+      {
+        code: "would_block",
+        label: "would_block",
+        value: "required later",
+        detail: "would_block remains a required persisted safety outcome and must fail closed on unknowns.",
+      },
+      {
+        code: "blocking",
+        label: "blocking",
+        value: "required later",
+        detail: "Blocking findings and counts must still be preserved in the decision payload.",
+      },
+      {
+        code: "blocked_reasons",
+        label: "blocked_reasons",
+        value: "required later",
+        detail: "Blocked reasons must be captured in scrubbed, append-only form.",
+      },
+      {
+        code: "warnings",
+        label: "warnings",
+        value: "required later",
+        detail: "Warnings must be persisted in scrubbed form with safe fields only.",
+      },
+      {
+        code: "evidence",
+        label: "evidence",
+        value: "required later",
+        detail: "The later decision trail must still link back to the current route-check, dry-run, and review-chain evidence.",
+      },
+      {
+        code: "scrubbed_payload",
+        label: "scrubbed_payload",
+        value: "required later",
+        detail: "Secret-like keys and raw portfolio context stay scrubbed; only capped safe message fields and additive source metadata are retained.",
+      },
+      {
+        code: "created_at",
+        label: "created_at",
+        value: "required later",
+        detail: "Append-only decision rows retain created_at for audit ordering.",
+      },
+      {
+        code: "correlation_id",
+        label: "correlation_id",
+        value: futureOrderCorrelationId,
+        detail: "Future decision rows should share correlation metadata with the later guarded submit attempt.",
+      },
+    ],
+    reviewEvidenceLinks: [
+      {
+        code: "route_check_evidence",
+        label: "route_check_evidence",
+        value: result.route_check_status,
+        detail: "Current route-check evidence establishes whether the canonical paper route is even eligible.",
+      },
+      {
+        code: "dry_run_evidence",
+        label: "dry_run_evidence",
+        value: preview?.dry_run_status ?? "not run",
+        detail: "Current dry-run evidence establishes today’s persisted dry_run decision posture.",
+      },
+      {
+        code: "readiness_review_evidence",
+        label: "readiness_review_evidence",
+        value: readiness.status,
+        detail: "Current readiness review confirms whether the recommendation is coherent for future manual paper submit review.",
+      },
+      {
+        code: "handoff_review_evidence",
+        label: "handoff_review_evidence",
+        value: handoff.status,
+        detail: "Current handoff review exposes the future guarded route and payload prerequisites.",
+      },
+      {
+        code: "audit_package_evidence",
+        label: "audit_package_evidence",
+        value: auditPackage.status,
+        detail: "Current audit package consolidates source labels and current decision references.",
+      },
+      {
+        code: "approval_package_evidence",
+        label: "approval_package_evidence",
+        value: approvalPackage.status,
+        detail: "Current approval package establishes whether final review evidence is ready.",
+      },
+      {
+        code: "preflight_contract_evidence",
+        label: "preflight_contract_evidence",
+        value: preflightContract.status,
+        detail: "Current preflight contract defines the reruns and operator confirmations that would still happen at submit time.",
+      },
+      {
+        code: "design_review_evidence",
+        label: "design_review_evidence",
+        value: futureManualSubmitDesignReview.status,
+        detail: "Current design review maps the future guarded submit seam and decision ownership.",
+      },
+    ],
+    failClosedRules: [
+      "would_block true blocks later submit decision creation and must be recorded as blocked.",
+      "blocking true blocks later submit decision creation and must be recorded as blocked.",
+      "unknown preflight status blocks later submit decision creation and must fail closed.",
+      "live mode blocks and must be recorded as a blocked submit_attempt with no broker execution.",
+      "missing payload or recommendation context blocks future decision creation.",
+      "stale or missing route-check evidence blocks future decision creation.",
+      "stale or missing dry-run evidence blocks future decision creation.",
+      "live_trading_enabled true blocks later submit decision creation.",
+      "workers_allowed_to_submit true blocks later submit decision creation.",
+    ],
+    blockedReasons,
+    missingData,
+    warnings,
+    futureSubmitRoute,
+    decisionPersistenceOwner:
+      "BrokerPreflightDecisionService.persist_submit_decision -> BrokerSubmitDecisionService.persist",
+    futureDecisionSource: "manual_paper_submit",
+    futureOrderCorrelationId,
+    dryRunDecisionReference: preview?.dry_run_executed ? "available from source=dry_run" : "not available yet",
+    accountMode: "paper",
+    executionSource: "ibkr_paper",
+    liveState: preview?.live_state ?? preflightContract.liveState ?? result.live_state,
+    workersAllowedToSubmit: preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit,
+    liveTradingEnabled: preview?.live_trading_enabled ?? result.live_trading_enabled,
+    submittedOrder: false,
+    decisionWritePerformedNow: false,
+    reviewOnly: true,
+    noSubmitControlPresent,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -2278,6 +2887,26 @@ export function RecommendationRouteCheckPanel({
   const futureManualSubmitDesignReview = result
     ? deriveFutureManualSubmitDesignReview(result, preview)
     : null;
+  const submitDecisionReview =
+    result &&
+    readiness &&
+    handoff &&
+    auditPackage &&
+    approvalPackage &&
+    preflightContract &&
+    futureManualSubmitDesignReview
+      ? deriveGuardedSubmitDecisionReview(
+          result,
+          symbol,
+          preview,
+          readiness,
+          handoff,
+          auditPackage,
+          approvalPackage,
+          preflightContract,
+          futureManualSubmitDesignReview,
+        )
+      : null;
 
   return (
     <section
@@ -3704,6 +4333,228 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Design only, not enabled. No submit button available. No /broker/orders call was made from this panel. Decision logging would be required later. Submit-time checks would rerun. Live remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {submitDecisionReview ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-decision-review-${recommendationId}`}
+              aria-label={`Guarded operator submit-decision review for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Submit-decision review</p>
+                  <h5 className={styles.previewTitle}>Guarded operator submit-decision review</h5>
+                  <p className={styles.subtitle}>
+                    Submit-decision review only, no decision written. This section shows what the existing guarded manual paper submit path would need to persist later without adding any submit control.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(submitDecisionReview.status)}`}
+                  data-testid={`recommendation-submit-decision-review-status-${recommendationId}`}
+                >
+                  {formatGuardedSubmitDecisionReviewStatus(submitDecisionReview.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(submitDecisionReview.status)}`}
+                data-testid={`recommendation-submit-decision-review-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{submitDecisionReview.title}</p>
+                <p className={styles.summaryText}>{submitDecisionReview.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_decision_review_status</span>
+                  <span className={styles.value}>{submitDecisionReview.status}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>decision persistence owner</span>
+                  <span className={styles.value}>{submitDecisionReview.decisionPersistenceOwner}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future submit route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(submitDecisionReview.futureSubmitRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future source</span>
+                  <span className={styles.value}>{submitDecisionReview.futureDecisionSource}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future_order_correlation_id</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{submitDecisionReview.futureOrderCorrelationId}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>dry_run_decision_reference</span>
+                  <span className={styles.value}>{submitDecisionReview.dryRunDecisionReference}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>account_mode</span>
+                  <span className={styles.value}>{submitDecisionReview.accountMode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>execution_source</span>
+                  <span className={styles.value}>{submitDecisionReview.executionSource}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_state</span>
+                  <span className={styles.value}>{submitDecisionReview.liveState}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>workers_allowed_to_submit</span>
+                  <span className={styles.value}>{submitDecisionReview.workersAllowedToSubmit ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_trading_enabled</span>
+                  <span className={styles.value}>{submitDecisionReview.liveTradingEnabled ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submitted_order</span>
+                  <span className={styles.value}>{submitDecisionReview.submittedOrder ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>decision_write_performed_now</span>
+                  <span className={styles.value}>{submitDecisionReview.decisionWritePerformedNow ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>review_only</span>
+                  <span className={styles.value}>{submitDecisionReview.reviewOnly ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>no_submit_control_present</span>
+                  <span className={styles.value}>{submitDecisionReview.noSubmitControlPresent ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>next required action</span>
+                  <span className={styles.value}>{formatStatus(submitDecisionReview.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Decision evidence checklist</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Existing decision writers</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.existingDecisionWriters.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Existing decision readers</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.existingDecisionReaders.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future decision records</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.futureDecisionRecords.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Persisted field checklist</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.persistedFieldChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Review evidence links</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.reviewEvidenceLinks.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Fail-closed rules</h5>
+                <ul className={styles.list}>
+                  {submitDecisionReview.failClosedRules.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {submitDecisionReview.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current submit-decision review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {submitDecisionReview.blockedReasons.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {submitDecisionReview.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current submit-decision review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {submitDecisionReview.missingData.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {submitDecisionReview.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current submit-decision review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {submitDecisionReview.warnings.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{submitDecisionReview.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Submit-decision review only, no decision written. Future manual paper submit would persist decisions later on the existing guarded /broker/orders path. No submit button is available here. No order submitted. Live trading remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}

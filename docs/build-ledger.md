@@ -14427,3 +14427,122 @@ still 100% green.
 
 -> If a later phase needs a true guarded operator submit-decision review, keep the cockpit design review read-only until the final operator action is separately specified, then layer that action onto the existing guarded `/broker/orders` seam with submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
 
+## Guarded Operator Submit-Decision Review
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing submit-decision review layer on top of the existing recommendation route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, approval package, preflight contract, and design review. This block remains review-only, writes no decision now, adds no submit button, adds no `/broker/orders` UI call, adds no new `BrokerService.submit_order` path, keeps workers non-submitting, and leaves live locked.
+
+### Submit-Decision Path Map
+
+#### A. Existing decision writers
+
+- **Persistence owner:** `BrokerPreflightDecisionService.persist_submit_decision(...) -> BrokerSubmitDecisionService.persist(...)`
+- **Storage model:** `BrokerSubmitDecision` rows in `broker_submit_decisions`
+- **Current writer 1:** `BrokerService.dry_run_order(... persist_decision=True, decision_source="dry_run")`
+  - source label: `dry_run`
+  - when written: after guarded dry-run preflight classification, before any submit path, and still non-submitting
+  - persisted fields: `intent`, `would_block`, reason code/text, scrubbed warnings, scrubbed blocked reasons, `decision_status`, `allowed_to_submit`, `execution_mode`, `account_mode`, `source`, `submit_gate`, canonical paper metadata
+  - scrubbed fields: raw portfolio context such as `cash_balance` and `buying_power`, plus secret-like keys such as `api_key` and `token`
+  - fail-closed behavior: `would_block`, `blocked`, `error`, and `unknown` all remain blocking outcomes
+- **Current writer 2:** `BrokerService.submit_order(...)` preflight path
+  - source label: `submit_preflight`
+  - when written: immediately before a future guarded `/broker/orders` submit attempt in coherent paper mode
+  - persisted fields: same decision payload plus current submit gate metadata
+  - scrubbed fields: same scrubbed warning/reason payload rules
+  - fail-closed behavior: preflight evaluation errors and preflight blocks persist a blocked row and stop submit
+- **Current writer 3:** `BrokerService.submit_order(...)` submit-attempt path
+  - source label: `submit_attempt`
+  - when written: on blocked mode/live attempts, blocked preflight submit attempts, allowed submits, and submit-time failures
+  - persisted fields: same decision payload plus `broker_order_id` when present
+  - scrubbed fields: same scrubbed warning/reason payload rules
+  - fail-closed behavior: live-lock, mode-guard failure, unknown preflight, and would-block findings all persist blocked attempt rows with no unauthorized execution
+
+#### B. Existing decision readers
+
+- **Read route:** `GET /broker/submit-decisions/recent`
+  - filters: `intent`, `would_block`, `limit`
+  - behavior: read-only audit feed, newest first, append-only rows only
+- **Current UI readers:** `/cockpit/audit` and `/cockpit/audit/broker-submit-decisions`
+  - current limitation: the in-flight review chain does not import this read helper and does not fetch submit-decision rows in this block
+
+#### C. Future manual paper submit decision trail
+
+- **Future source label:** `manual_paper_submit`
+- **Required pre-submit row later:** `submit_preflight` decision row before any future guarded submit completes
+- **Required submit-attempt row later:** `submit_attempt` decision row at actual future operator submit time
+- **Required blocked-attempt row later:** blocked submit-attempt row whenever mode guard, trading control, halt, request validation, risk, or broker preflight blocks
+- **Required live-lock row later:** blocked `submit_attempt` row if runtime posture is live or otherwise not coherent paper mode
+- **Dry-run decision reference:** later submit review should still link back to the existing `dry_run` decision evidence
+- **Review evidence reference set:** route-check, dry-run, readiness, handoff, audit package, approval package, preflight contract, and design review
+- **Worker behavior:** workers remain non-submitting and gain no broker submit authority
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Guarded operator submit-decision review` section inside `RecommendationRouteCheckPanel` after the design review.
+- The section shows the current review status, existing decision writers and readers, future `manual_paper_submit` decision records, persisted field requirements, fail-closed rules, linked review evidence, live-lock handling, secret scrubbing requirements, and explicit no-decision-written/no-order-submitted safety state.
+- This is review-only. No decision is written now. No submit button was added. No `/broker/orders` UI call was added.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No new backend route was added.
+- No decision write was added from the UI.
+- No new `BrokerService.submit_order` path was added.
+- Actual future submit still uses the existing guarded `/broker/orders` path only.
+
+### Submit-Decision Review Statuses Implemented
+
+- `ready_for_future_decision_review`
+- `blocked`
+- `missing_context`
+- `dry_run_required`
+- `approval_required`
+- `preflight_contract_required`
+- `design_review_required`
+- `unknown`
+
+### Safety Confirmation
+
+- This is review-only.
+- No decision is written now.
+- No submit controls were added.
+- No submit button was added.
+- No `/broker/orders` UI call was added.
+- No new `BrokerService.submit_order` path was added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- Submit-time decision persistence would happen later.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line`
+- Frontend lint: `cd apps/web && npm run lint`
+- Frontend build: `cd apps/web && npm run build`
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|audit package|approval package|preflight contract|design review|submit-decision|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line`
+- TSX colour gates: `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` and `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- Full backend regression: `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+
+### Known Limitations
+
+- The new section is derived from existing review-chain evidence and static decision rules; it does not fetch decision rows directly into the in-flight panel.
+- No decision is written now and no execution seam is added in this block.
+- `design_review_required` remains a defensive status for future drift or partial wiring rather than a currently user-reachable happy-path branch.
+- Any future enablement phase must still keep `/broker/orders` as the only guarded submit seam, preserve append-only decision persistence, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
+
+### Next Recommended Phase
+
+-> If a later phase needs a true guarded operator action, keep this submit-decision review read-only until the final operator submit control is separately specified, then layer that action onto the existing guarded `/broker/orders` seam with immediate submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
+
