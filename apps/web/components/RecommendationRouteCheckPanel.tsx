@@ -15,6 +15,7 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
     status === "preflight_contract_ready_for_future_manual_step" ||
@@ -32,9 +33,11 @@ function statusClassName(status: string): string {
     status === "approval_required" ||
     status === "approval_package_required" ||
     status === "audit_package_required" ||
+    status === "action_not_available" ||
     status === "handoff_required" ||
     status === "preflight_contract_required" ||
     status === "design_review_required" ||
+    status === "submit_decision_review_required" ||
     status === "readiness_required"
   ) {
     return styles.statusMissing;
@@ -46,6 +49,7 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
     status === "approval_package_ready_for_future_manual_review" ||
     status === "preflight_contract_ready_for_future_manual_step" ||
@@ -63,9 +67,11 @@ function summaryClassName(status: string): string {
     status === "approval_required" ||
     status === "approval_package_required" ||
     status === "audit_package_required" ||
+    status === "action_not_available" ||
     status === "handoff_required" ||
     status === "preflight_contract_required" ||
     status === "design_review_required" ||
+    status === "submit_decision_review_required" ||
     status === "readiness_required"
   ) {
     return styles.summaryMissing;
@@ -374,6 +380,64 @@ type GuardedSubmitDecisionReview = {
   nextRequiredActionDetail: string;
 };
 
+type GuardedOperatorActionReviewStatus =
+  | "action_review_ready_for_future_manual_step"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "readiness_required"
+  | "handoff_required"
+  | "audit_package_required"
+  | "approval_package_required"
+  | "preflight_contract_required"
+  | "design_review_required"
+  | "submit_decision_review_required"
+  | "action_not_available"
+  | "unknown";
+
+type GuardedOperatorActionReviewChecklistItem = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
+type GuardedOperatorActionReviewRequirement = {
+  code: string;
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type GuardedOperatorActionReview = {
+  status: GuardedOperatorActionReviewStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: GuardedOperatorActionReviewChecklistItem[];
+  futureActionDescription: GuardedOperatorActionReviewRequirement[];
+  finalOperatorConfirmations: GuardedOperatorActionReviewRequirement[];
+  finalPayloadPreview: GuardedOperatorActionReviewRequirement[];
+  submitTimeChecks: GuardedOperatorActionReviewRequirement[];
+  futureDecisionRecords: GuardedOperatorActionReviewRequirement[];
+  statesKeepingActionUnavailable: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureActionName: string;
+  futureActionRoute: string | null;
+  submittedOrder: boolean;
+  actionAvailableNow: boolean;
+  actionReviewOnly: boolean;
+  decisionWritePerformedNow: boolean;
+  liveState: string;
+  workersAllowedToSubmit: boolean;
+  liveTradingEnabled: boolean;
+  wouldBlock: boolean;
+  noSubmitControlPresent: boolean;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -443,6 +507,24 @@ function formatGuardedSubmitDecisionReviewStatus(
   if (status === "approval_required") return "approval package required first";
   if (status === "preflight_contract_required") return "preflight contract required first";
   if (status === "design_review_required") return "design review required first";
+  return formatStatus(status);
+}
+
+function formatGuardedOperatorActionReviewStatus(
+  status: GuardedOperatorActionReviewStatus,
+): string {
+  if (status === "action_review_ready_for_future_manual_step") {
+    return "action review ready for future manual step";
+  }
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "readiness_required") return "readiness review required first";
+  if (status === "handoff_required") return "handoff review required first";
+  if (status === "audit_package_required") return "audit package required first";
+  if (status === "approval_package_required") return "approval package required first";
+  if (status === "preflight_contract_required") return "preflight contract required first";
+  if (status === "design_review_required") return "design review required first";
+  if (status === "submit_decision_review_required") return "submit-decision review required first";
+  if (status === "action_not_available") return "action not available";
   return formatStatus(status);
 }
 
@@ -2754,6 +2836,453 @@ function deriveGuardedSubmitDecisionReview(
   };
 }
 
+function deriveGuardedOperatorActionReview(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+  handoff: ManualPaperSubmitHandoffReview,
+  auditPackage: ManualPaperSubmitAuditPackage,
+  approvalPackage: ManualPaperSubmitApprovalPackage,
+  preflightContract: ManualPaperSubmitPreflightContract,
+  futureManualSubmitDesignReview: FutureManualSubmitDesignReview,
+  submitDecisionReview: GuardedSubmitDecisionReview,
+): GuardedOperatorActionReview {
+  const preflightDecisionStatus = String(preview?.preflight_decision?.decision_status ?? "unknown").toLowerCase();
+  const routeCheckCompleted = ["eligible", "blocked", "missing_context"].includes(result.route_check_status);
+  const routeCheckEligible = result.route_check_status === "eligible";
+  const routeMissingContext =
+    result.route_check_status === "missing_context" ||
+    result.missing_data.length > 0 ||
+    !result.ticker ||
+    !result.side ||
+    result.quantity === null ||
+    !result.order_type;
+  const routeBlocked =
+    result.route_check_status === "blocked" ||
+    result.live_trading_enabled ||
+    result.workers_allowed_to_submit ||
+    result.live_state !== "ibkr_live_locked";
+  const dryRunPreviewCompleted = preview !== null && preview.dry_run_executed;
+  const dryRunNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.mode_guard_ok === true &&
+    preview.request_valid === true &&
+    preview.would_block === false &&
+    ["allowed", "advisory"].includes(preflightDecisionStatus);
+  const readinessReviewReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const handoffReviewReady = handoff.status === "handoff_ready_for_future_manual_step";
+  const auditPackageReady = auditPackage.status === "package_ready_for_future_manual_review";
+  const approvalPackageReady = approvalPackage.status === "approval_package_ready_for_future_manual_review";
+  const preflightContractReady = preflightContract.status === "preflight_contract_ready_for_future_manual_step";
+  const designReviewReady = futureManualSubmitDesignReview.status === "design_only_not_enabled";
+  const submitDecisionReviewReady = submitDecisionReview.status === "ready_for_future_decision_review";
+  const canonicalRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? result.broker_account_mode) === "paper";
+  const liveLocked =
+    (preview?.live_state ?? preflightContract.liveState ?? result.live_state) === "ibkr_live_locked";
+  const workersNonSubmitting =
+    (preview?.workers_allowed_to_submit ?? preflightContract.workersAllowedToSubmit ?? result.workers_allowed_to_submit) === false;
+  const noSubmitControlPresent = true;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const submitTimeChecksRequired = true;
+  const submitTimeDecisionLoggingRequired = true;
+  const futureActionRoute = submitDecisionReviewReady ? "/broker/orders" : preflightContract.futureManualSubmitRoute;
+  const futureActionName = "manual_ibkr_paper_submit";
+  const actionAvailableNow = false;
+  const wouldBlock =
+    result.would_block ||
+    (preview?.would_block ?? false) ||
+    preflightContract.wouldBlock ||
+    routeBlocked ||
+    !liveLocked ||
+    !workersNonSubmitting;
+
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...preflightContract.blockedReasons,
+    ...submitDecisionReview.blockedReasons,
+    !liveLocked ? "Live trading remains fail-closed. Any live or unknown broker posture must keep the future action unavailable." : null,
+    !workersNonSubmitting ? "Workers remain non-submitting. Any worker-submit-allowed posture must keep the future action unavailable." : null,
+    !canonicalRouteIsBrokerOrders ? "The future manual paper action must stay pinned to guarded /broker/orders only when safe." : null,
+  ]);
+
+  const missingData = uniqueMessages([
+    ...result.missing_data,
+    ...(preview?.missing_data ?? []),
+    ...preflightContract.missingData,
+    ...submitDecisionReview.missingData,
+    ...preflightContract.missingPayloadFields.map((field) => `Missing payload review field: ${field}`),
+    routeMissingContext ? "Recommendation context is incomplete for a future manual operator action review." : null,
+  ]);
+
+  const warnings = uniqueMessages([
+    ...auditPackage.warnings,
+    ...approvalPackage.warnings,
+    ...preflightContract.warnings,
+    ...submitDecisionReview.warnings,
+    ...(preview?.warnings ?? []).map((entry) => entry.message),
+  ]);
+
+  let status: GuardedOperatorActionReviewStatus = "unknown";
+  if (routeMissingContext || (preview?.dry_run_status ?? null) === "missing_context") {
+    status = "missing_context";
+  } else if (routeBlocked) {
+    status = "blocked";
+  } else if (!dryRunPreviewCompleted) {
+    status = "dry_run_required";
+  } else if (!dryRunNonBlocking || !liveLocked || !workersNonSubmitting) {
+    status = "blocked";
+  } else if (!readinessReviewReady) {
+    status = "readiness_required";
+  } else if (!handoffReviewReady) {
+    status = "handoff_required";
+  } else if (!auditPackageReady) {
+    status = "audit_package_required";
+  } else if (!approvalPackageReady) {
+    status = "approval_package_required";
+  } else if (!preflightContractReady) {
+    status = "preflight_contract_required";
+  } else if (!designReviewReady) {
+    status = "design_review_required";
+  } else if (!submitDecisionReviewReady) {
+    status = "submit_decision_review_required";
+  } else if (!canonicalRouteIsBrokerOrders || !brokerModePaper) {
+    status = "action_not_available";
+  } else if (
+    routeCheckEligible &&
+    dryRunPreviewCompleted &&
+    dryRunNonBlocking &&
+    readinessReviewReady &&
+    handoffReviewReady &&
+    auditPackageReady &&
+    approvalPackageReady &&
+    preflightContractReady &&
+    designReviewReady &&
+    submitDecisionReviewReady
+  ) {
+    status = "action_review_ready_for_future_manual_step";
+  }
+
+  let title = "Guarded operator action review is unknown";
+  let body =
+    "Action review only, no order submitted. This read-only section shows what the future guarded manual paper action would be and why it stays unavailable in this phase.";
+  let nextRequiredAction = "review_operator_action_requirements";
+  let nextRequiredActionDetail =
+    "Use this section for operator review only. Future manual paper submit would still use guarded /broker/orders when safe, but no submit button is available here and no decision is written now.";
+
+  if (status === "missing_context") {
+    title = "Missing context before operator action review";
+    body =
+      "Action review only, no order submitted. Recommendation, route-check, or review-chain context is still incomplete, so the future guarded operator action cannot be mapped safely yet.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail =
+      "Complete the missing recommendation or review-chain context first. The future action stays unavailable and fail-closed until that evidence exists.";
+  } else if (status === "blocked") {
+    title = "Blocked before operator action review";
+    body =
+      "Action review only, no order submitted. Live-lock, worker-submit, route, or dry-run fail-closed findings still block any future guarded operator action.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail =
+      "Resolve the blocking safety posture first. The future action remains unavailable while any route, live-lock, worker-submit, or preflight fail-closed condition remains.";
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before operator action review";
+    body =
+      "Action review only, no order submitted. The route-check is eligible, but the guarded broker dry-run preview must run first so the future action can inherit current broker preflight evidence safely.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail =
+      "Run the existing guarded broker dry-run preview first. The future action cannot be reviewed coherently until the current non-submitting preflight evidence is present.";
+  } else if (status === "readiness_required") {
+    title = "Readiness review required before operator action review";
+    body =
+      "Action review only, no order submitted. The readiness review is not yet ready, so the future operator action remains unavailable.";
+    nextRequiredAction = "complete_readiness_review";
+    nextRequiredActionDetail =
+      "Use the existing readiness review first so the later operator action remains tied to a coherent paper-mode recommendation context.";
+  } else if (status === "handoff_required") {
+    title = "Handoff review required before operator action review";
+    body =
+      "Action review only, no order submitted. The handoff review is not yet ready, so the future guarded action lacks a complete payload handoff.";
+    nextRequiredAction = "complete_handoff_review";
+    nextRequiredActionDetail =
+      "Use the existing handoff review first so the later manual operator action inherits the guarded payload preview and operator handoff detail.";
+  } else if (status === "audit_package_required") {
+    title = "Audit package required before operator action review";
+    body =
+      "Action review only, no order submitted. The audit package is not yet ready, so the future action remains unavailable until the upstream review evidence is consolidated.";
+    nextRequiredAction = "complete_audit_package";
+    nextRequiredActionDetail =
+      "Use the existing audit package first so the later action review inherits the consolidated source labels, decision references, and payload preview evidence.";
+  } else if (status === "approval_package_required") {
+    title = "Approval package required before operator action review";
+    body =
+      "Action review only, no order submitted. The approval package is not yet ready, so final operator approval evidence is still missing before any future guarded action could be considered.";
+    nextRequiredAction = "complete_approval_package";
+    nextRequiredActionDetail =
+      "Use the existing approval package first. The future manual action remains unavailable until the approval review layer is ready.";
+  } else if (status === "preflight_contract_required") {
+    title = "Preflight contract required before operator action review";
+    body =
+      "Action review only, no order submitted. The preflight contract is not yet ready, so the submit-time reruns and final operator confirmations are not defined tightly enough for an action review.";
+    nextRequiredAction = "complete_preflight_contract";
+    nextRequiredActionDetail =
+      "Use the existing preflight contract section first so the later action review stays grounded in the final submit-time reruns, confirmations, and fail-closed rules.";
+  } else if (status === "design_review_required") {
+    title = "Design review required before operator action review";
+    body =
+      "Action review only, no order submitted. The future manual submit design review must still map the canonical guarded seam before the future operator action can be reviewed coherently.";
+    nextRequiredAction = "complete_design_review";
+    nextRequiredActionDetail =
+      "Use the existing design review section first so the future action remains tied to the existing guarded /broker/orders seam and backend owner.";
+  } else if (status === "submit_decision_review_required") {
+    title = "Submit-decision review required before operator action review";
+    body =
+      "Action review only, no order submitted. The future operator action still depends on the submit-decision review being ready first, because decision persistence and fail-closed attempt logging remain part of the canonical guarded submit seam.";
+    nextRequiredAction = "complete_submit_decision_review";
+    nextRequiredActionDetail =
+      "Use the existing submit-decision review first so the future action remains tied to the required submit_preflight and submit_attempt decision trail.";
+  } else if (status === "action_not_available") {
+    title = "Action not available in this phase";
+    body =
+      "Action review only, no order submitted. The future manual paper action is mapped, but it is still intentionally unavailable in this phase and cannot be executed from this cockpit surface.";
+    nextRequiredAction = "no_action_available";
+    nextRequiredActionDetail =
+      "Keep this surface review-only. Future manual paper submit would still use guarded /broker/orders when safe, but execution is intentionally unavailable now.";
+  } else if (status === "action_review_ready_for_future_manual_step") {
+    title = "Action review ready for future manual step";
+    body =
+      "Action review only, no order submitted. The current review chain is ready to show the future guarded manual operator action: manual IBKR paper submit through the existing /broker/orders seam, with final operator confirmations, submit-time reruns, and decision persistence still required later.";
+    nextRequiredAction = "action_review_ready_for_future_manual_step";
+    nextRequiredActionDetail =
+      "This phase stops at operator visibility only. Future manual paper submit would still use guarded /broker/orders, but action_available_now remains false, no decision is written now, and no submit button is available here.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist: [
+      {
+        code: "route_check_completed",
+        label: "route_check_completed",
+        satisfied: routeCheckCompleted,
+        detail: "The recommendation route-check must already exist before a future manual operator action can be reviewed.",
+      },
+      {
+        code: "route_check_eligible",
+        label: "route_check_eligible",
+        satisfied: routeCheckEligible,
+        detail: "The route-check must resolve the canonical serious-paper path before the future action can target guarded /broker/orders.",
+      },
+      {
+        code: "dry_run_preview_completed",
+        label: "dry_run_preview_completed",
+        satisfied: dryRunPreviewCompleted,
+        detail: "The existing guarded broker dry-run preview must already exist before the future action is reviewed.",
+      },
+      {
+        code: "dry_run_non_blocking",
+        label: "dry_run_non_blocking",
+        satisfied: dryRunNonBlocking,
+        detail: "The future action remains unavailable if the current dry-run evidence would block, is invalid, or is unknown.",
+      },
+      {
+        code: "readiness_review_ready",
+        label: "readiness_review_ready",
+        satisfied: readinessReviewReady,
+        detail: "Readiness review must already be ready before the future action is shown as coherent.",
+      },
+      {
+        code: "handoff_review_ready",
+        label: "handoff_review_ready",
+        satisfied: handoffReviewReady,
+        detail: "Handoff review must already expose the later guarded payload handoff.",
+      },
+      {
+        code: "audit_package_ready",
+        label: "audit_package_ready",
+        satisfied: auditPackageReady,
+        detail: "Audit package must already consolidate the upstream review evidence.",
+      },
+      {
+        code: "approval_package_ready",
+        label: "approval_package_ready",
+        satisfied: approvalPackageReady,
+        detail: "Approval package must already be ready before a future action is considered.",
+      },
+      {
+        code: "preflight_contract_ready",
+        label: "preflight_contract_ready",
+        satisfied: preflightContractReady,
+        detail: "Preflight contract must already define submit-time reruns and operator confirmations.",
+      },
+      {
+        code: "design_review_ready",
+        label: "design_review_ready",
+        satisfied: designReviewReady,
+        detail: "The design review must already map the future guarded submit seam.",
+      },
+      {
+        code: "submit_decision_review_ready",
+        label: "submit_decision_review_ready",
+        satisfied: submitDecisionReviewReady,
+        detail: "Submit-decision review must already map the later append-only decision trail.",
+      },
+      {
+        code: "canonical_route_is_broker_orders",
+        label: "canonical_route_is_broker_orders",
+        satisfied: canonicalRouteIsBrokerOrders,
+        detail: "The future manual paper action must stay pinned to guarded /broker/orders only when safe.",
+      },
+      {
+        code: "broker_mode_paper",
+        label: "broker_mode_paper",
+        satisfied: brokerModePaper,
+        detail: "The future manual action remains paper-only and must never unlock live mode.",
+      },
+      {
+        code: "live_locked",
+        label: "live_locked",
+        satisfied: liveLocked,
+        detail: "Live trading remains locked in this review phase.",
+      },
+      {
+        code: "workers_non_submitting",
+        label: "workers_non_submitting",
+        satisfied: workersNonSubmitting,
+        detail: "Workers remain non-submitting; the future manual action stays operator-driven only.",
+      },
+      {
+        code: "no_submit_control_present",
+        label: "no_submit_control_present",
+        satisfied: noSubmitControlPresent,
+        detail: "No submit control is rendered in this review surface.",
+      },
+      {
+        code: "no_order_submitted",
+        label: "no_order_submitted",
+        satisfied: noOrderSubmitted,
+        detail: "No order has been submitted from this review chain.",
+      },
+      {
+        code: "submit_time_checks_required",
+        label: "submit_time_checks_required",
+        satisfied: submitTimeChecksRequired,
+        detail: "Submit-time broker guard, trading-control, risk, halt, validation, and preflight checks would still rerun later.",
+      },
+      {
+        code: "submit_time_decision_logging_required",
+        label: "submit_time_decision_logging_required",
+        satisfied: submitTimeDecisionLoggingRequired,
+        detail: "Submit-time decision logging would still be required later on the existing guarded seam.",
+      },
+    ],
+    futureActionDescription: [
+      {
+        code: "future_action_name",
+        label: "future_action_name",
+        value: futureActionName,
+        detail: "The later operator-driven action would still be a manual IBKR paper submit.",
+      },
+      {
+        code: "future_action_enabled_now",
+        label: "future_action_enabled_now",
+        value: "false",
+        detail: "The future action is intentionally not enabled in this phase.",
+      },
+      {
+        code: "future_action_route",
+        label: "future_action_route",
+        value: futureActionRoute ?? "not available",
+        detail: "The actual future manual submit would still use guarded /broker/orders only when safe.",
+      },
+      {
+        code: "future_action_requires_operator_confirmation",
+        label: "future_action_requires_operator_confirmation",
+        value: "true",
+        detail: "Later execution would still require explicit operator confirmation.",
+      },
+      {
+        code: "future_action_requires_submit_time_rechecks",
+        label: "future_action_requires_submit_time_rechecks",
+        value: "true",
+        detail: "Later execution would still rerun submit-time safety checks.",
+      },
+      {
+        code: "future_action_requires_decision_persistence",
+        label: "future_action_requires_decision_persistence",
+        value: "true",
+        detail: "Later execution would still persist append-only decision rows on the canonical seam.",
+      },
+      {
+        code: "future_action_worker_allowed",
+        label: "future_action_worker_allowed",
+        value: "false",
+        detail: "Workers remain unable to submit broker orders.",
+      },
+      {
+        code: "future_action_live_allowed",
+        label: "future_action_live_allowed",
+        value: "false",
+        detail: "Live trading remains locked and cannot be enabled from this phase.",
+      },
+    ],
+    finalOperatorConfirmations: preflightContract.operatorConfirmations.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.required ? "required later" : "not required",
+      detail: item.detail,
+    })),
+    finalPayloadPreview: preflightContract.finalPayloadReviewFields.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+    })),
+    submitTimeChecks: preflightContract.submitTimeRerunRequirements.map((item) => ({
+      code: item.code,
+      label: item.label,
+      value: item.required ? "required later" : "not required",
+      detail: item.detail,
+    })),
+    futureDecisionRecords: submitDecisionReview.futureDecisionRecords,
+    statesKeepingActionUnavailable: [
+      ...futureManualSubmitDesignReview.blockStates,
+      "Action review only. Future action is not enabled in this phase.",
+      "Any live or unknown broker/account tuple must keep the action unavailable.",
+      "Any worker-submit-allowed posture must keep the action unavailable.",
+      "Any would_block, blocked, invalid, error, or unknown preflight outcome must keep the action unavailable.",
+      "Any missing recommendation context or missing final payload field must keep the action unavailable.",
+      "No submit button is available here and no /broker/orders call is made from this cockpit surface.",
+    ],
+    blockedReasons,
+    missingData,
+    warnings,
+    futureActionName,
+    futureActionRoute,
+    submittedOrder: false,
+    actionAvailableNow,
+    actionReviewOnly: true,
+    decisionWritePerformedNow: false,
+    liveState: preview?.live_state ?? preflightContract.liveState ?? result.live_state,
+    workersAllowedToSubmit: preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit,
+    liveTradingEnabled: preview?.live_trading_enabled ?? result.live_trading_enabled,
+    wouldBlock,
+    noSubmitControlPresent,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -2907,6 +3436,47 @@ export function RecommendationRouteCheckPanel({
           futureManualSubmitDesignReview,
         )
       : null;
+  const operatorActionReview =
+    result &&
+    preview &&
+    readiness &&
+    handoff &&
+    auditPackage &&
+    approvalPackage &&
+    preflightContract &&
+    futureManualSubmitDesignReview &&
+    submitDecisionReview
+      ? deriveGuardedOperatorActionReview(
+          result,
+          preview,
+          readiness,
+          handoff,
+          auditPackage,
+          approvalPackage,
+          preflightContract,
+          futureManualSubmitDesignReview,
+          submitDecisionReview,
+        )
+      : result &&
+          readiness &&
+          handoff &&
+          auditPackage &&
+          approvalPackage &&
+          preflightContract &&
+          futureManualSubmitDesignReview &&
+          submitDecisionReview
+        ? deriveGuardedOperatorActionReview(
+            result,
+            null,
+            readiness,
+            handoff,
+            auditPackage,
+            approvalPackage,
+            preflightContract,
+            futureManualSubmitDesignReview,
+            submitDecisionReview,
+          )
+        : null;
 
   return (
     <section
@@ -4555,6 +5125,216 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Submit-decision review only, no decision written. Future manual paper submit would persist decisions later on the existing guarded /broker/orders path. No submit button is available here. No order submitted. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {operatorActionReview ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-operator-action-review-${recommendationId}`}
+              aria-label={`Guarded operator action review for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Operator action review</p>
+                  <h5 className={styles.previewTitle}>Guarded operator action review</h5>
+                  <p className={styles.subtitle}>
+                    Action review only, no order submitted. This section shows the future guarded manual paper action, what still blocks it, and why no execution is available in this phase.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(operatorActionReview.status)}`}
+                  data-testid={`recommendation-operator-action-review-status-${recommendationId}`}
+                >
+                  {formatGuardedOperatorActionReviewStatus(operatorActionReview.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(operatorActionReview.status)}`}
+                data-testid={`recommendation-operator-action-review-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{operatorActionReview.title}</p>
+                <p className={styles.summaryText}>{operatorActionReview.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>operator_action_review_status</span>
+                  <span className={styles.value}>{operatorActionReview.status}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future_action_name</span>
+                  <span className={styles.value}>{operatorActionReview.futureActionName}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>future_action_route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(operatorActionReview.futureActionRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submitted_order</span>
+                  <span className={styles.value}>{operatorActionReview.submittedOrder ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>action_available_now</span>
+                  <span className={styles.value}>{operatorActionReview.actionAvailableNow ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>action_review_only</span>
+                  <span className={styles.value}>{operatorActionReview.actionReviewOnly ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>decision_write_performed_now</span>
+                  <span className={styles.value}>{operatorActionReview.decisionWritePerformedNow ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_state</span>
+                  <span className={styles.value}>{operatorActionReview.liveState}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>workers_allowed_to_submit</span>
+                  <span className={styles.value}>{operatorActionReview.workersAllowedToSubmit ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_trading_enabled</span>
+                  <span className={styles.value}>{operatorActionReview.liveTradingEnabled ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>would_block</span>
+                  <span className={styles.value}>{operatorActionReview.wouldBlock ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>no_submit_control_present</span>
+                  <span className={styles.value}>{operatorActionReview.noSubmitControlPresent ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>next required action</span>
+                  <span className={styles.value}>{formatStatus(operatorActionReview.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Action evidence checklist</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future action description</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.futureActionDescription.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Final operator confirmations</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.finalOperatorConfirmations.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future /broker/orders payload preview fields</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.finalPayloadPreview.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Submit-time checks that rerun later</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.submitTimeChecks.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future submit-decision records</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.futureDecisionRecords.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.value}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>States keeping action unavailable</h5>
+                <ul className={styles.list}>
+                  {operatorActionReview.statesKeepingActionUnavailable.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {operatorActionReview.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current operator action review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {operatorActionReview.blockedReasons.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {operatorActionReview.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current operator action review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {operatorActionReview.missingData.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {operatorActionReview.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current operator action review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {operatorActionReview.warnings.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{operatorActionReview.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Action review only, no order submitted. Future action is not enabled in this phase. Future manual paper submit would still use guarded /broker/orders. No submit button is available here. No decision is written now. Live trading remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}

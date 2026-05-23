@@ -14546,3 +14546,98 @@ still 100% green.
 
 -> If a later phase needs a true guarded operator action, keep this submit-decision review read-only until the final operator submit control is separately specified, then layer that action onto the existing guarded `/broker/orders` seam with immediate submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
 
+## Guarded Operator Action Review over Canonical Submit Seam
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing action review layer on top of the existing recommendation route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, approval package, preflight contract, design review, and submit-decision review. This block remains review-only, keeps `action_available_now=false`, writes no decision now, adds no submit button, adds no `/broker/orders` UI call, adds no new `BrokerService.submit_order` path, keeps workers non-submitting, and leaves live locked.
+
+### Operator Action Review Contract
+
+- **Future action name:** `manual_ibkr_paper_submit`
+- **Future route later:** guarded `/broker/orders` only when the full paper-mode safety posture remains coherent
+- **Action enabled now:** `false`
+- **Action review only:** `true`
+- **Decision write performed now:** `false`
+- **Submitted order:** `false`
+- **Worker allowed later:** `false`
+- **Live allowed later:** `false`
+- **Operator confirmations required later:** `true`
+- **Submit-time reruns required later:** `true`
+- **Submit-time decision persistence required later:** `true`
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Guarded operator action review` section inside `RecommendationRouteCheckPanel` after the submit-decision review.
+- The section shows the future manual IBKR paper action, the later guarded `/broker/orders` route, current review gates passed, review gates still blocking, final operator confirmations required later, final payload preview fields, submit-time checks that rerun later, future decision records, fail-closed unavailable states, and explicit `no order submitted` / `action available now: false` safety state.
+- This is review-only. No decision is written now. No submit button was added. No `/broker/orders` UI call was added.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No new backend route was added.
+- No decision write was added from the UI.
+- No new `BrokerService.submit_order` path was added.
+- Actual future submit still uses the existing guarded `/broker/orders` path only.
+
+### Operator Action Review Statuses Implemented
+
+- `action_review_ready_for_future_manual_step`
+- `blocked`
+- `missing_context`
+- `dry_run_required`
+- `readiness_required`
+- `handoff_required`
+- `audit_package_required`
+- `approval_package_required`
+- `preflight_contract_required`
+- `design_review_required`
+- `submit_decision_review_required`
+- `action_not_available`
+- `unknown`
+
+### Safety Confirmation
+
+- This is review-only.
+- `action_available_now` remains `false`.
+- No decision is written now.
+- No submit controls were added.
+- No submit button was added.
+- No `/broker/orders` UI call was added.
+- No new `BrokerService.submit_order` path was added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- Actual future submit still uses the existing guarded `/broker/orders` path.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Frontend lint: `cd apps/web && npm run lint`
+- Frontend build: `cd apps/web && npm run build`
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line`
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|audit package|approval package|preflight contract|design review|submit-decision|operator action|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line`
+- TSX colour gates: `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` and `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- Full backend regression: `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+
+### Known Limitations
+
+- The new section is derived from existing review-chain evidence and static future-action rules; it does not fetch or write any action state.
+- `submit_decision_review_required` and `action_not_available` are defensive action-review statuses for future drift or partial wiring; the current happy-path evidence reaches `action_review_ready_for_future_manual_step` only as a visibility state and still never enables action.
+- No execution seam is added in this block.
+- Any future enablement phase must still keep `/broker/orders` as the only guarded submit seam, preserve append-only decision persistence, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
+
+### Next Recommended Phase
+
+-> If a later phase needs a true guarded operator action control, keep this action review read-only until a separate safety phase specifies the final operator submit interaction, then layer it onto the existing guarded `/broker/orders` seam with immediate submit-time reruns, append-only decision persistence, worker non-submission, and live lock preserved.
+
