@@ -14247,3 +14247,86 @@ still 100% green.
 
 -> If a future phase needs a true operator-approved guarded manual submit step, keep the cockpit approval surface read-only and continue routing any real submission only through the existing guarded `/broker/orders` boundary with no worker expansion and no live unlock.
 
+## Guarded Manual Paper Submit Preflight Contract
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing pre-submit contract on top of the existing recommendation route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, and approval package. This phase remains review-only, non-submitting, adds no submit button, adds no `/broker/orders` call from the in-flight surface, keeps workers non-submitting, and leaves live locked.
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Guarded manual paper submit preflight contract` section inside `RecommendationRouteCheckPanel` after the approval package.
+- The preflight contract consolidates the final pre-submit checklist, submit-time rerun requirements, decision-logging requirements, source-label rechecks, stale-data checks, final payload review fields, operator confirmations, blocked reasons, missing context, warnings, next required action, and explicit no-order-submitted confirmation.
+- The panel stays review-only and explicitly states that no submit button is available here, no `/broker/orders` call is made from this surface, future manual submit would still require guarded `/broker/orders`, submit-time mode/risk/preflight and decision logging would rerun, live remains locked, and workers cannot submit.
+
+### Preflight Helper / Component Added
+
+- No new backend API helper was required.
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` now derives a frontend-only `deriveManualPaperSubmitPreflightContract(...)` helper from the existing route-check, guarded dry-run preview, readiness evidence, handoff evidence, audit package evidence, and approval package evidence.
+- The same component now renders preflight-contract status, summary, preflight checklist, submit-time rerun requirements, operator confirmations, final payload review, source-label rechecks, stale-data checks, decision-logging requirements, and explicit no-submit/no-order-submitted/live-locked/worker-non-submitting copy.
+- `apps/web/tests/in-flight-adjustments.spec.ts` now covers preflight-contract states for `dry_run_required`, `readiness_required`, `handoff_required`, `blocked`, `missing_context`, `approval_package_required`, and `preflight_contract_ready_for_future_manual_step`, plus the continued absence of submit-like controls.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No read-only preflight-contract endpoint was added because the existing route-check, guarded broker dry-run preview, readiness review, handoff review, audit package, and approval package already expose the required review evidence.
+- No call to `BrokerService.submit_order` was added.
+- No call to `/broker/orders` was added from the frontend in this phase.
+
+### Preflight Contract Statuses Implemented
+
+- `preflight_contract_ready_for_future_manual_step`
+- `blocked`
+- `missing_context`
+- `dry_run_required`
+- `readiness_required`
+- `handoff_required`
+- `audit_package_required`
+- `approval_package_required`
+- `preflight_not_available`
+- `unknown`
+
+### Safety Confirmation
+
+- Preflight contract is non-submitting.
+- No submit button was added.
+- No `/broker/orders` call was added from this UI block.
+- No submit controls were added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- Actual future submit still uses the existing guarded `/broker/orders` path.
+- Submit-time mode/risk/preflight and decision logging would rerun.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line` -> `13 passed`
+- Frontend lint: `cd apps/web && npm run lint` -> passed
+- Frontend build: `cd apps/web && npm run build` -> passed
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|audit package|approval package|preflight contract|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line` -> `4 passed`
+- TSX colour gates: `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` and `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'` -> no matches
+- Full API regression suite: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2405 passed in 275.07s (0:04:35)`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh` -> `99 passed in 0.08s`
+
+### Known Limitations
+
+- Preflight contract is derived in the frontend from existing read-only evidence; it does not create a new server-side preflight contract endpoint.
+- Even when the preflight contract is ready for a future manual step, no order is submitted and no submit control is rendered.
+- Broker submit decision references are intentionally unavailable in this read-only layer and only exist during a future guarded `/broker/orders` submit review.
+- STOP and STOP_LIMIT future handoff still remains blocked by missing persisted `stop_price` context.
+- Future manual submit still requires a separate guarded operator action on `/broker/orders` in a later phase.
+
+### Next Recommended Phase
+
+-> If a future phase needs a true guarded manual paper submit handoff or submit decision review, keep the cockpit preflight surface read-only and continue routing any real submission only through the existing guarded `/broker/orders` boundary with no worker expansion and no live unlock.
+

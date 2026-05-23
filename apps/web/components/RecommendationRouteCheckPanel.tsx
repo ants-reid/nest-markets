@@ -16,6 +16,7 @@ function statusClassName(status: string): string {
     status === "eligible" ||
     status === "ready" ||
     status === "approval_package_ready_for_future_manual_review" ||
+    status === "preflight_contract_ready_for_future_manual_step" ||
     status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
@@ -27,6 +28,7 @@ function statusClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "handoff_required" ||
     status === "readiness_required"
@@ -41,6 +43,7 @@ function summaryClassName(status: string): string {
     status === "eligible" ||
     status === "ready" ||
     status === "approval_package_ready_for_future_manual_review" ||
+    status === "preflight_contract_ready_for_future_manual_step" ||
     status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
@@ -52,6 +55,7 @@ function summaryClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "approval_package_required" ||
     status === "audit_package_required" ||
     status === "handoff_required" ||
     status === "readiness_required"
@@ -223,6 +227,55 @@ type ManualPaperSubmitApprovalPackage = {
   nextRequiredActionDetail: string;
 };
 
+type ManualPaperSubmitPreflightContractStatus =
+  | "preflight_contract_ready_for_future_manual_step"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "readiness_required"
+  | "handoff_required"
+  | "audit_package_required"
+  | "approval_package_required"
+  | "preflight_not_available"
+  | "unknown";
+
+type ManualPaperSubmitPreflightRequirement = {
+  code: string;
+  label: string;
+  required: boolean;
+  detail: string;
+};
+
+type ManualPaperSubmitPreflightContract = {
+  status: ManualPaperSubmitPreflightContractStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: ManualPaperSubmitAuditChecklistItem[];
+  submitTimeRerunRequirements: ManualPaperSubmitPreflightRequirement[];
+  operatorConfirmations: ManualPaperSubmitPreflightRequirement[];
+  finalPayloadReviewFields: ManualPaperSubmitHandoffPayloadField[];
+  staleDataChecks: string[];
+  sourceLabelRechecks: string[];
+  decisionLoggingRequirements: string[];
+  missingPayloadFields: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureManualSubmitRoute: string | null;
+  brokerAccountMode: string;
+  liveState: string;
+  isCanonicalPaper: boolean;
+  workersAllowedToSubmit: boolean;
+  liveTradingEnabled: boolean;
+  submittedOrder: boolean;
+  dryRunOnly: boolean;
+  approvalOnly: boolean;
+  preflightContractOnly: boolean;
+  wouldBlock: boolean;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -261,6 +314,19 @@ function formatApprovalPackageStatus(status: ManualPaperSubmitApprovalPackageSta
   if (status === "handoff_required") return "handoff review required";
   if (status === "audit_package_required") return "audit package required first";
   if (status === "approval_not_available") return "approval not available";
+  return formatStatus(status);
+}
+
+function formatPreflightContractStatus(status: ManualPaperSubmitPreflightContractStatus): string {
+  if (status === "preflight_contract_ready_for_future_manual_step") {
+    return "preflight contract ready for future manual step";
+  }
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "readiness_required") return "readiness review required";
+  if (status === "handoff_required") return "handoff review required";
+  if (status === "audit_package_required") return "audit package required first";
+  if (status === "approval_package_required") return "approval package required first";
+  if (status === "preflight_not_available") return "preflight not available";
   return formatStatus(status);
 }
 
@@ -1067,6 +1133,7 @@ function deriveManualPaperSubmitApprovalPackage(
   const futureSubmitRequiresManualApproval = true;
   const submitTimePreflightRequired = true;
   const submitTimeDecisionPersistenceRequired = true;
+  const futureSubmitEligibilityConfirmed = preview?.allowed_to_submit !== false;
   const blockedReasons = uniqueMessages([
     result.blocked_reason,
     preview?.blocked_reason,
@@ -1335,6 +1402,8 @@ function deriveManualPaperSubmitApprovalPackage(
     status = "audit_package_required";
   } else if (!auditPackageReady) {
     status = "audit_package_required";
+  } else if (!futureSubmitEligibilityConfirmed) {
+    status = "approval_not_available";
   } else if (futureManualSubmitRoute === "/broker/orders") {
     status = "approval_package_ready_for_future_manual_review";
   }
@@ -1402,6 +1471,493 @@ function deriveManualPaperSubmitApprovalPackage(
     missingData,
     warnings,
     futureManualSubmitRoute,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
+function deriveManualPaperSubmitPreflightContract(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+  handoff: ManualPaperSubmitHandoffReview,
+  auditPackage: ManualPaperSubmitAuditPackage,
+  approvalPackage: ManualPaperSubmitApprovalPackage,
+): ManualPaperSubmitPreflightContract {
+  const routeCheckEligible = result.route_check_status === "eligible";
+  const dryRunCompleted = preview !== null && preview.dry_run_executed;
+  const preflightStatus = preview?.preflight_decision?.decision_status ?? "not evaluated";
+  const dryRunNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.dry_run_status === "ready" &&
+    preview.would_block === false &&
+    ["allowed", "advisory"].includes(String(preflightStatus).toLowerCase());
+  const readinessReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const handoffReady = handoff.status === "handoff_ready_for_future_manual_step";
+  const auditPackageReady = auditPackage.status === "package_ready_for_future_manual_review";
+  const approvalPackageReady = approvalPackage.status === "approval_package_ready_for_future_manual_review";
+  const resolvedRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const liveLocked =
+    result.live_state === "ibkr_live_locked" &&
+    result.live_trading_enabled === false &&
+    (preview?.live_trading_enabled ?? false) === false;
+  const workersNonSubmitting =
+    result.workers_allowed_to_submit === false &&
+    (preview?.workers_allowed_to_submit ?? false) === false;
+  const noSubmitControlPresent = true;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const submitTimePreflightRequired = true;
+  const submitTimeModeRecheckRequired = true;
+  const submitTimeRiskRecheckRequired = true;
+  const submitTimeDecisionPersistenceRequired = true;
+  const submitTimeOperatorConfirmationRequired = true;
+  const missingPayloadFields = [...approvalPackage.missingPayloadFields];
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...readiness.blockedReasons,
+    ...handoff.blockedReasons,
+    ...auditPackage.blockedReasons,
+    ...approvalPackage.blockedReasons,
+    ...(preview?.preflight_decision?.blocking_items.map((item) => item.message) ?? []),
+    ...(preview?.preflight_decision?.would_block_items.map((item) => item.message) ?? []),
+  ]);
+  const missingData = uniqueMessages([
+    ...result.missing_data,
+    ...(preview?.missing_data ?? []),
+    ...readiness.missingData,
+    ...handoff.missingData,
+    ...auditPackage.missingData,
+    ...approvalPackage.missingData,
+  ]);
+  const warnings = uniqueMessages([
+    ...readiness.warnings,
+    ...handoff.warnings,
+    ...auditPackage.warnings,
+    ...approvalPackage.warnings,
+    ...(preview?.warnings.map((warning) => warning.message) ?? []),
+  ]);
+  const staleDataChecks = uniqueMessages([
+    ...(preview?.warnings.map((warning) => warning.message) ?? []),
+    ...readiness.staleDataWarnings,
+    ...handoff.warnings,
+  ]);
+  const sourceLabelRechecks = uniqueMessages([
+    `execution_source must remain ${preview?.resolved_execution_source ?? result.resolved_execution_source ?? "ibkr_paper"}`,
+    `serious_paper_source must remain ${preview?.serious_paper_source ?? result.serious_paper_source}`,
+    `canonical_paper_route must remain ${preview?.canonical_paper_route ?? result.canonical_paper_route}`,
+    `broker_account_mode must remain ${preview?.broker_account_mode ?? result.broker_account_mode}`,
+    `live_state must remain ${preview?.live_state ?? result.live_state}`,
+    `positions_source would be rechecked as ${preview?.positions_source ?? "ibkr_paper"}`,
+    `balance_source would be rechecked as ${preview?.balance_source ?? "ibkr_paper"}`,
+  ]);
+  const decisionLoggingRequirements = [
+    "broker_submit_decision_service persistence would be required at the future guarded submit boundary.",
+    "Submit-time decision status, blocked reasons, warnings, and preflight_json would be logged before any future guarded manual submit completes.",
+    "Operator recommendation identity and future correlation identifiers would remain part of the guarded broker decision trail.",
+  ];
+
+  const finalPayloadReviewFields: ManualPaperSubmitHandoffPayloadField[] = [
+    ...approvalPackage.futurePayloadPreviewFields,
+    {
+      code: "tif_review",
+      label: "time_in_force review",
+      required: false,
+      satisfied: true,
+      value: "DAY default would be rechecked",
+      detail: "Submit-time time-in-force would still be reviewed even if the guarded broker path defaults to DAY.",
+    },
+    {
+      code: "correlation_review",
+      label: "recommendation_id / correlation_id",
+      required: false,
+      satisfied: true,
+      value: result.recommendation_id,
+      detail: "Recommendation identity would still be reviewed alongside any future guarded submit correlation id or client order id.",
+    },
+  ];
+
+  const futureManualSubmitRoute =
+    approvalPackageReady && missingPayloadFields.length === 0 ? "/broker/orders" : null;
+
+  const evidenceChecklist: ManualPaperSubmitAuditChecklistItem[] = [
+    {
+      code: "recommendation_loaded",
+      label: "Recommendation loaded",
+      satisfied: true,
+      detail: `Recommendation ${result.recommendation_id} is loaded into this preflight contract review.`,
+    },
+    {
+      code: "route_check_completed",
+      label: "Route-check completed",
+      satisfied: true,
+      detail: "The route-check evidence is present in this preflight contract.",
+    },
+    {
+      code: "route_check_eligible",
+      label: "Route-check eligible",
+      satisfied: routeCheckEligible,
+      detail: "Future guarded manual submit still depends on a route-check eligible recommendation.",
+    },
+    {
+      code: "dry_run_preview_completed",
+      label: "Dry-run preview completed",
+      satisfied: dryRunCompleted,
+      detail: "The preflight contract expects guarded broker dry-run evidence before future submit handoff.",
+    },
+    {
+      code: "dry_run_non_blocking",
+      label: "Dry-run non-blocking",
+      satisfied: dryRunNonBlocking,
+      detail: "Dry-run preflight findings must remain advisory-only or allowed before the contract can be ready.",
+    },
+    {
+      code: "readiness_review_completed",
+      label: "Readiness review completed",
+      satisfied: true,
+      detail: "Readiness review evidence is present in this read-only chain.",
+    },
+    {
+      code: "readiness_review_ready",
+      label: "Readiness review ready",
+      satisfied: readinessReady,
+      detail: "Readiness review must be ready before the preflight contract can progress.",
+    },
+    {
+      code: "handoff_review_completed",
+      label: "Handoff review completed",
+      satisfied: true,
+      detail: "Handoff review evidence is available in this preflight chain.",
+    },
+    {
+      code: "handoff_review_ready",
+      label: "Handoff review ready",
+      satisfied: handoffReady,
+      detail: "Handoff review must be ready before the preflight contract can progress.",
+    },
+    {
+      code: "audit_package_completed",
+      label: "Audit package completed",
+      satisfied: true,
+      detail: "Audit package evidence is available in this preflight chain.",
+    },
+    {
+      code: "audit_package_ready",
+      label: "Audit package ready",
+      satisfied: auditPackageReady,
+      detail: "Audit package must be ready before the preflight contract can progress.",
+    },
+    {
+      code: "approval_package_completed",
+      label: "Approval package completed",
+      satisfied: true,
+      detail: "Approval package evidence is available in this preflight chain.",
+    },
+    {
+      code: "approval_package_ready",
+      label: "Approval package ready",
+      satisfied: approvalPackageReady,
+      detail: "Approval package must be ready before the preflight contract can progress.",
+    },
+    {
+      code: "resolved_route_is_broker_orders",
+      label: "Resolved route is /broker/orders",
+      satisfied: resolvedRouteIsBrokerOrders,
+      detail: "The future guarded submit path must remain /broker/orders only when all paper checks align.",
+    },
+    {
+      code: "broker_mode_paper",
+      label: "Broker mode paper",
+      satisfied: brokerModePaper,
+      detail: "The contract fails closed outside coherent paper mode.",
+    },
+    {
+      code: "live_locked",
+      label: "Live locked",
+      satisfied: liveLocked,
+      detail: "Live trading remains locked in this preflight contract layer.",
+    },
+    {
+      code: "workers_non_submitting",
+      label: "Workers non-submitting",
+      satisfied: workersNonSubmitting,
+      detail: "Workers gain no broker submit authority from this preflight contract.",
+    },
+    {
+      code: "no_submit_control_present",
+      label: "No submit control present",
+      satisfied: noSubmitControlPresent,
+      detail: "This preflight contract is visibility-only and does not render a submit button.",
+    },
+    {
+      code: "no_order_submitted",
+      label: "No order submitted",
+      satisfied: noOrderSubmitted,
+      detail: "No /broker/orders call is made from this panel and no order is submitted here.",
+    },
+    {
+      code: "submit_time_preflight_required",
+      label: "Submit-time preflight required",
+      satisfied: submitTimePreflightRequired,
+      detail: "Broker preflight advisory and decision services would rerun at actual guarded submit time.",
+    },
+    {
+      code: "submit_time_mode_recheck_required",
+      label: "Submit-time mode recheck required",
+      satisfied: submitTimeModeRecheckRequired,
+      detail: "Broker mode and live-lock guards would rerun at actual guarded submit time.",
+    },
+    {
+      code: "submit_time_risk_recheck_required",
+      label: "Submit-time risk recheck required",
+      satisfied: submitTimeRiskRecheckRequired,
+      detail: "Trading-control and risk-limit checks would rerun at actual guarded submit time.",
+    },
+    {
+      code: "submit_time_decision_persistence_required",
+      label: "Submit-time decision persistence required",
+      satisfied: submitTimeDecisionPersistenceRequired,
+      detail: "Submit-time decision logging would still be required before any future guarded manual submit completes.",
+    },
+    {
+      code: "submit_time_operator_confirmation_required",
+      label: "Submit-time operator confirmation required",
+      satisfied: submitTimeOperatorConfirmationRequired,
+      detail: "A future guarded manual paper submit would still require explicit operator confirmation outside this read-only surface.",
+    },
+  ];
+
+  const submitTimeRerunRequirements: ManualPaperSubmitPreflightRequirement[] = [
+    {
+      code: "broker_mode_recheck",
+      label: "broker_mode_recheck",
+      required: true,
+      detail: "broker_mode_guard would rerun and must still resolve to coherent paper mode at actual guarded submit time.",
+    },
+    {
+      code: "trading_control_recheck",
+      label: "trading_control_recheck",
+      required: true,
+      detail: "trading_control_service would rerun before any future guarded manual submit can proceed.",
+    },
+    {
+      code: "risk_limit_recheck",
+      label: "risk_limit_recheck",
+      required: true,
+      detail: "Risk-limit and exposure checks would rerun at the actual guarded submit boundary.",
+    },
+    {
+      code: "broker_preflight_rerun",
+      label: "broker_preflight_rerun",
+      required: true,
+      detail: "broker_preflight_advisory_service and broker_preflight_decision_service would rerun at actual guarded submit time.",
+    },
+    {
+      code: "dry_run_evidence_review",
+      label: "dry_run_evidence_review",
+      required: true,
+      detail: "The latest dry-run evidence would still require operator review before any future guarded submit.",
+    },
+    {
+      code: "payload_review",
+      label: "payload_review",
+      required: true,
+      detail: "The final broker payload would still be reviewed before any future guarded manual submit.",
+    },
+    {
+      code: "decision_persistence_required",
+      label: "decision_persistence_required",
+      required: true,
+      detail: "broker_submit_decision persistence would still be required before any future guarded manual submit completes.",
+    },
+    {
+      code: "live_lock_recheck",
+      label: "live_lock_recheck",
+      required: true,
+      detail: "Live lock would still be rechecked and remain locked before any future guarded manual submit.",
+    },
+    {
+      code: "source_label_recheck",
+      label: "source_label_recheck",
+      required: true,
+      detail: "Execution-source and canonical paper source labels would still be rechecked at the guarded submit boundary.",
+    },
+    {
+      code: "stale_data_recheck",
+      label: "stale_data_recheck",
+      required: true,
+      detail: "Stale-data and advisory warnings would still be rechecked at actual guarded submit time.",
+    },
+    {
+      code: "operator_confirmation_required",
+      label: "operator_confirmation_required",
+      required: true,
+      detail: "A human operator would still need to confirm the guarded manual paper submit outside this read-only contract.",
+    },
+  ];
+
+  const operatorConfirmations: ManualPaperSubmitPreflightRequirement[] = [
+    {
+      code: "confirm_payload_matches_recommendation",
+      label: "confirm_payload_matches_recommendation",
+      required: true,
+      detail: "An operator would still need to confirm that the future broker payload still matches the approved recommendation context.",
+    },
+    {
+      code: "confirm_live_remains_locked",
+      label: "confirm_live_remains_locked",
+      required: true,
+      detail: "An operator would still need to confirm that live trading remains locked before any future guarded manual paper submit.",
+    },
+    {
+      code: "confirm_workers_remain_non_submitting",
+      label: "confirm_workers_remain_non_submitting",
+      required: true,
+      detail: "An operator would still need to confirm that workers remain non-submitting at the future guarded submit boundary.",
+    },
+    {
+      code: "confirm_preflight_findings_accepted",
+      label: "confirm_preflight_findings_accepted",
+      required: true,
+      detail: "An operator would still need to confirm that any advisory preflight findings remain acceptable before any future guarded manual submit.",
+    },
+  ];
+
+  const hardBlocked =
+    !brokerModePaper ||
+    !resolvedRouteIsBrokerOrders ||
+    !liveLocked ||
+    !workersNonSubmitting ||
+    !noOrderSubmitted ||
+    (preview?.would_block ?? result.would_block) ||
+    result.live_trading_enabled ||
+    (preview?.live_trading_enabled ?? false);
+
+  let status: ManualPaperSubmitPreflightContractStatus = "unknown";
+  if (
+    result.route_check_status === "missing_context" ||
+    handoff.status === "missing_context" ||
+    auditPackage.status === "missing_context" ||
+    approvalPackage.status === "missing_context"
+  ) {
+    status = "missing_context";
+  } else if (
+    result.route_check_status === "blocked" ||
+    handoff.status === "blocked" ||
+    auditPackage.status === "blocked" ||
+    approvalPackage.status === "blocked" ||
+    hardBlocked
+  ) {
+    status = "blocked";
+  } else if (missingData.length > 0 || missingPayloadFields.length > 0) {
+    status = "missing_context";
+  } else if (
+    result.route_check_status === "unknown" ||
+    auditPackage.status === "unknown"
+  ) {
+    status = "preflight_not_available";
+  } else if (!dryRunCompleted || approvalPackage.status === "dry_run_required") {
+    status = "dry_run_required";
+  } else if (!readinessReady || approvalPackage.status === "readiness_required") {
+    status = "readiness_required";
+  } else if (!handoffReady || handoff.status === "handoff_required") {
+    status = "handoff_required";
+  } else if (!auditPackageReady || approvalPackage.status === "audit_package_required") {
+    status = "audit_package_required";
+  } else if (approvalPackage.status === "approval_not_available" || !approvalPackageReady) {
+    status = "approval_package_required";
+  } else if (futureManualSubmitRoute === "/broker/orders") {
+    status = "preflight_contract_ready_for_future_manual_step";
+  }
+
+  let title = "Guarded manual paper submit preflight contract is unknown";
+  let body = "Preflight contract only, no order submitted. Use this read-only contract to review the final pre-submit checklist that would still need to be satisfied before any future guarded manual paper submit through /broker/orders.";
+  let nextRequiredAction = "no_action_available";
+  let nextRequiredActionDetail = approvalPackage.nextRequiredActionDetail;
+
+  if (status === "missing_context") {
+    title = "Missing context before preflight contract review";
+    body = "Preflight contract only, no order submitted. Recommendation, dry-run, or payload context is still missing, so the final guarded pre-submit contract cannot be completed yet.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = missingData[0] ?? missingPayloadFields[0] ?? approvalPackage.nextRequiredActionDetail;
+  } else if (status === "blocked") {
+    title = "Blocked before preflight contract";
+    body = "Preflight contract only, no order submitted. Broker mode, live-lock, worker-submit, route, or preflight safety gates still block any future guarded manual paper submit preflight review.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail = blockedReasons[0] ?? approvalPackage.nextRequiredActionDetail;
+  } else if (status === "preflight_not_available") {
+    title = "Preflight contract not available";
+    body = "Preflight contract only, no order submitted. The current review chain does not yet expose a coherent pre-submit contract for future guarded manual paper submit review.";
+    nextRequiredAction = "no_action_available";
+    nextRequiredActionDetail = approvalPackage.nextRequiredActionDetail;
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before preflight contract";
+    body = "Preflight contract only, no order submitted. The route-check is eligible, but a guarded broker dry-run preview is still required before this final pre-submit contract can be reviewed.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail = "Run the guarded broker dry-run preview before relying on this preflight contract.";
+  } else if (status === "readiness_required") {
+    title = "Readiness review required before preflight contract";
+    body = "Preflight contract only, no order submitted. Dry-run evidence exists, but readiness review has not yet cleared this recommendation for future guarded manual paper submit review.";
+    nextRequiredAction = "complete_readiness_review";
+    nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+  } else if (status === "handoff_required") {
+    title = "Handoff review required before preflight contract";
+    body = "Preflight contract only, no order submitted. Handoff review evidence still needs operator attention before the final guarded pre-submit contract can proceed.";
+    nextRequiredAction = "complete_handoff_review";
+    nextRequiredActionDetail = handoff.nextRequiredActionDetail;
+  } else if (status === "audit_package_required") {
+    title = "Audit package required before preflight contract";
+    body = "Preflight contract only, no order submitted. The final pre-submit contract depends on the audit package being ready first.";
+    nextRequiredAction = "complete_audit_package";
+    nextRequiredActionDetail = auditPackage.nextRequiredActionDetail;
+  } else if (status === "approval_package_required") {
+    title = "Approval package required before preflight contract";
+    body = "Preflight contract only, no order submitted. The final pre-submit contract depends on the approval package being ready first.";
+    nextRequiredAction = "complete_approval_package";
+    nextRequiredActionDetail = approvalPackage.nextRequiredActionDetail;
+  } else if (status === "preflight_contract_ready_for_future_manual_step") {
+    title = "Preflight contract ready for future manual step";
+    body = "Preflight contract only, no order submitted. This final pre-submit checklist is ready for operator review before any future guarded manual paper submit step, which would still require guarded /broker/orders, submit-time preflight reruns, mode and risk rechecks, and decision logging.";
+    nextRequiredAction = "preflight_contract_ready_for_future_manual_step";
+    nextRequiredActionDetail = "Future manual paper submit would still require guarded /broker/orders, submit-time preflight would rerun, mode and risk checks would rerun, decision logging would be required, live trading remains locked, and workers cannot submit. No submit button is available here.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist,
+    submitTimeRerunRequirements,
+    operatorConfirmations,
+    finalPayloadReviewFields,
+    staleDataChecks,
+    sourceLabelRechecks,
+    decisionLoggingRequirements,
+    missingPayloadFields,
+    blockedReasons,
+    missingData,
+    warnings,
+    futureManualSubmitRoute,
+    brokerAccountMode: preview?.broker_account_mode ?? result.broker_account_mode,
+    liveState: preview?.live_state ?? result.live_state,
+    isCanonicalPaper: preview?.is_canonical_paper ?? result.is_canonical_paper,
+    workersAllowedToSubmit: preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit,
+    liveTradingEnabled: preview?.live_trading_enabled ?? result.live_trading_enabled,
+    submittedOrder: !noOrderSubmitted,
+    dryRunOnly: preview?.dry_run_only ?? false,
+    approvalOnly: true,
+    preflightContractOnly: true,
+    wouldBlock: preview?.would_block ?? result.would_block,
     nextRequiredAction,
     nextRequiredActionDetail,
   };
@@ -1533,6 +2089,9 @@ export function RecommendationRouteCheckPanel({
     : null;
   const approvalPackage = result && readiness && handoff && auditPackage
     ? deriveManualPaperSubmitApprovalPackage(result, preview, readiness, handoff, auditPackage)
+    : null;
+  const preflightContract = result && readiness && handoff && auditPackage && approvalPackage
+    ? deriveManualPaperSubmitPreflightContract(result, preview, readiness, handoff, auditPackage, approvalPackage)
     : null;
 
   return (
@@ -2555,6 +3114,253 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Approval package only, no order submitted. Future manual paper submit would still require guarded /broker/orders. No submit button is available here. Submit-time preflight would rerun. Submit-time decision logging would be required. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {preflightContract && approvalPackage && auditPackage && readiness && handoff ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-preflight-contract-${recommendationId}`}
+              aria-label={`Guarded manual paper submit preflight contract for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Preflight contract</p>
+                  <h5 className={styles.previewTitle}>Guarded manual paper submit preflight contract</h5>
+                  <p className={styles.subtitle}>
+                    Preflight contract only, no order submitted. Future manual paper submit would still require guarded /broker/orders, and no submit button is available here.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(preflightContract.status)}`}
+                  data-testid={`recommendation-submit-preflight-contract-status-${recommendationId}`}
+                >
+                  {formatPreflightContractStatus(preflightContract.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(preflightContract.status)}`}
+                data-testid={`recommendation-submit-preflight-contract-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{preflightContract.title}</p>
+                <p className={styles.summaryText}>{preflightContract.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Recommendation ID</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{result.recommendation_id}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Route-check result used</span>
+                  <span className={styles.value}>{formatStatus(result.route_check_status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Dry-run result used</span>
+                  <span className={styles.value}>{preview ? formatStatus(preview.dry_run_status) : "not run"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Readiness result used</span>
+                  <span className={styles.value}>{formatReadinessStatus(readiness.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Handoff result used</span>
+                  <span className={styles.value}>{formatHandoffStatus(handoff.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Audit package result used</span>
+                  <span className={styles.value}>{formatAuditPackageStatus(auditPackage.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Approval package result used</span>
+                  <span className={styles.value}>{formatApprovalPackageStatus(approvalPackage.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future manual submit route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(preflightContract.futureManualSubmitRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Broker account mode</span>
+                  <span className={styles.value}>{preflightContract.brokerAccountMode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live state</span>
+                  <span className={styles.value}>{preflightContract.liveState}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Would block</span>
+                  <span className={styles.value}>{preflightContract.wouldBlock ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Submitted order</span>
+                  <span className={styles.value}>{preflightContract.submittedOrder ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Workers allowed to submit</span>
+                  <span className={styles.value}>{preflightContract.workersAllowedToSubmit ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live trading enabled</span>
+                  <span className={styles.value}>{preflightContract.liveTradingEnabled ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Is canonical paper</span>
+                  <span className={styles.value}>{preflightContract.isCanonicalPaper ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Dry-run only</span>
+                  <span className={styles.value}>{preflightContract.dryRunOnly ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Approval only</span>
+                  <span className={styles.value}>{preflightContract.approvalOnly ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Preflight contract only</span>
+                  <span className={styles.value}>{preflightContract.preflightContractOnly ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Next required action</span>
+                  <span className={styles.value}>{formatStatus(preflightContract.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Preflight contract checklist</h5>
+                <ul className={styles.list}>
+                  {preflightContract.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Submit-time rerun requirements</h5>
+                <ul className={styles.list}>
+                  {preflightContract.submitTimeRerunRequirements.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.required ? "required later" : "not required"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Operator confirmations required later</h5>
+                <ul className={styles.list}>
+                  {preflightContract.operatorConfirmations.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.required ? "required later" : "not required"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Final payload review</h5>
+                <ul className={styles.list}>
+                  {preflightContract.finalPayloadReviewFields.map((field) => (
+                    <li key={field.code}>
+                      {field.label}: {field.required ? "required" : "optional"} · {field.satisfied ? "ready" : "missing"} · {field.value}. {field.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Source label rechecks</h5>
+                <ul className={styles.list}>
+                  {preflightContract.sourceLabelRechecks.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Stale-data checks</h5>
+                {preflightContract.staleDataChecks.length === 0 ? (
+                  <p className={styles.emptyText}>No stale-data checks are currently surfaced by the preflight contract.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {preflightContract.staleDataChecks.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Decision logging requirements</h5>
+                <ul className={styles.list}>
+                  {preflightContract.decisionLoggingRequirements.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing payload fields</h5>
+                {preflightContract.missingPayloadFields.length === 0 ? (
+                  <p className={styles.emptyText}>No required payload fields are currently missing in this preflight contract.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {preflightContract.missingPayloadFields.map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {preflightContract.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current preflight contract.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {preflightContract.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {preflightContract.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current preflight contract.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {preflightContract.missingData.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {preflightContract.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current preflight contract.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {preflightContract.warnings.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{preflightContract.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Preflight contract only, no order submitted. Future manual paper submit would still require guarded /broker/orders. Submit-time preflight would rerun. Submit-time mode and risk checks would rerun. Submit-time decision logging would be required. No submit button is available here. Live trading remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}
