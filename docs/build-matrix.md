@@ -197,7 +197,7 @@ Operator review surface delta — 2026-05-23:
 | MH-161          | `BrokerService` split (refactor)               | ✅ Complete | Bucket 1 green        | No behaviour change |
 | MH-162          | Post-lock simulation regression suite          | ✅ Complete | MH-161                | Test-only |
 | MH-MON-09       | Backend test-service POST endpoint hardening   | ✅ Complete | MH-MON-10             | Auth + rate-limit |
-| MH-COCKPIT-07   | In-flight adjustments view                     | ✅ Complete | MH-COCKPIT-05         | Paper scope; recommendation route-check, guarded broker dry-run preview, and manual paper submit readiness review remain read-only |
+| MH-COCKPIT-07   | In-flight adjustments view                     | ✅ Complete | MH-COCKPIT-05         | Paper scope; recommendation route-check, guarded broker dry-run preview, manual paper submit readiness review, and manual paper submit handoff review remain read-only |
 | MH-COCKPIT-08   | Trade-close explanations                       | ✅ Complete | MH-150                | Audit-driven |
 | MH-COCKPIT-09   | Daily scoreboard                               | ✅ Complete | MH-157                | Read-only |
 | MH-COCKPIT-10   | Alerts needing attention                       | ✅ Complete | MH-MON-05             | Surfacing only |

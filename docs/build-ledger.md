@@ -14006,3 +14006,82 @@ still 100% green.
 
 -> If a future phase needs a true operator handoff from readiness review into manual paper submit, keep the readiness surface read-only and require any actual submission to go through the existing guarded `/broker/orders` path with no worker expansion and no live unlock.
 
+## Manual Paper Submit Handoff Review
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Add the narrowest safe operator-facing handoff review layer on top of the existing recommendation route-check, guarded broker dry-run preview, and readiness review. This phase remains review-only, non-submitting, adds no submit button, adds no `/broker/orders` call from the in-flight surface, keeps workers non-submitting, and leaves live locked.
+
+### UI Surface Changed
+
+- `/cockpit/in-flight-adjustments` now renders a read-only `Manual paper submit handoff review` section inside `RecommendationRouteCheckPanel` after the readiness review.
+- The handoff section answers whether route-check is eligible, whether guarded dry-run preview passed, whether readiness is ready, what future guarded broker route would be used later, what future payload fields would be required later, what is still missing, what safety gates still run at submit time, what is blocked today, whether live is still locked, whether workers remain non-submitting, and whether any order has been submitted.
+- The panel stays review-only and explicitly states that no submit button is available here and no order has been submitted.
+
+### API Helper / Component Added
+
+- No new backend API helper was required.
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` now derives a frontend-only handoff review helper from the existing route-check, guarded dry-run preview, and readiness evidence.
+- `apps/web/tests/in-flight-adjustments.spec.ts` now covers handoff states for `dry_run_required`, `readiness_required`, `blocked`, `missing_context`, and `handoff_ready_for_future_manual_step`.
+
+### Backend Changed Or Not
+
+- No backend production code changed in this phase.
+- No read-only handoff endpoint was added because the existing route-check and guarded broker dry-run preview already exposed the needed evidence.
+- No call to `BrokerService.submit_order` was added.
+- No call to `/broker/orders` was added from the frontend in this phase.
+
+### Handoff Statuses Implemented
+
+- `handoff_ready_for_future_manual_step`
+- `blocked`
+- `missing_context`
+- `dry_run_required`
+- `readiness_required`
+- `unknown`
+
+### Safety Confirmation
+
+- Handoff review is non-submitting.
+- No submit button was added.
+- No `/broker/orders` call was added from this UI block.
+- No submit controls were added.
+- No order was submitted.
+- Workers remain non-submitting.
+- Live remains locked.
+- Actual future submit still uses the existing guarded `/broker/orders` path.
+- This is operator review visibility, not automation.
+
+### Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+- `docs/build-ledger.md`
+
+### Validation
+
+- Focused Playwright: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts --reporter=line` -> `11 passed`
+- Frontend lint: `cd apps/web && npm run lint` -> passed
+- Frontend build: `cd apps/web && npm run build` -> passed
+- Targeted browser regression slice: `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'recommendation|route-check|dry-run|readiness|handoff|IBKR paper|broker dry-run|manual paper|in-flight' --reporter=line` -> `4 passed`
+- TSX colour gates:
+  - `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+  - `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+  - no matches
+- Full backend pytest: `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2405 passed`
+- Learning validation: `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh` -> `99 passed`
+
+### Known Limitations
+
+- Handoff review is derived in the frontend from existing read-only evidence; it does not create a new server-side handoff contract.
+- Even when handoff review is green, no order is submitted and no submit control is rendered.
+- STOP and STOP_LIMIT future handoff remains blocked by missing persisted `stop_price` context.
+- Future manual handoff still requires a separate guarded operator action on `/broker/orders` in a later phase.
+
+### Next Recommended Phase
+
+-> If a future phase needs a true operator handoff from this review surface into actual guarded manual paper submit, keep the cockpit surface read-only and route any real submission only through the existing guarded `/broker/orders` path with no worker expansion and no live unlock.
+

@@ -12,16 +12,44 @@ import {
 import styles from "./RecommendationRouteCheckPanel.module.css";
 
 function statusClassName(status: string): string {
-  if (status === "eligible" || status === "ready") return styles.statusEligible;
+  if (
+    status === "eligible" ||
+    status === "ready" ||
+    status === "ready_for_future_manual_paper_submit" ||
+    status === "handoff_ready_for_future_manual_step"
+  ) {
+    return styles.statusEligible;
+  }
   if (status === "blocked") return styles.statusBlocked;
-  if (status === "missing_context" || status === "invalid") return styles.statusMissing;
+  if (
+    status === "missing_context" ||
+    status === "invalid" ||
+    status === "dry_run_required" ||
+    status === "readiness_required"
+  ) {
+    return styles.statusMissing;
+  }
   return styles.statusUnknown;
 }
 
 function summaryClassName(status: string): string {
-  if (status === "eligible" || status === "ready") return styles.summaryEligible;
+  if (
+    status === "eligible" ||
+    status === "ready" ||
+    status === "ready_for_future_manual_paper_submit" ||
+    status === "handoff_ready_for_future_manual_step"
+  ) {
+    return styles.summaryEligible;
+  }
   if (status === "blocked") return styles.summaryBlocked;
-  if (status === "missing_context" || status === "invalid") return styles.summaryMissing;
+  if (
+    status === "missing_context" ||
+    status === "invalid" ||
+    status === "dry_run_required" ||
+    status === "readiness_required"
+  ) {
+    return styles.summaryMissing;
+  }
   return styles.summaryUnknown;
 }
 
@@ -65,6 +93,44 @@ type ManualPaperSubmitReadiness = {
   nextRequiredActionDetail: string;
 };
 
+type ManualPaperSubmitHandoffStatus =
+  | "handoff_ready_for_future_manual_step"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "readiness_required"
+  | "unknown";
+
+type ManualPaperSubmitHandoffReason = {
+  code: string;
+  label: string;
+  satisfied: boolean;
+};
+
+type ManualPaperSubmitHandoffPayloadField = {
+  code: string;
+  label: string;
+  required: boolean;
+  satisfied: boolean;
+  value: string;
+  detail: string;
+};
+
+type ManualPaperSubmitHandoffReview = {
+  status: ManualPaperSubmitHandoffStatus;
+  title: string;
+  body: string;
+  reasons: ManualPaperSubmitHandoffReason[];
+  requiredFuturePayloadFields: ManualPaperSubmitHandoffPayloadField[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  safetyGates: string[];
+  futureManualSubmitRoute: string | null;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -76,6 +142,17 @@ function formatReadinessStatus(status: ManualPaperSubmitReadinessStatus): string
   if (status === "ready_for_future_manual_paper_submit") return "ready for future manual paper submit";
   if (status === "dry_run_required") return "dry-run required";
   return formatStatus(status);
+}
+
+function formatHandoffStatus(status: ManualPaperSubmitHandoffStatus): string {
+  if (status === "handoff_ready_for_future_manual_step") return "ready for future manual handoff";
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "readiness_required") return "readiness review required";
+  return formatStatus(status);
+}
+
+function formatRequiredFutureRoute(route: string | null): string {
+  return route ?? "not available";
 }
 
 function uniqueMessages(values: Array<string | null | undefined>): string[] {
@@ -223,6 +300,262 @@ function deriveManualPaperSubmitReadiness(
   };
 }
 
+function deriveManualPaperSubmitHandoffReview(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+): ManualPaperSubmitHandoffReview {
+  const preflightStatus = preview?.preflight_decision?.decision_status ?? null;
+  const routeCheckEligible = result.route_check_status === "eligible";
+  const dryRunExecuted = preview?.dry_run_executed === true;
+  const dryRunPreviewNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.dry_run_status === "ready" &&
+    preview.would_block === false;
+  const readinessReviewReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const resolvedRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const liveLocked =
+    result.live_state === "ibkr_live_locked" &&
+    result.live_trading_enabled === false &&
+    (preview?.live_trading_enabled ?? false) === false;
+  const workersNonSubmitting =
+    result.workers_allowed_to_submit === false &&
+    (preview?.workers_allowed_to_submit ?? false) === false;
+  const noSubmitControlPresent = true;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...readiness.blockedReasons,
+    ...(preview?.preflight_decision?.blocking_items.map((item) => item.message) ?? []),
+    ...(preview?.preflight_decision?.would_block_items.map((item) => item.message) ?? []),
+  ]);
+  const missingData = uniqueMessages([...result.missing_data, ...(preview?.missing_data ?? []), ...readiness.missingData]);
+  const warnings = uniqueMessages(preview?.warnings.map((warning) => warning.message) ?? []);
+
+  const reasons: ManualPaperSubmitHandoffReason[] = [
+    { code: "route_check_eligible", label: "Route-check eligible", satisfied: routeCheckEligible },
+    {
+      code: "dry_run_preview_non_blocking",
+      label: "Guarded dry-run preview is non-blocking",
+      satisfied: dryRunPreviewNonBlocking,
+    },
+    {
+      code: "readiness_review_ready",
+      label: "Readiness review is ready",
+      satisfied: readinessReviewReady,
+    },
+    {
+      code: "resolved_route_is_broker_orders",
+      label: "Resolved route is /broker/orders",
+      satisfied: resolvedRouteIsBrokerOrders,
+    },
+    { code: "broker_mode_paper", label: "Broker mode remains paper", satisfied: brokerModePaper },
+    { code: "live_locked", label: "Live remains locked", satisfied: liveLocked },
+    {
+      code: "workers_non_submitting",
+      label: "Workers remain non-submitting",
+      satisfied: workersNonSubmitting,
+    },
+    {
+      code: "no_submit_control_present",
+      label: "No submit control is present",
+      satisfied: noSubmitControlPresent,
+    },
+    { code: "no_order_submitted", label: "No order submitted", satisfied: noOrderSubmitted },
+  ];
+
+  const orderType = (result.order_type ?? preview?.order_type ?? "").toUpperCase();
+  const limitPriceRequired = orderType === "LIMIT" || orderType === "STOP_LIMIT";
+  const stopPriceRequired = orderType === "STOP" || orderType === "STOP_LIMIT";
+  const futureManualSubmitRoute =
+    routeCheckEligible &&
+    dryRunPreviewNonBlocking &&
+    readinessReviewReady &&
+    resolvedRouteIsBrokerOrders &&
+    brokerModePaper &&
+    liveLocked &&
+    workersNonSubmitting &&
+    noOrderSubmitted
+      ? "/broker/orders"
+      : null;
+
+  const requiredFuturePayloadFields: ManualPaperSubmitHandoffPayloadField[] = [
+    {
+      code: "symbol",
+      label: "symbol",
+      required: true,
+      satisfied: Boolean(result.ticker),
+      value: result.ticker ?? "missing",
+      detail: "Future manual submit still needs the recommendation symbol.",
+    },
+    {
+      code: "side",
+      label: "side",
+      required: true,
+      satisfied: Boolean(result.side),
+      value: result.side ?? "missing",
+      detail: "Future manual submit still needs BUY or SELL.",
+    },
+    {
+      code: "quantity",
+      label: "quantity",
+      required: true,
+      satisfied: result.quantity !== null && result.quantity > 0,
+      value: result.quantity !== null ? String(result.quantity) : "missing",
+      detail: "The guarded /broker/orders request currently requires quantity rather than notional.",
+    },
+    {
+      code: "order_type",
+      label: "order_type",
+      required: true,
+      satisfied: Boolean(result.order_type),
+      value: result.order_type ?? "missing",
+      detail: "The future handoff stays tied to the persisted recommendation order type.",
+    },
+    {
+      code: "limit_price",
+      label: "limit_price",
+      required: limitPriceRequired,
+      satisfied: !limitPriceRequired || result.limit_price !== null,
+      value: result.limit_price !== null ? String(result.limit_price) : "missing",
+      detail: limitPriceRequired
+        ? "Required later for LIMIT and STOP_LIMIT orders."
+        : "Not required for the current order type.",
+    },
+    {
+      code: "stop_price",
+      label: "stop_price",
+      required: stopPriceRequired,
+      satisfied: !stopPriceRequired,
+      value: stopPriceRequired ? "missing" : "not required",
+      detail: stopPriceRequired
+        ? "STOP and STOP_LIMIT handoff stays blocked because stop_price is not persisted on recommendations today."
+        : "Not required for the current order type.",
+    },
+    {
+      code: "time_in_force",
+      label: "time_in_force",
+      required: false,
+      satisfied: true,
+      value: "DAY default available later",
+      detail: "The guarded broker order request defaults time-in-force to DAY unless an operator overrides it later.",
+    },
+    {
+      code: "recommendation_correlation",
+      label: "recommendation_id / client_order_id",
+      required: false,
+      satisfied: Boolean(result.recommendation_id),
+      value: result.recommendation_id,
+      detail: "Recommendation context is already available for future audit correlation, while client_order_id remains optional.",
+    },
+    {
+      code: "risk_preflight_context",
+      label: "risk / preflight context",
+      required: false,
+      satisfied: preview !== null,
+      value: preview ? (preflightStatus ?? "evaluated") : "not evaluated yet",
+      detail: preview
+        ? "Dry-run preflight evidence exists, but broker preflight still reruns at actual guarded submit time."
+        : "Guarded dry-run preview has not yet produced preflight context for future submit handoff.",
+    },
+  ];
+
+  const hardSafetyBlocked =
+    !brokerModePaper ||
+    !resolvedRouteIsBrokerOrders ||
+    !liveLocked ||
+    !workersNonSubmitting ||
+    !noOrderSubmitted ||
+    preview?.would_block === true;
+
+  let status: ManualPaperSubmitHandoffStatus = "unknown";
+  if (result.route_check_status === "missing_context" || readiness.status === "missing_context") {
+    status = "missing_context";
+  } else if (result.route_check_status === "blocked") {
+    status = "blocked";
+  } else if (!routeCheckEligible) {
+    status = "unknown";
+  } else if (!dryRunExecuted) {
+    status = "dry_run_required";
+  } else if (missingData.length > 0) {
+    status = "missing_context";
+  } else if (
+    dryRunPreviewNonBlocking &&
+    !hardSafetyBlocked &&
+    !readinessReviewReady
+  ) {
+    status = "readiness_required";
+  } else if (hardSafetyBlocked || readiness.status === "blocked") {
+    status = "blocked";
+  } else if (futureManualSubmitRoute === "/broker/orders") {
+    status = "handoff_ready_for_future_manual_step";
+  }
+
+  let title = "Manual paper submit handoff is unknown";
+  let body = "Handoff review only, no order submitted. Review the current route-check, dry-run, and readiness evidence before considering any future guarded manual submit path.";
+  let nextRequiredAction = "no_action_available";
+  let nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+
+  if (status === "missing_context") {
+    title = "Missing context before handoff";
+    body = "Handoff review only, no order submitted. Missing recommendation or payload context still blocks any future manual IBKR paper submit handoff.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = missingData[0] ?? readiness.nextRequiredActionDetail;
+  } else if (status === "blocked") {
+    title = "Blocked before handoff";
+    body = "Handoff review only, no order submitted. One or more current route, dry-run, paper-mode, or safety gates still block future manual paper submit handoff.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail = blockedReasons[0] ?? readiness.nextRequiredActionDetail;
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required first";
+    body = "Handoff review only, no order submitted. Run the guarded broker dry-run preview before reviewing a future manual paper submit handoff.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail = "Run the guarded broker dry-run preview before future manual paper handoff review can proceed.";
+  } else if (status === "readiness_required") {
+    title = "Readiness review required";
+    body = "Handoff review only, no order submitted. Guarded dry-run evidence exists, but the readiness review has not yet cleared this recommendation for future manual paper handoff.";
+    nextRequiredAction = "complete_readiness_review";
+    nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+  } else if (status === "handoff_ready_for_future_manual_step") {
+    title = "Ready for future manual handoff";
+    body = "Handoff review only, no order submitted. Future manual paper submit would still use guarded /broker/orders after operator review, with broker mode guard and preflight checks rerun at submit time.";
+    nextRequiredAction = "future_manual_submit_handoff_available_after_review";
+    nextRequiredActionDetail = "Future manual paper submit would still use guarded /broker/orders after operator review. No submit button is available here. Live trading remains locked and workers cannot submit.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    reasons,
+    requiredFuturePayloadFields,
+    blockedReasons,
+    missingData,
+    warnings,
+    safetyGates: [
+      "Broker mode guard and trading_control_service still run at submit time.",
+      "Broker order request validation still runs on the guarded /broker/orders path.",
+      "Broker preflight advisory and decision checks still rerun before any future manual submit.",
+      "Live trading remains locked even if a client attempts to bypass this review surface.",
+      "Workers remain non-submitting and gain no submit authority from this handoff review.",
+    ],
+    futureManualSubmitRoute,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -343,6 +676,7 @@ export function RecommendationRouteCheckPanel({
     ? [...preview.preflight_decision.blocking_items, ...preview.preflight_decision.would_block_items]
     : [];
   const readiness = result ? deriveManualPaperSubmitReadiness(result, preview) : null;
+  const handoff = result && readiness ? deriveManualPaperSubmitHandoffReview(result, preview, readiness) : null;
 
   return (
     <section
@@ -807,6 +1141,144 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 No order submitted. No submit button was added here. Future manual paper submit would still use guarded /broker/orders. Live trading remains locked. Workers cannot submit.
+              </p>
+            </section>
+          ) : null}
+
+          {handoff ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-handoff-${recommendationId}`}
+              aria-label={`Manual paper submit handoff review for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Handoff review</p>
+                  <h5 className={styles.previewTitle}>Manual paper submit handoff review</h5>
+                  <p className={styles.subtitle}>
+                    Handoff review only, no order submitted. Future manual paper submit would still use guarded /broker/orders and no submit button is available here.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(handoff.status)}`}
+                  data-testid={`recommendation-submit-handoff-status-${recommendationId}`}
+                >
+                  {formatHandoffStatus(handoff.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(handoff.status)}`}
+                data-testid={`recommendation-submit-handoff-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{handoff.title}</p>
+                <p className={styles.summaryText}>{handoff.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Next required action</span>
+                  <span className={styles.value}>{formatStatus(handoff.nextRequiredAction)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future manual submit route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(handoff.futureManualSubmitRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Broker account mode</span>
+                  <span className={styles.value}>{preview?.broker_account_mode ?? result.broker_account_mode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live state</span>
+                  <span className={styles.value}>{preview?.live_state ?? result.live_state}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Workers allowed to submit</span>
+                  <span className={styles.value}>{preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>No order submitted</span>
+                  <span className={styles.value}>{result.is_submit === false && (preview?.is_submit ?? false) === false ? "yes" : "no"}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Handoff reasons</h5>
+                <ul className={styles.list}>
+                  {handoff.reasons.map((reason) => (
+                    <li key={reason.code}>
+                      {reason.label}: {reason.satisfied ? "yes" : "no"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Required future payload fields</h5>
+                <ul className={styles.list}>
+                  {handoff.requiredFuturePayloadFields.map((field) => (
+                    <li key={field.code}>
+                      {field.label}: {field.required ? "required" : "optional"} · {field.satisfied ? "ready" : "missing"} · {field.value}. {field.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Safety gates that still run at submit time</h5>
+                <ul className={styles.list}>
+                  {handoff.safetyGates.map((gate) => (
+                    <li key={gate}>{gate}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {handoff.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current handoff review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {handoff.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {handoff.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current handoff review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {handoff.missingData.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {handoff.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current handoff review.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {handoff.warnings.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{handoff.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Handoff review only, no order submitted. No submit button is available here, no /broker/orders call was made from this surface, live trading remains locked, and workers cannot submit.
               </p>
             </section>
           ) : null}
