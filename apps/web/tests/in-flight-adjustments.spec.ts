@@ -387,6 +387,21 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
   await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /no order submitted: yes/i,
   );
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-1")).toContainText(
+    /dry-run required first/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-summary-recommendation-1")).toContainText(
+    /approval package only, no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /future manual approval requirements/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /not available/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /no order submitted: yes/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
@@ -455,6 +470,27 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
   );
   await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /no order submitted: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-1")).toContainText(
+    /approval package ready for future manual review/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-summary-recommendation-1")).toContainText(
+    /approval-style package is ready for operator review/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /future manual submit route/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /\/broker\/orders/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /submit-time preflight required: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /submit-time decision persistence required: yes/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /operator_manual_review_required: required later/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
 });
@@ -567,6 +603,12 @@ test("In-Flight Adjustments recommendation handoff review shows readiness requir
   );
   await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /not available/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-1")).toContainText(
+    /readiness review required/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-summary-recommendation-1")).toContainText(
+    /approval package only, no order submitted/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
 });
@@ -684,6 +726,15 @@ test("In-Flight Adjustments recommendation audit package shows handoff required 
   );
   await expect(page.getByTestId("recommendation-submit-audit-package-recommendation-1")).toContainText(
     /not available/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-1")).toContainText(
+    /audit package required first/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /audit_package_reference/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-recommendation-1")).toContainText(
+    /submit-time decision logging would still be required/i,
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
 });
@@ -831,6 +882,7 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-live-blocked")).toContainText(/blocked/i);
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByRole("link", { name: /open guarded broker dry-run/i })).toHaveCount(0);
 
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
@@ -843,6 +895,9 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
     /missing context/i,
   );
   await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-missing-context")).toContainText(
+    /missing context/i,
+  );
+  await expect(page.getByTestId("recommendation-submit-approval-package-status-recommendation-missing-context")).toContainText(
     /missing context/i,
   );
   expect(dryRunPreviewCalls).toBe(0);

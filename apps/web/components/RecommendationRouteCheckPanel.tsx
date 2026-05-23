@@ -15,6 +15,7 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "approval_package_ready_for_future_manual_review" ||
     status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
@@ -26,6 +27,7 @@ function statusClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "audit_package_required" ||
     status === "handoff_required" ||
     status === "readiness_required"
   ) {
@@ -38,6 +40,7 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "approval_package_ready_for_future_manual_review" ||
     status === "package_ready_for_future_manual_review" ||
     status === "ready_for_future_manual_paper_submit" ||
     status === "handoff_ready_for_future_manual_step"
@@ -49,6 +52,7 @@ function summaryClassName(status: string): string {
     status === "missing_context" ||
     status === "invalid" ||
     status === "dry_run_required" ||
+    status === "audit_package_required" ||
     status === "handoff_required" ||
     status === "readiness_required"
   ) {
@@ -183,6 +187,42 @@ type ManualPaperSubmitAuditPackage = {
   nextRequiredActionDetail: string;
 };
 
+type ManualPaperSubmitApprovalPackageStatus =
+  | "approval_package_ready_for_future_manual_review"
+  | "blocked"
+  | "missing_context"
+  | "dry_run_required"
+  | "readiness_required"
+  | "handoff_required"
+  | "audit_package_required"
+  | "approval_not_available"
+  | "unknown";
+
+type ManualPaperSubmitApprovalRequirement = {
+  code: string;
+  label: string;
+  required: boolean;
+  detail: string;
+};
+
+type ManualPaperSubmitApprovalPackage = {
+  status: ManualPaperSubmitApprovalPackageStatus;
+  title: string;
+  body: string;
+  evidenceChecklist: ManualPaperSubmitAuditChecklistItem[];
+  futureManualApprovalRequirements: ManualPaperSubmitApprovalRequirement[];
+  auditReferences: ManualPaperSubmitAuditReference[];
+  futurePayloadPreviewFields: ManualPaperSubmitHandoffPayloadField[];
+  missingPayloadFields: string[];
+  safetyReruns: string[];
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
+  futureManualSubmitRoute: string | null;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
 function readinessStatusClassName(status: ManualPaperSubmitReadinessStatus): string {
   if (status === "ready_for_future_manual_paper_submit") return styles.statusEligible;
   if (status === "blocked") return styles.statusBlocked;
@@ -209,6 +249,18 @@ function formatAuditPackageStatus(status: ManualPaperSubmitAuditPackageStatus): 
   if (status === "dry_run_required") return "dry-run required first";
   if (status === "readiness_required") return "readiness review required";
   if (status === "handoff_required") return "handoff review required";
+  return formatStatus(status);
+}
+
+function formatApprovalPackageStatus(status: ManualPaperSubmitApprovalPackageStatus): string {
+  if (status === "approval_package_ready_for_future_manual_review") {
+    return "approval package ready for future manual review";
+  }
+  if (status === "dry_run_required") return "dry-run required first";
+  if (status === "readiness_required") return "readiness review required";
+  if (status === "handoff_required") return "handoff review required";
+  if (status === "audit_package_required") return "audit package required first";
+  if (status === "approval_not_available") return "approval not available";
   return formatStatus(status);
 }
 
@@ -974,6 +1026,387 @@ function deriveManualPaperSubmitAuditPackage(
   };
 }
 
+function deriveManualPaperSubmitApprovalPackage(
+  result: PaperRecommendationRouteCheck,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  readiness: ManualPaperSubmitReadiness,
+  handoff: ManualPaperSubmitHandoffReview,
+  auditPackage: ManualPaperSubmitAuditPackage,
+): ManualPaperSubmitApprovalPackage {
+  const routeCheckEligible = result.route_check_status === "eligible";
+  const dryRunCompleted = preview !== null && preview.dry_run_executed;
+  const preflightStatus = preview?.preflight_decision?.decision_status ?? "not evaluated";
+  const dryRunNonBlocking =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_only &&
+    preview.dry_run_status === "ready" &&
+    preview.would_block === false &&
+    ["allowed", "advisory"].includes(String(preflightStatus).toLowerCase());
+  const readinessReviewReady = readiness.status === "ready_for_future_manual_paper_submit";
+  const handoffReviewReady = handoff.status === "handoff_ready_for_future_manual_step";
+  const auditPackageReady = auditPackage.status === "package_ready_for_future_manual_review";
+  const resolvedRouteIsBrokerOrders =
+    result.resolved_route === "/broker/orders" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.resolved_route ?? "/broker/orders") === "/broker/orders" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModePaper =
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const liveLocked =
+    result.live_state === "ibkr_live_locked" &&
+    result.live_trading_enabled === false &&
+    (preview?.live_trading_enabled ?? false) === false;
+  const workersNonSubmitting =
+    result.workers_allowed_to_submit === false &&
+    (preview?.workers_allowed_to_submit ?? false) === false;
+  const noSubmitControlPresent = true;
+  const noOrderSubmitted = result.is_submit === false && (preview?.is_submit ?? false) === false;
+  const futureSubmitRequiresManualApproval = true;
+  const submitTimePreflightRequired = true;
+  const submitTimeDecisionPersistenceRequired = true;
+  const blockedReasons = uniqueMessages([
+    result.blocked_reason,
+    preview?.blocked_reason,
+    ...readiness.blockedReasons,
+    ...handoff.blockedReasons,
+    ...auditPackage.blockedReasons,
+    ...(preview?.preflight_decision?.blocking_items.map((item) => item.message) ?? []),
+    ...(preview?.preflight_decision?.would_block_items.map((item) => item.message) ?? []),
+  ]);
+  const missingData = uniqueMessages([
+    ...result.missing_data,
+    ...(preview?.missing_data ?? []),
+    ...readiness.missingData,
+    ...handoff.missingData,
+    ...auditPackage.missingData,
+  ]);
+  const warnings = uniqueMessages([
+    ...readiness.warnings,
+    ...handoff.warnings,
+    ...auditPackage.warnings,
+    ...(preview?.warnings.map((warning) => warning.message) ?? []),
+  ]);
+  const missingPayloadFields = [...auditPackage.missingPayloadFields];
+  const futureManualSubmitRoute =
+    auditPackageReady && missingPayloadFields.length === 0 ? "/broker/orders" : null;
+
+  const evidenceChecklist: ManualPaperSubmitAuditChecklistItem[] = [
+    {
+      code: "recommendation_loaded",
+      label: "Recommendation loaded",
+      satisfied: true,
+      detail: `Recommendation ${result.recommendation_id} is loaded into this approval package review.`,
+    },
+    {
+      code: "route_check_completed",
+      label: "Route-check completed",
+      satisfied: true,
+      detail: "The current route-check result is present in this approval package.",
+    },
+    {
+      code: "route_check_eligible",
+      label: "Route-check eligible",
+      satisfied: routeCheckEligible,
+      detail: "Future guarded manual submit still depends on a route-check eligible recommendation.",
+    },
+    {
+      code: "dry_run_preview_completed",
+      label: "Dry-run preview completed",
+      satisfied: dryRunCompleted,
+      detail: "The approval package expects guarded broker dry-run evidence before future manual review.",
+    },
+    {
+      code: "dry_run_non_blocking",
+      label: "Dry-run non-blocking",
+      satisfied: dryRunNonBlocking,
+      detail: "Would-block and blocking preflight findings must remain clear.",
+    },
+    {
+      code: "readiness_review_completed",
+      label: "Readiness review completed",
+      satisfied: true,
+      detail: "The readiness review is available in this review-only chain.",
+    },
+    {
+      code: "readiness_review_ready",
+      label: "Readiness review ready",
+      satisfied: readinessReviewReady,
+      detail: "Future manual review requires readiness review to be green.",
+    },
+    {
+      code: "handoff_review_completed",
+      label: "Handoff review completed",
+      satisfied: true,
+      detail: "Handoff review evidence is present and remains non-submitting.",
+    },
+    {
+      code: "handoff_review_ready",
+      label: "Handoff review ready",
+      satisfied: handoffReviewReady,
+      detail: "The approval package expects handoff review to be ready before final approval-style review is possible.",
+    },
+    {
+      code: "audit_package_completed",
+      label: "Audit package completed",
+      satisfied: true,
+      detail: "Audit package evidence is available in this review chain.",
+    },
+    {
+      code: "audit_package_ready",
+      label: "Audit package ready",
+      satisfied: auditPackageReady,
+      detail: "The current audit package must be ready before this approval package can become ready.",
+    },
+    {
+      code: "resolved_route_is_broker_orders",
+      label: "Resolved route is /broker/orders",
+      satisfied: resolvedRouteIsBrokerOrders,
+      detail: "The future guarded submit path remains /broker/orders only when all paper checks align.",
+    },
+    {
+      code: "broker_mode_paper",
+      label: "Broker mode paper",
+      satisfied: brokerModePaper,
+      detail: "The approval package fails closed outside coherent paper mode.",
+    },
+    {
+      code: "live_locked",
+      label: "Live locked",
+      satisfied: liveLocked,
+      detail: "Live trading remains locked in this approval package layer.",
+    },
+    {
+      code: "workers_non_submitting",
+      label: "Workers non-submitting",
+      satisfied: workersNonSubmitting,
+      detail: "Workers gain no submit authority from this approval package.",
+    },
+    {
+      code: "no_submit_control_present",
+      label: "No submit control present",
+      satisfied: noSubmitControlPresent,
+      detail: "This approval package is visibility-only and does not render a submit button.",
+    },
+    {
+      code: "no_order_submitted",
+      label: "No order submitted",
+      satisfied: noOrderSubmitted,
+      detail: "No /broker/orders call is made from this panel and no order is submitted here.",
+    },
+    {
+      code: "future_submit_requires_manual_approval",
+      label: "Future submit requires manual approval",
+      satisfied: futureSubmitRequiresManualApproval,
+      detail: "Any future guarded manual paper submit would still require an explicit operator step outside this surface.",
+    },
+    {
+      code: "submit_time_preflight_required",
+      label: "Submit-time preflight required",
+      satisfied: submitTimePreflightRequired,
+      detail: "Broker preflight would rerun at the actual guarded submit step.",
+    },
+    {
+      code: "submit_time_decision_persistence_required",
+      label: "Submit-time decision persistence required",
+      satisfied: submitTimeDecisionPersistenceRequired,
+      detail: "Submit-time decision logging would still be required on the guarded broker path.",
+    },
+  ];
+
+  const futureManualApprovalRequirements: ManualPaperSubmitApprovalRequirement[] = [
+    {
+      code: "operator_manual_review_required",
+      label: "operator_manual_review_required",
+      required: true,
+      detail: "A future guarded manual paper submit would still require explicit operator review outside this read-only surface.",
+    },
+    {
+      code: "broker_mode_recheck_required",
+      label: "broker_mode_recheck_required",
+      required: true,
+      detail: "Broker mode guard must be rechecked at actual guarded submit time.",
+    },
+    {
+      code: "risk_preflight_rerun_required",
+      label: "risk_preflight_rerun_required",
+      required: true,
+      detail: "Broker preflight advisory and decision services would rerun at the submit boundary.",
+    },
+    {
+      code: "submit_decision_persistence_required",
+      label: "submit_decision_persistence_required",
+      required: true,
+      detail: "Submit-time decision logging would still be required before any future guarded manual submit completes.",
+    },
+    {
+      code: "final_payload_review_required",
+      label: "final_payload_review_required",
+      required: true,
+      detail: "The final broker payload would still require operator review even after this approval package is green.",
+    },
+    {
+      code: "live_lock_recheck_required",
+      label: "live_lock_recheck_required",
+      required: true,
+      detail: "Live lock must still be rechecked at actual guarded submit time.",
+    },
+    {
+      code: "worker_non_submission_recheck_required",
+      label: "worker_non_submission_recheck_required",
+      required: true,
+      detail: "Worker non-submission posture must remain intact at the actual guarded submit boundary.",
+    },
+  ];
+
+  const auditReferences: ManualPaperSubmitAuditReference[] = [
+    {
+      code: "recommendation_id",
+      label: "recommendation_id",
+      available: true,
+      value: result.recommendation_id,
+      detail: "Primary recommendation identity for future manual approval correlation.",
+    },
+    {
+      code: "route_check_reference",
+      label: "route_check_reference",
+      available: true,
+      value: `${result.execution_source}:${result.route_check_status}`,
+      detail: "Read-only route-check evidence reference used by this approval package.",
+    },
+    {
+      code: "dry_run_decision_reference",
+      label: "dry_run_decision_reference",
+      available: preview !== null,
+      value: preview ? `${preview.dry_run_execution_source ?? "broker_dry_run"}:${preflightStatus}` : "not generated yet",
+      detail: "Current guarded dry-run evidence reference, if the preview has been executed.",
+    },
+    {
+      code: "broker_submit_decision_reference",
+      label: "broker_submit_decision_reference",
+      available: false,
+      value: "not generated in this read-only approval package",
+      detail: "A broker submit decision reference only exists during a future guarded /broker/orders submit review.",
+    },
+    {
+      code: "audit_package_reference",
+      label: "audit_package_reference",
+      available: true,
+      value: `${result.recommendation_id}:${auditPackage.status}`,
+      detail: "Read-only reference to the immediately preceding audit package status.",
+    },
+  ];
+
+  const hardBlocked =
+    !brokerModePaper ||
+    !resolvedRouteIsBrokerOrders ||
+    !liveLocked ||
+    !workersNonSubmitting ||
+    !noOrderSubmitted ||
+    (preview?.would_block ?? result.would_block) ||
+    result.live_trading_enabled ||
+    (preview?.live_trading_enabled ?? false);
+
+  let status: ManualPaperSubmitApprovalPackageStatus = "unknown";
+  if (
+    result.route_check_status === "missing_context" ||
+    handoff.status === "missing_context" ||
+    auditPackage.status === "missing_context"
+  ) {
+    status = "missing_context";
+  } else if (
+    result.route_check_status === "blocked" ||
+    handoff.status === "blocked" ||
+    auditPackage.status === "blocked" ||
+    hardBlocked
+  ) {
+    status = "blocked";
+  } else if (missingData.length > 0 || missingPayloadFields.length > 0) {
+    status = "missing_context";
+  } else if (result.route_check_status === "unknown" || auditPackage.status === "unknown") {
+    status = "approval_not_available";
+  } else if (!dryRunCompleted || auditPackage.status === "dry_run_required") {
+    status = "dry_run_required";
+  } else if (!readinessReviewReady || auditPackage.status === "readiness_required") {
+    status = "readiness_required";
+  } else if (handoff.status === "handoff_required") {
+    status = "audit_package_required";
+  } else if (!auditPackageReady) {
+    status = "audit_package_required";
+  } else if (futureManualSubmitRoute === "/broker/orders") {
+    status = "approval_package_ready_for_future_manual_review";
+  }
+
+  let title = "Manual submit approval package is unknown";
+  let body = "Approval package only, no order submitted. Use this read-only package to review the final approval-style evidence before any future guarded manual paper submit step.";
+  let nextRequiredAction = "no_action_available";
+  let nextRequiredActionDetail = auditPackage.nextRequiredActionDetail;
+
+  if (status === "missing_context") {
+    title = "Missing context before approval package review";
+    body = "Approval package only, no order submitted. Recommendation or payload context is still missing, so future manual approval review cannot proceed yet.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = missingData[0] ?? missingPayloadFields[0] ?? auditPackage.nextRequiredActionDetail;
+  } else if (status === "blocked") {
+    title = "Blocked before approval package review";
+    body = "Approval package only, no order submitted. Broker mode, live-lock, worker-submit, route, or preflight safety gates still block any future guarded manual paper submit approval review.";
+    nextRequiredAction = "review_blocked_reason";
+    nextRequiredActionDetail = blockedReasons[0] ?? auditPackage.nextRequiredActionDetail;
+  } else if (status === "approval_not_available") {
+    title = "Approval package not available";
+    body = "Approval package only, no order submitted. The current review chain does not yet expose a coherent approval posture for future guarded manual paper submit review.";
+    nextRequiredAction = "no_action_available";
+    nextRequiredActionDetail = auditPackage.nextRequiredActionDetail;
+  } else if (status === "dry_run_required") {
+    title = "Dry-run required before approval package review";
+    body = "Approval package only, no order submitted. The route-check is eligible, but a guarded broker dry-run preview is still required before approval review can proceed.";
+    nextRequiredAction = "run_guarded_dry_run";
+    nextRequiredActionDetail = "Run the guarded broker dry-run preview before relying on this approval package.";
+  } else if (status === "readiness_required") {
+    title = "Readiness review required before approval package review";
+    body = "Approval package only, no order submitted. Dry-run evidence exists, but readiness review has not yet cleared this recommendation for future guarded manual review.";
+    nextRequiredAction = "complete_readiness_review";
+    nextRequiredActionDetail = readiness.nextRequiredActionDetail;
+  } else if (status === "audit_package_required") {
+    title = "Audit package required before approval package review";
+    body = "Approval package only, no order submitted. The approval layer depends on the current audit package being ready first, including its review of warnings, payload preview fields, and future guarded submit evidence.";
+    nextRequiredAction = "complete_audit_package";
+    nextRequiredActionDetail = auditPackage.nextRequiredActionDetail;
+  } else if (status === "approval_package_ready_for_future_manual_review") {
+    title = "Approval package ready for future manual review";
+    body = "Approval package only, no order submitted. This consolidated approval-style package is ready for operator review before any future guarded manual paper submit step, which would still require guarded /broker/orders, rerun broker preflight, and submit-time decision logging.";
+    nextRequiredAction = "approval_package_ready_for_future_manual_review";
+    nextRequiredActionDetail = "Future manual paper submit would still require guarded /broker/orders, submit-time preflight reruns, submit-time decision logging, live-lock rechecks, and worker non-submission rechecks. No submit button is available here.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    evidenceChecklist,
+    futureManualApprovalRequirements,
+    auditReferences,
+    futurePayloadPreviewFields: auditPackage.futurePayloadPreviewFields,
+    missingPayloadFields,
+    safetyReruns: [
+      "Broker mode guard would rerun at actual guarded submit time.",
+      "trading_control_service would rerun at actual guarded submit time.",
+      "Broker request validation would rerun on the guarded /broker/orders path.",
+      "Broker preflight advisory and decision services would rerun before any future guarded manual submit.",
+      "Submit-time decision logging would still be required before a future guarded manual submit completes.",
+      "Live lock would still be rechecked and workers would remain non-submitting.",
+    ],
+    blockedReasons,
+    missingData,
+    warnings,
+    futureManualSubmitRoute,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
 function summaryCopy(result: PaperRecommendationRouteCheck): { title: string; body: string } {
   if (result.route_check_status === "eligible") {
     return {
@@ -1097,6 +1530,9 @@ export function RecommendationRouteCheckPanel({
   const handoff = result && readiness ? deriveManualPaperSubmitHandoffReview(result, preview, readiness) : null;
   const auditPackage = result && readiness && handoff
     ? deriveManualPaperSubmitAuditPackage(result, preview, readiness, handoff)
+    : null;
+  const approvalPackage = result && readiness && handoff && auditPackage
+    ? deriveManualPaperSubmitApprovalPackage(result, preview, readiness, handoff, auditPackage)
     : null;
 
   return (
@@ -1910,6 +2346,215 @@ export function RecommendationRouteCheckPanel({
 
               <p className={styles.helperText}>
                 Audit package only, no order submitted. Future manual paper submit would still use guarded /broker/orders. No submit button is available here. Live trading remains locked. Workers cannot submit. Use this package for review before a future manual paper submit step.
+              </p>
+            </section>
+          ) : null}
+
+          {approvalPackage && auditPackage && readiness && handoff ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-submit-approval-package-${recommendationId}`}
+              aria-label={`Manual submit approval package for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Approval package</p>
+                  <h5 className={styles.previewTitle}>Manual submit approval package</h5>
+                  <p className={styles.subtitle}>
+                    Approval package only, no order submitted. Future manual paper submit would still require guarded /broker/orders, and no submit button is available here.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(approvalPackage.status)}`}
+                  data-testid={`recommendation-submit-approval-package-status-${recommendationId}`}
+                >
+                  {formatApprovalPackageStatus(approvalPackage.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(approvalPackage.status)}`}
+                data-testid={`recommendation-submit-approval-package-summary-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{approvalPackage.title}</p>
+                <p className={styles.summaryText}>{approvalPackage.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Recommendation ID</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{result.recommendation_id}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Route-check result used</span>
+                  <span className={styles.value}>{formatStatus(result.route_check_status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Dry-run result used</span>
+                  <span className={styles.value}>{preview ? formatStatus(preview.dry_run_status) : "not run"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Readiness result used</span>
+                  <span className={styles.value}>{formatReadinessStatus(readiness.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Handoff result used</span>
+                  <span className={styles.value}>{formatHandoffStatus(handoff.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Audit package result used</span>
+                  <span className={styles.value}>{formatAuditPackageStatus(auditPackage.status)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Future manual submit route</span>
+                  <span className={`${styles.value} ${styles.mono}`}>{formatRequiredFutureRoute(approvalPackage.futureManualSubmitRoute)}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Broker account mode</span>
+                  <span className={styles.value}>{preview?.broker_account_mode ?? result.broker_account_mode}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Live state</span>
+                  <span className={styles.value}>{preview?.live_state ?? result.live_state}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Would block</span>
+                  <span className={styles.value}>{preview?.would_block ?? result.would_block ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Workers allowed to submit</span>
+                  <span className={styles.value}>{preview?.workers_allowed_to_submit ?? result.workers_allowed_to_submit ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>No order submitted</span>
+                  <span className={styles.value}>{result.is_submit === false && (preview?.is_submit ?? false) === false ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Approval only</span>
+                  <span className={styles.value}>yes</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Dry-run only</span>
+                  <span className={styles.value}>{preview?.dry_run_only ?? false ? "yes" : "no"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Next required action</span>
+                  <span className={styles.value}>{formatStatus(approvalPackage.nextRequiredAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Approval and evidence checklist</h5>
+                <ul className={styles.list}>
+                  {approvalPackage.evidenceChecklist.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.satisfied ? "yes" : "no"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Future manual approval requirements</h5>
+                <ul className={styles.list}>
+                  {approvalPackage.futureManualApprovalRequirements.map((item) => (
+                    <li key={item.code}>
+                      {item.label}: {item.required ? "required later" : "not required"}. {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Audit references</h5>
+                <ul className={styles.list}>
+                  {approvalPackage.auditReferences.map((reference) => (
+                    <li key={reference.code}>
+                      {reference.label}: {reference.value}. {reference.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Final future payload preview</h5>
+                <ul className={styles.list}>
+                  {approvalPackage.futurePayloadPreviewFields.map((field) => (
+                    <li key={field.code}>
+                      {field.label}: {field.required ? "required" : "optional"} · {field.satisfied ? "ready" : "missing"} · {field.value}. {field.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing payload fields</h5>
+                {approvalPackage.missingPayloadFields.length === 0 ? (
+                  <p className={styles.emptyText}>No required payload fields are currently missing in this approval package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {approvalPackage.missingPayloadFields.map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Safety gates that would rerun at actual submit time</h5>
+                <ul className={styles.list}>
+                  {approvalPackage.safetyReruns.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Blocked reasons</h5>
+                {approvalPackage.blockedReasons.length === 0 ? (
+                  <p className={styles.emptyText}>No blocked reasons surfaced in the current approval package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {approvalPackage.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Missing context</h5>
+                {approvalPackage.missingData.length === 0 ? (
+                  <p className={styles.emptyText}>No missing context surfaced in the current approval package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {approvalPackage.missingData.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Warnings</h5>
+                {approvalPackage.warnings.length === 0 ? (
+                  <p className={styles.emptyText}>No warnings surfaced in the current approval package.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {approvalPackage.warnings.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{approvalPackage.nextRequiredActionDetail}</p>
+              </div>
+
+              <p className={styles.helperText}>
+                Approval package only, no order submitted. Future manual paper submit would still require guarded /broker/orders. No submit button is available here. Submit-time preflight would rerun. Submit-time decision logging would be required. Live trading remains locked. Workers cannot submit.
               </p>
             </section>
           ) : null}
