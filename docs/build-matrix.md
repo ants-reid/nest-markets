@@ -205,6 +205,12 @@ Operator review surface delta — 2026-05-23:
 | MH-COCKPIT-12   | Open-paper-positions live view                 | ⏳ Pending | MH-COCKPIT-05         | Read-only |
 | MH-COCKPIT-13   | Auto-paper status card                         | ✅ Complete | MH-141                | Read-only |
 
+Manual IBKR paper submit checkpoint note — 2026-05-24:
+- The go/no-go review for the first executable manual IBKR paper submit phase is currently `NOT_READY_MISSING_SAFETY_TESTS`.
+- The blocker is missing confirmation-control safety coverage, not a missing backend seam or missing frontend host.
+- If and only if the missing safety cases are added first, the next phase name remains `Guarded Manual IBKR Paper Submit Control, Paper-Only`.
+- The dedicated confirmation route stays the only approved future UI host, the in-flight panel stays review-only, `/broker/orders` stays the only serious-paper submit seam, live stays locked, and workers stay non-submitting.
+
 ### Bucket 4 — Future Live-Trading Prerequisites (Locked)
 
 | Phase           | Title                                          | Status   | Depends On             | Drift Lock |

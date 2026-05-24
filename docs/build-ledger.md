@@ -15295,3 +15295,78 @@ still 100% green.
 
 -> If a later phase needs a guarded executable manual paper submit step, keep this triage layer advisory-only, preserve the shared helper, and add any actual execution behavior only at the canonical `/broker/orders` seam with explicit submit-time reruns, append-only decision persistence, live lock, and worker non-submission still enforced.
 
+## Manual IBKR Paper Submit Go / No-Go Checkpoint
+
+- **Date:** 2026-05-24
+- **Status:** Checkpoint only, no implementation added
+- **Scope:** Decide whether the repo is ready to begin the first actual guarded manual IBKR paper submit implementation phase. This block does not add a submit button, does not call `/broker/orders` from the UI, does not add a worker submit path, and does not relax the live lock.
+
+### Baseline reviewed
+
+- Local and remote were already synced at `cb3447d` before this checkpoint began.
+- The backend controlling seam remains `POST /broker/orders` in `apps/api/app/api/routes/broker.py` backed by `BrokerService.submit_order` and `_submit_order_for_intent(...)` in `apps/api/app/services/broker_service.py`.
+- The dedicated future host remains `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`.
+- The in-flight cockpit panel remains review-only in `apps/web/components/RecommendationRouteCheckPanel.tsx`.
+
+### Backend findings
+
+- The backend submit seam is materially present already, not placeholder wiring.
+- `BrokerService.submit_order(...)` reruns broker-mode and trading-control checks at submit time.
+- The same submit seam reruns paper preflight via dry-run semantics before any actual broker execution.
+- Blocked attempts persist append-only `submit_preflight` and `submit_attempt` decision rows.
+- Allowed attempts persist append-only decision rows with the broker order id.
+- Live mode remains fail-closed, and the worker auto-submit seam remains separately gated.
+- Canonical serious-paper routing remains locked to `/broker/orders`, while `/execution/paper` stays separate.
+
+### Frontend findings
+
+- The confirmation surface already has the right review inputs for a future guarded control: route-check, guarded dry-run preview, payload preview, freshness review, missing-context triage, and explicit paper/live/worker posture.
+- The confirmation page still does not import `submitBrokerOrder` and still renders `submit_enabled_now=false`.
+- The in-flight panel still does not import `submitBrokerOrder` and must remain non-executable in the next phase.
+- The current frontend contract points to one future executable host only: `/cockpit/manual-paper-submit-confirmation`.
+
+### Coverage findings
+
+- Existing tests already prove the current read-only boundary:
+  - the confirmation page never imports `submitBrokerOrder`
+  - the confirmation page never calls `/broker/orders`
+  - the in-flight panel never imports `submitBrokerOrder`
+  - the in-flight panel exposes no submit control
+  - backend submit and dry-run seams preserve fail-closed live lock, worker separation, canonical-paper routing, and append-only decision persistence
+- Existing tests do **not** yet cover the future executable confirmation-control invariants required before enablement.
+
+### Missing safety tests before enablement
+
+- Confirmation surface calls `/broker/orders` only after explicit final operator confirmation.
+- Confirmation surface never calls `/broker/orders` when any triage, freshness, or review gate is blocked.
+- Stale route-check evidence keeps the future submit control disabled.
+- Stale guarded dry-run evidence keeps the future submit control disabled.
+- Missing final confirmation keeps the future submit control disabled.
+- `workers_allowed_to_submit=true` keeps the future submit control disabled.
+- `live_trading_enabled=true` keeps the future submit control disabled.
+- The executable submit control appears only on the dedicated confirmation surface and nowhere in the in-flight panel.
+- The future submit control remains disabled unless all safe gates pass together.
+- A real submit attempt and a blocked submit attempt both leave append-only decision evidence behind on the existing backend seam.
+
+### Verdict
+
+- **Verdict:** `NOT_READY_MISSING_SAFETY_TESTS`
+- **Why not backend contract:** the backend seam, routing contract, mode guard, preflight rerun, and append-only decision persistence are already present.
+- **Why not UI contract:** the confirmation surface already owns the right review context and future host boundary.
+- **Why not live/worker risk:** live remains locked and workers remain non-submitting under the current contract and test set.
+- **Actual blocker:** the first executable confirmation control would be under-tested unless the missing confirmation-control safety cases are added first.
+
+### Recommended next block
+
+- Add the missing confirmation-control safety tests first.
+- After those tests exist, begin `Guarded Manual IBKR Paper Submit Control, Paper-Only` on the dedicated confirmation surface only.
+- Keep `/cockpit/in-flight-adjustments` review-only.
+- Keep `/broker/orders` as the only serious-paper submit seam.
+
+### Validation and explicit non-changes
+
+- No submit implementation was added in this checkpoint.
+- No `/broker/orders` UI call was added.
+- No worker submit capability was added.
+- No live-trading unlock was added.
+
