@@ -198,12 +198,8 @@ async function mockInFlightReport(
 
   await page.route("**/cockpit/in-flight-adjustments*", async (route) => {
     const request = route.request();
-    const requestUrl = new URL(request.url());
 
-    if (
-      request.resourceType() !== "fetch" ||
-      requestUrl.pathname !== "/cockpit/in-flight-adjustments"
-    ) {
+    if (!isApiRequest(request.url(), "/cockpit/in-flight-adjustments")) {
       await route.continue();
       return;
     }

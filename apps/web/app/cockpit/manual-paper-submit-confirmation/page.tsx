@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { submitBrokerOrder, type BrokerOrderResult } from "../../../lib/api/broker";
+import { ApiRequestError } from "../../../lib/api/core";
 import {
   getPaperRecommendation,
   getPaperRecommendationRouteCheck,
@@ -43,6 +45,146 @@ type ReviewSection = {
   missingData: string[];
   warnings: string[];
 };
+
+type PaperSubmitFailureDetail = {
+  title: string;
+  message: string;
+  submitGate: string | null;
+  decisionStatus: string | null;
+  reasons: string[];
+};
+
+function normalizeIdFragment(value: string): string {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return normalized || "paper_submit";
+}
+
+function buildSubmitDecisionCorrelationId(recommendationId: string): string {
+  const safeRecommendationId = normalizeIdFragment(recommendationId).slice(0, 48);
+  return `manual_paper_submit_${safeRecommendationId}_${Date.now().toString(36)}`;
+}
+
+function normalizeBrokerSide(value: string | null): "BUY" | "SELL" | null {
+  if (!value) return null;
+  const normalized = value.toUpperCase();
+  if (normalized === "BUY" || normalized === "SELL") {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeBrokerOrderType(value: string | null): "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT" | "TRAIL" | null {
+  if (!value) return null;
+  const normalized = value.toUpperCase();
+  if (
+    normalized === "MARKET" ||
+    normalized === "LIMIT" ||
+    normalized === "STOP" ||
+    normalized === "STOP_LIMIT" ||
+    normalized === "TRAIL"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function buildBlockedSubmitDetail(error: unknown): PaperSubmitFailureDetail {
+  if (error instanceof ApiRequestError && typeof error.responseBody === "object" && error.responseBody !== null) {
+    const detailContainer = error.responseBody as { detail?: unknown };
+    if (typeof detailContainer.detail === "object" && detailContainer.detail !== null) {
+      const detail = detailContainer.detail as {
+        code?: unknown;
+        message?: unknown;
+        submit_gate?: unknown;
+        decision_status?: unknown;
+        blocking_reasons?: Array<{ message?: unknown; code?: unknown }>;
+      };
+      const reasons = Array.isArray(detail.blocking_reasons)
+        ? detail.blocking_reasons
+            .map((item) => {
+              const message = typeof item?.message === "string" ? item.message : null;
+              const code = typeof item?.code === "string" ? item.code : null;
+              return message ?? code;
+            })
+            .filter((value): value is string => Boolean(value))
+        : [];
+
+      return {
+        title: detail.code === "paper_preflight_blocked" ? "Paper submit blocked" : "Paper submit failed",
+        message:
+          typeof detail.message === "string"
+            ? detail.message
+            : error.message,
+        submitGate: typeof detail.submit_gate === "string" ? detail.submit_gate : null,
+        decisionStatus: typeof detail.decision_status === "string" ? detail.decision_status : null,
+        reasons,
+      };
+    }
+  }
+
+  return {
+    title: "Paper submit failed",
+    message: error instanceof Error ? error.message : "Paper submit failed unexpectedly.",
+    submitGate: null,
+    decisionStatus: null,
+    reasons: [],
+  };
+}
+
+function buildSubmitPayload(
+  recommendationId: string | null,
+  recommendation: PaperRecommendationDetails | null,
+  routeCheck: PaperRecommendationRouteCheck | null,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  fallbackSymbol: string,
+) {
+  if (!recommendationId) return null;
+
+  const submitDecisionCorrelationId = buildSubmitDecisionCorrelationId(recommendationId);
+
+  const orderType = normalizeBrokerOrderType(
+    routeCheck?.order_type ?? preview?.order_type ?? recommendation?.order_type ?? null,
+  );
+  const quantity = routeCheck?.quantity ?? preview?.quantity ?? recommendation?.quantity ?? null;
+  const limitPrice = routeCheck?.limit_price ?? preview?.limit_price ?? recommendation?.limit_price ?? null;
+  const limitPriceRequired = orderType === "LIMIT" || orderType === "STOP_LIMIT";
+  const stopPriceRequired = orderType === "STOP" || orderType === "STOP_LIMIT";
+
+  if (!orderType || quantity === null || quantity === undefined) {
+    return null;
+  }
+
+  if (limitPriceRequired && (limitPrice === null || limitPrice === undefined)) {
+    return null;
+  }
+
+  if (stopPriceRequired) {
+    return null;
+  }
+
+  const symbol = routeCheck?.ticker ?? preview?.ticker ?? recommendation?.ticker ?? fallbackSymbol;
+  const side = normalizeBrokerSide(routeCheck?.side ?? preview?.side ?? recommendation?.side ?? null);
+  if (!symbol || !side) {
+    return null;
+  }
+
+  return {
+    ticker: symbol,
+    side,
+    quantity,
+    order_type: orderType,
+    limit_price: limitPriceRequired ? limitPrice ?? undefined : undefined,
+    stop_price: undefined,
+    tif: "DAY",
+    client_order_id: submitDecisionCorrelationId,
+    recommendation_id: recommendationId,
+    account_mode: "paper",
+    execution_source: "ibkr_paper",
+    route_check_reference: routeCheck ? buildRouteCheckReference(routeCheck) : undefined,
+    dry_run_reference: preview ? buildDryRunReference(preview) : undefined,
+    submit_decision_correlation_id: submitDecisionCorrelationId,
+  };
+}
 
 function formatMaybeNumber(value: number | null): string {
   if (value === null) return "missing";
@@ -367,6 +509,10 @@ function ManualPaperSubmitConfirmationSurface() {
   const [dryRunPreview, setDryRunPreview] = useState<PaperRecommendationBrokerDryRunPreview | null>(null);
   const [routeCheckObservedAt, setRouteCheckObservedAt] = useState<string | null>(null);
   const [dryRunObservedAt, setDryRunObservedAt] = useState<string | null>(null);
+  const [finalConfirmationChecked, setFinalConfirmationChecked] = useState(false);
+  const [submitPending, setSubmitPending] = useState(false);
+  const [submitResult, setSubmitResult] = useState<BrokerOrderResult | null>(null);
+  const [submitFailure, setSubmitFailure] = useState<PaperSubmitFailureDetail | null>(null);
 
   useEffect(() => {
     if (!recommendationId) {
@@ -376,6 +522,10 @@ function ManualPaperSubmitConfirmationSurface() {
       setRouteCheckObservedAt(null);
       setDryRunObservedAt(null);
       setError(null);
+      setFinalConfirmationChecked(false);
+      setSubmitPending(false);
+      setSubmitResult(null);
+      setSubmitFailure(null);
       return;
     }
 
@@ -386,6 +536,9 @@ function ManualPaperSubmitConfirmationSurface() {
     async function load(): Promise<void> {
       setLoading(true);
       setError(null);
+      setSubmitResult(null);
+      setSubmitFailure(null);
+      setFinalConfirmationChecked(false);
 
       try {
         const nextRecommendation = await getPaperRecommendation(activeRecommendationId);
@@ -465,6 +618,68 @@ function ManualPaperSubmitConfirmationSurface() {
   const preflightContractStatus = reviewChain.preflightContract?.status ?? "not_available";
   const routeCheckStatus = routeCheck?.route_check_status ?? "missing_context";
   const dryRunStatus = dryRunPreview?.dry_run_status ?? (recommendationId ? "not_loaded" : "missing_context");
+  const submitPayload = buildSubmitPayload(recommendationId, recommendation, routeCheck, dryRunPreview, fallbackSymbol);
+  const canonicalSubmitRouteReady =
+    routeCheck?.resolved_route === "/broker/orders" &&
+    routeCheck?.canonical_paper_route === "/broker/orders" &&
+    dryRunPreview?.resolved_route === "/broker/orders" &&
+    dryRunPreview?.canonical_paper_route === "/broker/orders";
+  const paperOnlyRouteReady =
+    (dryRunPreview?.serious_paper_source ?? routeCheck?.serious_paper_source) === "ibkr_paper" &&
+    (dryRunPreview?.broker_account_mode ?? routeCheck?.broker_account_mode) === "paper";
+  const preflightDecisionReady =
+    dryRunPreview?.preflight_decision?.decision_status === "allowed" ||
+    dryRunPreview?.preflight_decision?.decision_status === "advisory";
+  const gateFailures = [
+    !recommendationId ? "Recommendation id is required." : null,
+    loading ? "Review context is still loading." : null,
+    error ? "Review context failed to load." : null,
+    routeCheck === null ? "Route-check evidence is required." : null,
+    dryRunPreview === null ? "Guarded broker dry-run evidence is required." : null,
+    routeCheckStatus !== "eligible" ? "Route-check must remain eligible for paper submit." : null,
+    dryRunStatus !== "ready" ? "Guarded broker dry-run must remain ready." : null,
+    dryRunPreview?.allowed_to_submit !== true ? "Guarded broker dry-run must still allow paper submit." : null,
+    dryRunPreview?.would_block ? "Guarded broker dry-run would block submit." : null,
+    liveTradingEnabled ? "Live trading must remain locked." : null,
+    workersAllowedToSubmit ? "Workers must remain non-submitting." : null,
+    !canonicalSubmitRouteReady ? "The canonical paper route must remain /broker/orders only." : null,
+    !paperOnlyRouteReady ? "Broker mode and execution source must remain coherent paper-only IBKR routing." : null,
+    reviewChain.preflightContract?.status !== "preflight_contract_ready_for_future_manual_step"
+      ? "Preflight contract must stay ready for the manual step."
+      : null,
+    freshnessReview.status !== "freshness_ready_for_future_manual_review"
+      ? "Freshness review must stay clear before submit."
+      : null,
+    missingContextTriage.status !== "triage_clear_for_future_review"
+      ? "Missing-context triage must stay clear before submit."
+      : null,
+    blockedReasons.length > 0 ? "Blocking review reasons must be cleared before submit." : null,
+    missingPayloadFields.length > 0 ? `Missing payload fields: ${missingPayloadFields.join(", ")}.` : null,
+    !preflightDecisionReady ? "Dry-run preflight decision must remain allowed or advisory only." : null,
+    submitPayload === null ? "The reviewed order payload is incomplete for the existing /broker/orders contract." : null,
+    submitResult ? "This order has already been submitted from the current confirmation view." : null,
+  ].filter((value): value is string => value !== null);
+  const canSubmit = gateFailures.length === 0 && finalConfirmationChecked && !submitPending;
+  const surfaceStatus = submitResult ? "paper_order_submitted" : "paper_only_confirmation_control";
+
+  async function handleSubmit(): Promise<void> {
+    if (!canSubmit || submitPayload === null) {
+      return;
+    }
+
+    setSubmitPending(true);
+    setSubmitFailure(null);
+
+    try {
+      const result = await submitBrokerOrder(submitPayload);
+      setSubmitResult(result);
+      setFinalConfirmationChecked(false);
+    } catch (submitError) {
+      setSubmitFailure(buildBlockedSubmitDetail(submitError));
+    } finally {
+      setSubmitPending(false);
+    }
+  }
 
   return (
     <main
@@ -474,10 +689,10 @@ function ManualPaperSubmitConfirmationSurface() {
       <div className={styles.container}>
         <header className={styles.header}>
           <div className={styles.titleWrap}>
-            <p className={styles.eyebrow}>Design only, not enabled</p>
+            <p className={styles.eyebrow}>Paper-only guarded manual submit</p>
             <h1 className={styles.title}>Manual IBKR paper submit confirmation</h1>
             <p className={styles.subtitle}>
-              Paper submit, final confirmation required. This surface previews a future dedicated guarded confirmation step without adding any executable submit control.
+              Paper submit, final confirmation required. This is the only cockpit surface allowed to submit a guarded IBKR paper order, and it reruns backend checks through /broker/orders.
             </p>
           </div>
 
@@ -494,9 +709,11 @@ function ManualPaperSubmitConfirmationSurface() {
         <section className={styles.heroCard} data-testid="cockpit-manual-paper-submit-confirmation-status">
           <div>
             <p className={styles.heroEyebrow}>Surface status</p>
-            <h2 className={styles.heroTitle}>design_only_not_enabled</h2>
+            <h2 className={styles.heroTitle}>{surfaceStatus}</h2>
             <p className={styles.heroSubtitle}>
-              No order has been submitted. No live trading path has been enabled. No worker authority has been expanded.
+              {submitResult
+                ? "Paper order submitted through the existing guarded broker seam. Live remains locked and workers remain non-submitting."
+                : "No live trading path has been enabled and no worker authority has been expanded. Submit stays paper-only and fail-closed."}
             </p>
           </div>
           <div className={styles.heroMeta}>
@@ -506,7 +723,7 @@ function ManualPaperSubmitConfirmationSurface() {
         </section>
 
         <div className={styles.banner} data-testid="cockpit-manual-paper-submit-confirmation-paper-banner">
-          <strong>Paper mode only.</strong> This page is read-only and non-executable. It must not call <span className={styles.mono}>/broker/orders</span> and must not submit any order in this phase.
+          <strong>Paper mode only.</strong> This page is the only executable manual confirmation surface. It may call <span className={styles.mono}>/broker/orders</span> only after explicit final confirmation and only while all paper-only guards remain clear.
         </div>
 
         {error ? (
@@ -527,11 +744,12 @@ function ManualPaperSubmitConfirmationSurface() {
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-surface-status-grid">
           <h2 className={styles.sectionTitle}>Surface status</h2>
           <div className={styles.grid}>
-            <div className={styles.field}><span className={styles.label}>confirmation_surface_status</span><span className={styles.value}>design_only_not_enabled</span></div>
-            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>false</span></div>
-            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>confirmation_surface_status</span><span className={styles.value}>{surfaceStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>{canSubmit ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>{submitResult ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>live_trading_enabled</span><span className={styles.value}>{liveTradingEnabled ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>workers_allowed_to_submit</span><span className={styles.value}>{workersAllowedToSubmit ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>final_confirmation_checked</span><span className={styles.value}>{finalConfirmationChecked ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>recommendation_id</span><span className={`${styles.value} ${styles.mono}`}>{recommendationId ?? "not provided"}</span></div>
             <div className={styles.field}><span className={styles.label}>symbol</span><span className={styles.value}>{effectiveSymbol}</span></div>
             <div className={styles.field}><span className={styles.label}>loading_review_context</span><span className={styles.value}>{loading ? "true" : "false"}</span></div>
@@ -570,7 +788,7 @@ function ManualPaperSubmitConfirmationSurface() {
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-payload-freshness-review">
           <h2 className={styles.sectionTitle}>Payload freshness review</h2>
           <p className={styles.sectionSubtitle}>
-            Freshness review only, no order submitted. Submit remains disabled in this phase. Future manual paper submit would require fresh route-check and dry-run evidence, with live trading still locked and workers still non-submitting.
+            Freshness review gates the live control fail-closed. Submit stays paper-only, reruns checks on the backend seam, and remains blocked if any freshness evidence drifts.
           </p>
           <div className={styles.grid}>
             <div className={styles.field}><span className={styles.label}>payload_freshness_status</span><span className={styles.value}>{freshnessReview.status}</span></div>
@@ -583,8 +801,8 @@ function ManualPaperSubmitConfirmationSurface() {
             <div className={styles.field}><span className={styles.label}>source_labels_coherent</span><span className={styles.value}>{freshnessReview.sourceLabelsCoherent ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>broker_mode_still_paper</span><span className={styles.value}>{freshnessReview.brokerModeStillPaper ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>upstream_state_drifted</span><span className={styles.value}>{freshnessReview.upstreamStateDrifted ? "true" : "false"}</span></div>
-            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>false</span></div>
-            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>{canSubmit ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>{submitResult ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>live_trading_enabled</span><span className={styles.value}>{freshnessReview.liveTradingEnabled ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>workers_allowed_to_submit</span><span className={styles.value}>{freshnessReview.workersAllowedToSubmit ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>freshness_window_description</span><span className={styles.value}>{freshnessReview.freshnessWindowDescription}</span></div>
@@ -653,13 +871,13 @@ function ManualPaperSubmitConfirmationSurface() {
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-missing-context-triage">
           <h2 className={styles.sectionTitle}>Missing-context triage</h2>
           <p className={styles.sectionSubtitle}>
-            Missing-context triage only. Submit remains disabled. No order submitted. Live trading remains locked. Workers cannot submit.
+            Missing-context triage gates the live control fail-closed. Live trading remains locked and workers cannot submit.
           </p>
           <div className={styles.grid}>
             <div className={styles.field}><span className={styles.label}>missing_context_triage_status</span><span className={styles.value}>{missingContextTriage.status}</span></div>
             <div className={styles.field}><span className={styles.label}>next_required_review_action</span><span className={styles.value}>{missingContextTriage.nextRequiredReviewAction}</span></div>
-            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>false</span></div>
-            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>{canSubmit ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>{submitResult ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>live_trading_enabled</span><span className={styles.value}>{missingContextTriage.liveTradingEnabled ? "true" : "false"}</span></div>
             <div className={styles.field}><span className={styles.label}>workers_allowed_to_submit</span><span className={styles.value}>{missingContextTriage.workersAllowedToSubmit ? "true" : "false"}</span></div>
           </div>
@@ -763,7 +981,7 @@ function ManualPaperSubmitConfirmationSurface() {
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-payload-preview">
           <h2 className={styles.sectionTitle}>Future payload preview</h2>
           <p className={styles.sectionSubtitle}>
-            This is a review-only preview of what a later guarded paper confirmation surface would pass to the existing submit seam. No payload is posted in this phase.
+            This is the reviewed payload context for the guarded paper submit control. The backend still reruns validation and preflight before any broker attempt.
           </p>
           <ul className={styles.list}>
             {payloadPreviewFields.map((field) => (
@@ -822,20 +1040,74 @@ function ManualPaperSubmitConfirmationSurface() {
           <blockquote className={styles.quote}>{finalConfirmationWording}</blockquote>
         </section>
 
-        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-disabled-placeholder">
-          <h2 className={styles.sectionTitle}>Disabled placeholder</h2>
+        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-submit-control">
+          <h2 className={styles.sectionTitle}>Guarded paper submit control</h2>
           <p className={styles.sectionSubtitle}>
-            Not enabled in this phase. This placeholder is intentionally disabled and has no click handler, no submit path, and no broker call.
+            Paper only. Final confirmation is required. Submit-time checks will rerun through the existing guarded /broker/orders seam with append-only decision persistence.
           </p>
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={finalConfirmationChecked}
+              onChange={(event) => setFinalConfirmationChecked(event.target.checked)}
+              disabled={submitPending || submitResult !== null}
+              data-testid="manual-paper-submit-confirmation-checkbox"
+            />
+            <span>{finalConfirmationWording}</span>
+          </label>
+
+          <p className={styles.emptyText}>Submit paper order, checks will rerun. No auto-submit. No worker submit. No live unlock.</p>
+
+          {gateFailures.length > 0 ? (
+            <div className={styles.subsection} data-testid="manual-paper-submit-gate-failures">
+              <h3 className={styles.subsectionTitle}>Submit is currently blocked</h3>
+              <ul className={styles.list}>
+                {gateFailures.map((failure) => (
+                  <li key={failure}>{failure}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {submitFailure ? (
+            <div className={styles.inlineError} role="alert" data-testid="manual-paper-submit-error-state">
+              <strong>{submitFailure.title}</strong>
+              <p className={styles.sectionSubtitle}>{submitFailure.message}</p>
+              {submitFailure.submitGate || submitFailure.decisionStatus ? (
+                <p className={styles.emptyText}>
+                  submit_gate={submitFailure.submitGate ?? "unknown"}; decision_status={submitFailure.decisionStatus ?? "unknown"}
+                </p>
+              ) : null}
+              {submitFailure.reasons.length > 0 ? (
+                <ul className={styles.list}>
+                  {submitFailure.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {submitResult ? (
+            <div className={styles.successBanner} role="status" data-testid="manual-paper-submit-success-state">
+              <strong>Paper order submitted.</strong>
+              <p className={styles.sectionSubtitle}>
+                Broker order {submitResult.broker_order_id} returned status {submitResult.status}. The submit path remained paper-only through /broker/orders.
+              </p>
+            </div>
+          ) : null}
+
           <div className={styles.placeholderRow}>
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className={styles.disabledButton}
-              data-testid="manual-paper-submit-disabled-button"
+              disabled={!canSubmit}
+              className={canSubmit ? styles.primaryButton : styles.disabledButton}
+              data-testid="manual-paper-submit-button"
+              onClick={() => {
+                void handleSubmit();
+              }}
             >
-              Submit not enabled in this phase
+              {submitPending ? "Submitting IBKR paper order..." : "Submit IBKR paper order"}
             </button>
             <Link href="/cockpit/in-flight-adjustments" className={styles.linkPill}>
               Cancel / return to review
