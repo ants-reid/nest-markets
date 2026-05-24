@@ -13,6 +13,7 @@ import {
 } from "../lib/api/paperRecommendations";
 import {
   buildManualConfirmationHref,
+  deriveManualPaperSubmitMissingContextTriage,
   deriveManualPaperSubmitPayloadFreshnessReview,
   deriveManualPaperSubmitReviewChain,
 } from "../lib/manualPaperSubmitReview";
@@ -22,6 +23,8 @@ function statusClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "triage_clear_for_future_review" ||
+    status === "freshness_ready_for_future_manual_review" ||
     status === "interaction_spec_ready_for_future_phase" ||
     status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
@@ -35,7 +38,21 @@ function statusClassName(status: string): string {
   }
   if (status === "blocked") return styles.statusBlocked;
   if (
+    status === "blocked_by_review" ||
+    status === "stale_evidence" ||
     status === "missing_context" ||
+    status === "missing_payload_fields" ||
+    status === "missing_route_check" ||
+    status === "missing_dry_run" ||
+    status === "missing_approval_or_preflight" ||
+    status === "missing_freshness_evidence" ||
+    status === "source_label_issue" ||
+    status === "broker_mode_issue" ||
+    status === "missing_timestamps" ||
+    status === "rerun_route_check_required" ||
+    status === "rerun_dry_run_required" ||
+    status === "rerun_approval_required" ||
+    status === "rerun_preflight_required" ||
     status === "invalid" ||
     status === "dry_run_required" ||
     status === "approval_required" ||
@@ -58,6 +75,8 @@ function summaryClassName(status: string): string {
   if (
     status === "eligible" ||
     status === "ready" ||
+    status === "triage_clear_for_future_review" ||
+    status === "freshness_ready_for_future_manual_review" ||
     status === "interaction_spec_ready_for_future_phase" ||
     status === "action_review_ready_for_future_manual_step" ||
     status === "ready_for_future_decision_review" ||
@@ -71,7 +90,21 @@ function summaryClassName(status: string): string {
   }
   if (status === "blocked") return styles.summaryBlocked;
   if (
+    status === "blocked_by_review" ||
+    status === "stale_evidence" ||
     status === "missing_context" ||
+    status === "missing_payload_fields" ||
+    status === "missing_route_check" ||
+    status === "missing_dry_run" ||
+    status === "missing_approval_or_preflight" ||
+    status === "missing_freshness_evidence" ||
+    status === "source_label_issue" ||
+    status === "broker_mode_issue" ||
+    status === "missing_timestamps" ||
+    status === "rerun_route_check_required" ||
+    status === "rerun_dry_run_required" ||
+    status === "rerun_approval_required" ||
+    status === "rerun_preflight_required" ||
     status === "invalid" ||
     status === "dry_run_required" ||
     status === "approval_required" ||
@@ -752,6 +785,12 @@ export function RecommendationRouteCheckPanel({
     routeCheckObservedAt,
     dryRunObservedAt,
   });
+  const missingContextTriage = deriveManualPaperSubmitMissingContextTriage(
+    reviewChain,
+    result,
+    preview,
+    freshnessReview,
+  );
   const {
     readiness,
     handoff,
@@ -1224,6 +1263,160 @@ export function RecommendationRouteCheckPanel({
               <p className={styles.helperText}>
                 Freshness summary only. Submit remains disabled. No order submitted. Live trading remains locked. Workers cannot submit.
               </p>
+            </section>
+          ) : null}
+
+          {result ? (
+            <section
+              className={styles.subpanel}
+              data-testid={`recommendation-missing-context-triage-summary-${recommendationId}`}
+              aria-label={`Missing context triage summary for ${symbol}`}
+            >
+              <div className={styles.previewHeader}>
+                <div className={styles.titleWrap}>
+                  <p className={styles.eyebrow}>Missing-context triage only</p>
+                  <h5 className={styles.previewTitle}>Missing-context triage</h5>
+                  <p className={styles.subtitle}>
+                    Submit remains disabled. No order submitted. Live trading remains locked. Workers cannot submit.
+                  </p>
+                </div>
+                <span
+                  className={`${styles.statusPill} ${statusClassName(missingContextTriage.status)}`}
+                  data-testid={`recommendation-missing-context-triage-status-${recommendationId}`}
+                >
+                  {formatStatus(missingContextTriage.status)}
+                </span>
+              </div>
+
+              <div
+                className={`${styles.summary} ${summaryClassName(missingContextTriage.status)}`}
+                data-testid={`recommendation-missing-context-triage-summary-card-${recommendationId}`}
+              >
+                <p className={styles.summaryTitle}>{missingContextTriage.title}</p>
+                <p className={styles.summaryText}>{missingContextTriage.body}</p>
+              </div>
+
+              <div className={styles.grid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>missing_context_triage_status</span>
+                  <span className={styles.value}>{missingContextTriage.status}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>submit_enabled_now</span>
+                  <span className={styles.value}>false</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>order_submitted</span>
+                  <span className={styles.value}>false</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>live_trading_enabled</span>
+                  <span className={styles.value}>{missingContextTriage.liveTradingEnabled ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>workers_allowed_to_submit</span>
+                  <span className={styles.value}>{missingContextTriage.workersAllowedToSubmit ? "true" : "false"}</span>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>next_required_review_action</span>
+                  <span className={styles.value}>{formatStatus(missingContextTriage.nextRequiredReviewAction)}</span>
+                </div>
+              </div>
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Rerun requirements</h5>
+                {missingContextTriage.rerunRequired.length === 0 ? (
+                  <p className={styles.emptyText}>No rerun requirements are currently surfaced by the shared triage helper.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {missingContextTriage.rerunRequired.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {missingContextTriage.payloadMissingFields.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Payload</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.payloadMissingFields.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {missingContextTriage.routeCheckIssues.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Route-check</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.routeCheckIssues.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {missingContextTriage.dryRunIssues.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Dry-run</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.dryRunIssues.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {missingContextTriage.approvalPreflightIssues.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Approval / preflight</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.approvalPreflightIssues.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {missingContextTriage.freshnessIssues.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Freshness</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.freshnessIssues.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {[...missingContextTriage.sourceLabelIssues, ...missingContextTriage.brokerModeIssues].length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Source labels / broker mode</h5>
+                  <ul className={styles.list}>
+                    {[...missingContextTriage.sourceLabelIssues, ...missingContextTriage.brokerModeIssues].map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {missingContextTriage.blockedReasons.length > 0 ? (
+                <div className={styles.listBlock}>
+                  <h5 className={styles.listTitle}>Blocking reasons</h5>
+                  <ul className={styles.list}>
+                    {missingContextTriage.blockedReasons.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className={styles.listBlock}>
+                <h5 className={styles.listTitle}>Next required action detail</h5>
+                <p className={styles.emptyText}>{missingContextTriage.nextRequiredReviewActionDetail}</p>
+              </div>
             </section>
           ) : null}
 

@@ -456,6 +456,57 @@ export type ManualPaperSubmitPayloadFreshnessReview = {
   nextRequiredActionDetail: string;
 };
 
+export type ManualPaperSubmitMissingContextTriageStatus =
+  | "triage_clear_for_future_review"
+  | "missing_payload_fields"
+  | "missing_route_check"
+  | "missing_dry_run"
+  | "missing_approval_or_preflight"
+  | "missing_freshness_evidence"
+  | "stale_evidence"
+  | "source_label_issue"
+  | "broker_mode_issue"
+  | "blocked_by_review"
+  | "unknown";
+
+export type ManualPaperSubmitMissingContextTriageGroup = {
+  code:
+    | "payload"
+    | "route_check"
+    | "dry_run"
+    | "approval_preflight"
+    | "freshness"
+    | "source_labels_broker_mode"
+    | "blocking_reasons"
+    | "next_required_action";
+  title: string;
+  items: string[];
+};
+
+export type ManualPaperSubmitMissingContextTriage = {
+  status: ManualPaperSubmitMissingContextTriageStatus;
+  title: string;
+  body: string;
+  missingContextTriageStatus: ManualPaperSubmitMissingContextTriageStatus;
+  triageGroups: ManualPaperSubmitMissingContextTriageGroup[];
+  payloadMissingFields: string[];
+  routeCheckIssues: string[];
+  dryRunIssues: string[];
+  approvalPreflightIssues: string[];
+  freshnessIssues: string[];
+  sourceLabelIssues: string[];
+  brokerModeIssues: string[];
+  blockedReasons: string[];
+  rerunRequired: string[];
+  rerunReasons: string[];
+  nextRequiredReviewAction: string;
+  nextRequiredReviewActionDetail: string;
+  submitEnabledNow: false;
+  orderSubmitted: false;
+  liveTradingEnabled: boolean;
+  workersAllowedToSubmit: boolean;
+};
+
 export type ManualPaperSubmitFreshnessEvidence = {
   recommendation: PaperRecommendationDetails | null;
   routeCheckObservedAt: string | null;
@@ -3759,6 +3810,279 @@ export function deriveManualPaperSubmitPayloadFreshnessReview(
     workersAllowedToSubmit,
     nextRequiredAction,
     nextRequiredActionDetail,
+  };
+}
+
+export function deriveManualPaperSubmitMissingContextTriage(
+  reviewChain: ManualPaperSubmitReviewChain,
+  result: PaperRecommendationRouteCheck | null,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  freshnessReview: ManualPaperSubmitPayloadFreshnessReview,
+): ManualPaperSubmitMissingContextTriage {
+  const payloadMissingFields = reviewChain.handoff
+    ? reviewChain.handoff.requiredFuturePayloadFields
+        .filter((field) => field.required && !field.satisfied)
+        .map((field) => field.label)
+    : [];
+
+  const routeCheckIssues = uniqueMessages([
+    result === null ? "Route-check evidence has not been loaded yet." : null,
+    result?.route_check_status === "missing_context"
+      ? "Route-check context is incomplete and must be completed before future manual review."
+      : null,
+    result?.route_check_status === "blocked"
+      ? result.blocked_reason ?? "Route-check is blocked in the current safety posture."
+      : null,
+    ...(result?.missing_data ?? []),
+  ]);
+
+  const dryRunIssues = uniqueMessages([
+    preview === null ? "Guarded broker dry-run evidence has not been loaded yet." : null,
+    preview !== null && !preview.dry_run_executed
+      ? preview.blocked_reason ?? "Guarded broker dry-run must be rerun before future manual review."
+      : null,
+    preview?.dry_run_status === "missing_context"
+      ? "Guarded broker dry-run context is incomplete and must be completed before future manual review."
+      : null,
+    preview?.dry_run_status === "invalid"
+      ? "Guarded broker dry-run surfaced invalid order details."
+      : null,
+    preview?.would_block
+      ? preview.blocked_reason ?? "Guarded broker dry-run surfaced would-block findings."
+      : null,
+    ...(preview?.missing_data ?? []),
+  ]);
+
+  const approvalPreflightIssues = uniqueMessages([
+    reviewChain.approvalPackage === null
+      ? "Approval package evidence has not been derived yet."
+      : reviewChain.approvalPackage.status !== "approval_package_ready_for_future_manual_review"
+        ? `Approval package status is ${reviewChain.approvalPackage.status}.`
+        : null,
+    reviewChain.preflightContract === null
+      ? "Preflight contract evidence has not been derived yet."
+      : reviewChain.preflightContract.status !== "preflight_contract_ready_for_future_manual_step"
+        ? `Preflight contract status is ${reviewChain.preflightContract.status}.`
+        : null,
+    ...(reviewChain.approvalPackage?.missingData ?? []),
+    ...(reviewChain.preflightContract?.missingData ?? []),
+  ]);
+
+  const freshnessIssues = uniqueMessages([
+    ...freshnessReview.missingFreshnessFields.map((field) => `Missing freshness field: ${field}`),
+    ...freshnessReview.staleEvidence,
+    freshnessReview.status === "rerun_route_check_required"
+      ? "Freshness review requires a fresh route-check before future manual review."
+      : null,
+    freshnessReview.status === "rerun_dry_run_required"
+      ? "Freshness review requires a fresh guarded dry-run before future manual review."
+      : null,
+    freshnessReview.status === "rerun_approval_required"
+      ? "Freshness review requires a fresh approval package review before future manual review."
+      : null,
+    freshnessReview.status === "rerun_preflight_required"
+      ? "Freshness review requires a fresh preflight contract review before future manual review."
+      : null,
+  ]);
+
+  const sourceLabelIssues = uniqueMessages([
+    !freshnessReview.sourceLabelsCoherent
+      ? "Source labels are missing or incoherent for future guarded IBKR paper review."
+      : null,
+    result !== null && result.execution_source !== "recommendation_route_check"
+      ? `Route-check execution_source is ${result.execution_source}.`
+      : null,
+    result !== null && result.serious_paper_source !== "ibkr_paper"
+      ? `Route-check serious_paper_source is ${result.serious_paper_source}.`
+      : null,
+    result !== null && result.canonical_paper_route !== "/broker/orders"
+      ? `Route-check canonical_paper_route is ${result.canonical_paper_route}.`
+      : null,
+    preview !== null && (preview.dry_run_execution_source ?? "broker_dry_run") !== "broker_dry_run"
+      ? `Dry-run execution source is ${preview.dry_run_execution_source ?? "unknown"}.`
+      : null,
+    preview !== null && (preview.serious_paper_source ?? "ibkr_paper") !== "ibkr_paper"
+      ? `Dry-run serious_paper_source is ${preview.serious_paper_source ?? "unknown"}.`
+      : null,
+    preview !== null && (preview.canonical_paper_route ?? "/broker/orders") !== "/broker/orders"
+      ? `Dry-run canonical_paper_route is ${preview.canonical_paper_route ?? "unknown"}.`
+      : null,
+  ]);
+
+  const brokerModeIssues = uniqueMessages([
+    !freshnessReview.brokerModeStillPaper
+      ? "Broker mode is missing, unknown, or no longer coherently paper."
+      : null,
+    result === null ? "Broker account mode is unavailable until route-check loads." : null,
+    result !== null && result.broker_account_mode !== "paper"
+      ? `Route-check broker_account_mode is ${result.broker_account_mode}.`
+      : null,
+    result !== null && !result.broker_mode.paper_trading_enabled
+      ? "Route-check broker mode no longer reports paper trading enabled."
+      : null,
+    preview !== null && preview.broker_account_mode !== "paper"
+      ? `Dry-run broker_account_mode is ${preview.broker_account_mode}.`
+      : null,
+    freshnessReview.liveTradingEnabled ? "Live trading is no longer locked." : null,
+    freshnessReview.workersAllowedToSubmit ? "Workers would be allowed to submit, which must remain blocked." : null,
+  ]);
+
+  const blockedReasons = uniqueMessages([
+    ...(reviewChain.readiness?.blockedReasons ?? []),
+    ...(reviewChain.handoff?.blockedReasons ?? []),
+    ...(reviewChain.auditPackage?.blockedReasons ?? []),
+    ...(reviewChain.approvalPackage?.blockedReasons ?? []),
+    ...(reviewChain.preflightContract?.blockedReasons ?? []),
+    ...(reviewChain.submitDecisionReview?.blockedReasons ?? []),
+    ...(reviewChain.operatorActionReview?.blockedReasons ?? []),
+    ...(reviewChain.finalInteractionSpec?.blockedReasons ?? []),
+    result?.blocked_reason,
+    preview?.blocked_reason,
+  ]);
+
+  const rerunRequired = uniqueMessages([
+    routeCheckIssues.length > 0 ? "route-check" : null,
+    dryRunIssues.length > 0 ? "guarded dry-run" : null,
+    approvalPreflightIssues.length > 0 ? "approval / preflight review" : null,
+    freshnessIssues.length > 0 ? "freshness review" : null,
+    sourceLabelIssues.length > 0 ? "source-label review" : null,
+    brokerModeIssues.length > 0 ? "broker-mode review" : null,
+  ]);
+
+  const rerunReasons = uniqueMessages([
+    ...freshnessReview.rerunReasons,
+    routeCheckIssues.length > 0 ? routeCheckIssues[0] : null,
+    dryRunIssues.length > 0 ? dryRunIssues[0] : null,
+    approvalPreflightIssues.length > 0 ? approvalPreflightIssues[0] : null,
+    sourceLabelIssues.length > 0 ? sourceLabelIssues[0] : null,
+    brokerModeIssues.length > 0 ? brokerModeIssues[0] : null,
+  ]);
+
+  const nextRequiredReviewAction =
+    freshnessReview.nextRequiredAction ||
+    reviewChain.preflightContract?.nextRequiredAction ||
+    reviewChain.approvalPackage?.nextRequiredAction ||
+    reviewChain.handoff?.nextRequiredAction ||
+    reviewChain.readiness?.nextRequiredAction ||
+    "review_missing_context";
+  const nextRequiredReviewActionDetail =
+    freshnessReview.nextRequiredActionDetail ||
+    reviewChain.preflightContract?.nextRequiredActionDetail ||
+    reviewChain.approvalPackage?.nextRequiredActionDetail ||
+    reviewChain.handoff?.nextRequiredActionDetail ||
+    reviewChain.readiness?.nextRequiredActionDetail ||
+    "Review the current missing-context triage buckets before any future manual paper submit phase.";
+
+  const triageGroups: ManualPaperSubmitMissingContextTriageGroup[] = [
+    { code: "payload", title: "Payload", items: payloadMissingFields },
+    { code: "route_check", title: "Route-check", items: routeCheckIssues },
+    { code: "dry_run", title: "Dry-run", items: dryRunIssues },
+    { code: "approval_preflight", title: "Approval / preflight", items: approvalPreflightIssues },
+    { code: "freshness", title: "Freshness", items: freshnessIssues },
+    {
+      code: "source_labels_broker_mode",
+      title: "Source labels / broker mode",
+      items: [...sourceLabelIssues, ...brokerModeIssues],
+    },
+    { code: "blocking_reasons", title: "Blocking reasons", items: blockedReasons },
+    {
+      code: "next_required_action",
+      title: "Next required action",
+      items: [nextRequiredReviewAction, nextRequiredReviewActionDetail],
+    },
+  ];
+
+  let status: ManualPaperSubmitMissingContextTriageStatus = "unknown";
+  if (blockedReasons.length > 0 || result?.route_check_status === "blocked") {
+    status = "blocked_by_review";
+  } else if (payloadMissingFields.length > 0) {
+    status = "missing_payload_fields";
+  } else if (routeCheckIssues.length > 0) {
+    status = "missing_route_check";
+  } else if (dryRunIssues.length > 0) {
+    status = "missing_dry_run";
+  } else if (approvalPreflightIssues.length > 0) {
+    status = "missing_approval_or_preflight";
+  } else if (freshnessReview.status === "stale_evidence") {
+    status = "stale_evidence";
+  } else if (freshnessIssues.length > 0) {
+    status = "missing_freshness_evidence";
+  } else if (sourceLabelIssues.length > 0) {
+    status = "source_label_issue";
+  } else if (brokerModeIssues.length > 0) {
+    status = "broker_mode_issue";
+  } else if (triageGroups.every((group) => group.code === "next_required_action" || group.items.length === 0)) {
+    status = "triage_clear_for_future_review";
+  }
+
+  let title = "Missing-context triage is unknown";
+  let body =
+    "Missing-context triage only, no order submitted. Review the grouped triage buckets before any future guarded manual IBKR paper submit phase is considered.";
+
+  if (status === "triage_clear_for_future_review") {
+    title = "Triage is clear for future review";
+    body =
+      "Missing-context triage only, no order submitted. The current read-only review chain does not surface missing-context gaps, but submit remains disabled in this phase.";
+  } else if (status === "blocked_by_review") {
+    title = "Blocking review findings still prevent future manual review";
+    body =
+      "Missing-context triage only, no order submitted. One or more blocking review findings still fail closed, so a future guarded manual paper submit review cannot proceed.";
+  } else if (status === "missing_payload_fields") {
+    title = "Missing payload fields block future manual review";
+    body =
+      "Missing-context triage only, no order submitted. Required payload fields are still missing from the current read-only review chain, so future guarded manual paper review must fail closed.";
+  } else if (status === "missing_route_check") {
+    title = "Route-check evidence is missing or incomplete";
+    body =
+      "Missing-context triage only, no order submitted. Route-check evidence is missing, incomplete, or blocked, so future guarded manual paper review must fail closed until route-check is refreshed.";
+  } else if (status === "missing_dry_run") {
+    title = "Guarded dry-run evidence is missing or incomplete";
+    body =
+      "Missing-context triage only, no order submitted. Guarded broker dry-run evidence is missing, incomplete, or blocked, so future guarded manual paper review must fail closed until dry-run is refreshed.";
+  } else if (status === "missing_approval_or_preflight") {
+    title = "Approval or preflight review evidence is still missing";
+    body =
+      "Missing-context triage only, no order submitted. Approval-package or preflight-contract evidence is not yet ready, so the current review chain still has missing future-review context.";
+  } else if (status === "missing_freshness_evidence") {
+    title = "Freshness evidence is missing or incomplete";
+    body =
+      "Missing-context triage only, no order submitted. Missing timestamps or rerun-required freshness evidence still prevent future guarded manual paper review.";
+  } else if (status === "stale_evidence") {
+    title = "Stale evidence blocks future manual review";
+    body =
+      "Missing-context triage only, no order submitted. Freshness evidence has drifted or gone stale, so future guarded manual paper review must fail closed until evidence is refreshed.";
+  } else if (status === "source_label_issue") {
+    title = "Source-label issues block future manual review";
+    body =
+      "Missing-context triage only, no order submitted. Source labels are missing or incoherent, so future guarded manual paper review must fail closed until source lineage is coherent again.";
+  } else if (status === "broker_mode_issue") {
+    title = "Broker-mode issues block future manual review";
+    body =
+      "Missing-context triage only, no order submitted. Broker mode is missing, unknown, or non-paper, so future guarded manual paper review must fail closed until paper mode is coherent again.";
+  }
+
+  return {
+    status,
+    title,
+    body,
+    missingContextTriageStatus: status,
+    triageGroups,
+    payloadMissingFields,
+    routeCheckIssues,
+    dryRunIssues,
+    approvalPreflightIssues,
+    freshnessIssues,
+    sourceLabelIssues,
+    brokerModeIssues,
+    blockedReasons,
+    rerunRequired,
+    rerunReasons,
+    nextRequiredReviewAction,
+    nextRequiredReviewActionDetail,
+    submitEnabledNow: false,
+    orderSubmitted: false,
+    liveTradingEnabled: freshnessReview.liveTradingEnabled,
+    workersAllowedToSubmit: freshnessReview.workersAllowedToSubmit,
   };
 }
 

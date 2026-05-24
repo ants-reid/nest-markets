@@ -286,6 +286,13 @@ test("manual paper submit confirmation surface stays design-only and never calls
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/future manual paper submit would require fresh route-check and dry-run evidence/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/live trading still locked/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/workers still non-submitting/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing-context triage/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statustriage_clear_for_future_review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/submit_enabled_nowfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/order_submittedfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/live_trading_enabledfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/workers_allowed_to_submitfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/triage is clear for future review/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-rerun-checklist")).toContainText(/submit-time checks will rerun/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-decision-persistence")).toContainText(/submit_preflight decision before submit/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-wording-preview")).toContainText(/i understand this is an ibkr paper order only/i);
@@ -314,6 +321,10 @@ test("manual paper submit confirmation surface renders safe missing-context stat
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/dry_run_statusmissing_context/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusrerun_route_check_required/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/rerun_route_check/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusmissing_route_check/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/route-check evidence has not been loaded yet/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded broker dry-run evidence has not been loaded yet/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/broker account mode is unavailable until route-check loads/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/review-chain status is unavailable until recommendation context is loaded/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/recommendation_id/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
@@ -337,6 +348,9 @@ test("manual paper submit confirmation payload freshness review fails closed whe
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation.created_at/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation.reviewed_at/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/missing timestamps prevent freshness confirmation/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusmissing_freshness_evidence/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing freshness field: recommendation.created_at/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing freshness field: recommendation.reviewed_at/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
 });
 
@@ -372,6 +386,69 @@ test("manual paper submit confirmation payload freshness review requires a rerun
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusrerun_dry_run_required/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/guarded dry-run/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/future manual paper submit would require a fresh guarded broker dry-run preview first/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusmissing_dry_run/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded broker dry-run must be rerun before future manual review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/rerun_required/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded dry-run/i);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
+});
+
+test("manual paper submit confirmation triage groups payload, source-label, broker-mode, and blocking issues", async ({ page }) => {
+  const recommendationId = "recommendation-triage-blocked";
+
+  await routeRecommendationEvidence(page, recommendationId, {
+    recommendationBody: {
+      order_type: "LIMIT",
+      limit_price: null,
+    },
+    routeCheckBody: {
+      order_type: "LIMIT",
+      limit_price: null,
+      route_check_status: "blocked",
+      blocked_reason: "Live broker mode must be reset before paper review can continue.",
+      execution_source: "unexpected_source",
+      serious_paper_source: "ibkr_live",
+      canonical_paper_route: "/broker/live-orders",
+      broker_account_mode: "live",
+      live_trading_enabled: true,
+      workers_allowed_to_submit: true,
+      broker_mode: {
+        broker: "ibkr",
+        mode: "live",
+        live_execution_enabled: true,
+        paper_trading_enabled: false,
+      },
+    },
+    dryRunBody: {
+      order_type: "LIMIT",
+      limit_price: null,
+      dry_run_execution_source: "unexpected_source",
+      serious_paper_source: "ibkr_live",
+      canonical_paper_route: "/broker/live-orders",
+      broker_account_mode: "live",
+      live_trading_enabled: true,
+      workers_allowed_to_submit: true,
+      broker_mode: {
+        broker: "ibkr",
+        mode: "live",
+        live_execution_enabled: true,
+        paper_trading_enabled: false,
+      },
+    },
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusblocked_by_review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/payload/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/limit_price/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/source labels \/ broker mode/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/route-check execution_source is unexpected_source/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/broker mode is missing, unknown, or no longer coherently paper/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/live trading is no longer locked/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/workers would be allowed to submit/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/blocking reasons/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/live broker mode must be reset before paper review can continue/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
 });
 

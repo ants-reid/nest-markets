@@ -13,6 +13,7 @@ import {
   type PaperRecommendationRouteCheck,
 } from "../../../lib/api/paperRecommendations";
 import {
+  deriveManualPaperSubmitMissingContextTriage,
   deriveManualPaperSubmitPayloadFreshnessReview,
   deriveManualPaperSubmitReviewChain,
   type ManualPaperSubmitReviewChain,
@@ -436,6 +437,12 @@ function ManualPaperSubmitConfirmationSurface() {
     routeCheckObservedAt,
     dryRunObservedAt,
   });
+  const missingContextTriage = deriveManualPaperSubmitMissingContextTriage(
+    reviewChain,
+    routeCheck,
+    dryRunPreview,
+    freshnessReview,
+  );
   const reviewSections = buildReviewSections(reviewChain);
   const blockedReasons = Array.from(
     new Set(
@@ -641,6 +648,64 @@ function ManualPaperSubmitConfirmationSurface() {
               </ul>
             )}
           </div>
+        </section>
+
+        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-missing-context-triage">
+          <h2 className={styles.sectionTitle}>Missing-context triage</h2>
+          <p className={styles.sectionSubtitle}>
+            Missing-context triage only. Submit remains disabled. No order submitted. Live trading remains locked. Workers cannot submit.
+          </p>
+          <div className={styles.grid}>
+            <div className={styles.field}><span className={styles.label}>missing_context_triage_status</span><span className={styles.value}>{missingContextTriage.status}</span></div>
+            <div className={styles.field}><span className={styles.label}>next_required_review_action</span><span className={styles.value}>{missingContextTriage.nextRequiredReviewAction}</span></div>
+            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>live_trading_enabled</span><span className={styles.value}>{missingContextTriage.liveTradingEnabled ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>workers_allowed_to_submit</span><span className={styles.value}>{missingContextTriage.workersAllowedToSubmit ? "true" : "false"}</span></div>
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>{missingContextTriage.title}</h3>
+            <p className={styles.sectionSubtitle}>{missingContextTriage.body}</p>
+            <p className={styles.emptyText}>{missingContextTriage.nextRequiredReviewActionDetail}</p>
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>rerun_required</h3>
+            {missingContextTriage.rerunRequired.length === 0 ? (
+              <p className={styles.emptyText}>No rerun requirements are currently surfaced by the shared triage helper.</p>
+            ) : (
+              <ul className={styles.list}>
+                {missingContextTriage.rerunRequired.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>rerun_reasons</h3>
+            {missingContextTriage.rerunReasons.length === 0 ? (
+              <p className={styles.emptyText}>No rerun reasons are currently surfaced by the shared triage helper.</p>
+            ) : (
+              <ul className={styles.list}>
+                {missingContextTriage.rerunReasons.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {missingContextTriage.triageGroups.map((group) => (
+            <div key={group.code} className={styles.subsection}>
+              <h3 className={styles.subsectionTitle}>{group.title}</h3>
+              {group.items.length === 0 ? (
+                <p className={styles.emptyText}>No issues are currently surfaced in this triage bucket.</p>
+              ) : (
+                <ul className={styles.list}>
+                  {group.items.map((item) => (
+                    <li key={`${group.code}-${item}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
         </section>
 
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-context-gaps">

@@ -431,6 +431,21 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
   await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
     /workers cannot submit/i,
   );
+  await expect(page.getByTestId("recommendation-missing-context-triage-status-recommendation-1")).toContainText(
+    /missing dry run/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /missing-context triage only/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /guarded broker dry-run evidence has not been loaded yet/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /rerun requirements/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /guarded dry-run/i,
+  );
   await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
     /rerun requirements/i,
   );
@@ -995,6 +1010,15 @@ test("In-Flight Adjustments payload freshness summary fails closed when recommen
   );
   await expect(page.getByTestId("recommendation-payload-freshness-summary-card-recommendation-1")).toContainText(
     /missing timestamps prevent freshness confirmation/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-status-recommendation-1")).toContainText(
+    /missing freshness evidence/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /missing freshness field: recommendation.created_at/i,
+  );
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-1")).toContainText(
+    /missing freshness field: recommendation.reviewed_at/i,
   );
 });
 
@@ -1568,6 +1592,12 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-live-blocked")).toContainText(/rerun dry run required/i);
   await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-live-blocked")).toContainText(/guarded dry-run/i);
   await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-live-blocked")).toContainText(/broker mode is no longer coherently paper/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-status-recommendation-live-blocked")).toContainText(/blocked by review/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-live-blocked")).toContainText(/source labels \/ broker mode/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-live-blocked")).toContainText(/broker mode is missing, unknown, or no longer coherently paper/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-live-blocked")).toContainText(/live trading is no longer locked/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-live-blocked")).toContainText(/workers would be allowed to submit/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-live-blocked")).toContainText(/blocking reasons/i);
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-live-blocked")).toContainText(/blocked/i);
@@ -1583,6 +1613,8 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-missing-context")).toContainText(/operator approval is required/i);
   await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-missing-context")).toContainText(/missing context/i);
   await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-missing-context")).toContainText(/route-check/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-status-recommendation-missing-context")).toContainText(/missing route check/i);
+  await expect(page.getByTestId("recommendation-missing-context-triage-summary-recommendation-missing-context")).toContainText(/route-check context is incomplete/i);
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-missing-context")).toContainText(
     /missing context/i,
   );

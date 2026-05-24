@@ -15183,3 +15183,115 @@ still 100% green.
 
 -> Keep the panel summary compact and read-only. If a later phase needs broader freshness evidence on more cockpit surfaces, continue reusing the shared helper and keep any eventual execution behavior constrained to the canonical guarded `/broker/orders` seam only.
 
+## Manual Submit Confirmation Missing Context Triage
+
+- **Date:** 2026-05-24
+- **Status:** ✅ Complete
+- **Scope:** Add a shared read-only missing-context triage contract for future guarded manual IBKR paper review and reuse it on both the dedicated confirmation surface and the in-flight recommendation route-check panel. This block is triage only. It does not submit orders, it does not enable submit, it does not add a live path, and it does not expand worker authority.
+
+### A. Shared Triage Contract
+
+- Added `deriveManualPaperSubmitMissingContextTriage(...)` to `apps/web/lib/manualPaperSubmitReview.ts`.
+- Added a shared triage status contract covering:
+  - `triage_clear_for_future_review`
+  - `missing_payload_fields`
+  - `missing_route_check`
+  - `missing_dry_run`
+  - `missing_approval_or_preflight`
+  - `missing_freshness_evidence`
+  - `stale_evidence`
+  - `source_label_issue`
+  - `broker_mode_issue`
+  - `blocked_by_review`
+  - `unknown`
+- Added grouped triage buckets for:
+  - payload
+  - route-check
+  - dry-run
+  - approval / preflight
+  - freshness
+  - source labels / broker mode
+  - blocking reasons
+  - next required action
+
+### B. Confirmation Surface
+
+- `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx` now renders a full `Missing-context triage` section backed by the shared helper.
+- The confirmation surface now shows:
+  - triage status
+  - grouped issue buckets
+  - rerun requirements and rerun reasons
+  - next required review action and detail
+  - `submit_enabled_now=false`
+  - `order_submitted=false`
+  - `live_trading_enabled=false` unless the shared evidence explicitly flags drift
+  - `workers_allowed_to_submit=false` unless the shared evidence explicitly flags drift
+- Required operator copy is explicit on the surface:
+  - `Missing-context triage only`
+  - `Submit remains disabled`
+  - `No order submitted`
+  - `Live trading remains locked`
+  - `Workers cannot submit`
+
+### C. In-Flight Compact Summary
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` now renders a compact `Missing-context triage` subpanel next to the existing freshness summary.
+- The panel reuses the shared helper rather than duplicating payload, route-check, dry-run, approval/preflight, freshness, source-label, or broker-mode gap logic.
+- The compact panel preserves the same read-only safety copy and the same disabled/live-locked/worker-blocked invariants.
+
+### D. Tests And Safety Coverage
+
+- Expanded `apps/web/tests/manual-paper-submit-confirmation.spec.ts` to cover:
+  - clear triage state
+  - missing route-check state
+  - missing freshness evidence state
+  - missing dry-run state
+  - grouped payload + source-label + broker-mode + blocking issue display
+- Expanded `apps/web/tests/in-flight-adjustments.spec.ts` to cover:
+  - compact missing-dry-run triage
+  - compact missing-freshness triage
+  - compact blocked-by-review triage
+  - compact missing-route-check triage
+- The static submit-boundary drift lock remains part of validation so the panel, confirmation page, and shared helper stay free of `submitBrokerOrder` imports and `/broker/orders` UI execution.
+
+### E. Files Changed
+
+- `apps/web/lib/manualPaperSubmitReview.ts`
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`
+- `apps/web/tests/manual-paper-submit-confirmation.spec.ts`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### F. Safety Invariants Preserved
+
+- No submit control was added.
+- No `/broker/orders` frontend call was added.
+- No `submitBrokerOrder` import was added.
+- No broker submit path was called from the UI.
+- No decision row is written from this block.
+- Live remains locked.
+- Workers remain non-submitting.
+
+### G. Validation
+
+- `cd apps/web && npm run lint`
+- `cd apps/web && npm run build`
+- `cd apps/web && NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run start -- --hostname 127.0.0.1 --port 3100`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/manual-paper-submit-confirmation.spec.ts tests/in-flight-adjustments.spec.ts --reporter=line`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit|freshness|missing context|triage' --reporter=line`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- `cd apps/api && .venv/bin/ruff check app tests`
+- `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q`
+- `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+- `cd /Users/ants/Documents/market-hunter-mvp && git diff --check`
+
+### H. Next Recommended Phase
+
+-> If a later phase needs a guarded executable manual paper submit step, keep this triage layer advisory-only, preserve the shared helper, and add any actual execution behavior only at the canonical `/broker/orders` seam with explicit submit-time reruns, append-only decision persistence, live lock, and worker non-submission still enforced.
+
