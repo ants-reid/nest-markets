@@ -1,9 +1,189 @@
 import { expect, test } from "@playwright/test";
 
 const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 function apiUrl(path: string) {
   return new URL(path, API_BASE_URL).toString();
+}
+
+async function mockStrategyLabOverview(page: import("@playwright/test").Page) {
+  const runId = "b613db7f-1c6a-4324-a130-bdaf63f78311";
+  const configId = "f4da5a7c-351b-4dc5-80cb-94ba8227d5b2";
+  const now = new Date().toISOString();
+
+  await page.route("**/strategy-lab/**", async (route) => {
+    const requestUrl = new URL(route.request().url());
+
+    if (requestUrl.origin !== API_ORIGIN) {
+      await route.continue();
+      return;
+    }
+
+    if (requestUrl.pathname === "/strategy-lab/configs") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 1,
+          items: [{
+            id: configId,
+            name: "MA Momentum Research",
+            strategy_type: "ma_momentum",
+            asset: "AAPL",
+            timeframe: "1d",
+            parameters: { fast_window: 5, slow_window: 20 },
+            risk_settings: {},
+            enabled: true,
+            created_at: now,
+            updated_at: now,
+          }],
+        }),
+      });
+      return;
+    }
+
+    if (requestUrl.pathname === "/strategy-lab/backtests") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 1,
+          items: [{
+            id: runId,
+            name: "Research Backtest Alpha",
+            status: "completed",
+            date_from: "2024-01-01T00:00:00.000Z",
+            date_to: "2024-12-31T00:00:00.000Z",
+            requested_assets: { assets: ["AAPL"] },
+            requested_timeframes: { timeframes: ["1d"] },
+            strategy_config_ids: { config_ids: [configId] },
+            starting_capital: 10000,
+            result_summary: { total_mock_trades: 32 },
+            error_message: null,
+            started_at: now,
+            completed_at: now,
+            created_at: now,
+            updated_at: now,
+            research_warnings: {
+              research_only: true,
+              execution_costs_modelled: true,
+              spread_modelled: true,
+              slippage_modelled: true,
+              fees_modelled: true,
+              live_ready: false,
+              warning: "Research only.",
+              cost_model_version: "mh15c_v1",
+              cost_model_status: "modelled",
+              cost_model_notes: "Deterministic research assumptions.",
+            },
+          }],
+        }),
+      });
+      return;
+    }
+
+    if (requestUrl.pathname === "/strategy-lab/comparisons") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 1,
+          items: [{
+            backtest_run_id: runId,
+            name: "Research Backtest Alpha",
+            status: "completed",
+            date_from: "2024-01-01T00:00:00.000Z",
+            date_to: "2024-12-31T00:00:00.000Z",
+            requested_assets: ["AAPL"],
+            requested_timeframes: ["1d"],
+            starting_capital: 10000,
+            created_at: now,
+            completed_at: now,
+            total_configs_tested: 1,
+            best_score: 82.5,
+            best_asset: "AAPL",
+            best_timeframe: "1d",
+            best_strategy_config_id: configId,
+            best_strategy_name: "MA Momentum Research",
+            best_parameters: { fast_window: 5, slow_window: 20 },
+            best_total_trades: 32,
+            best_win_rate: 0.56,
+            best_profit_factor: 1.42,
+            best_total_return_pct: 12.4,
+            best_max_drawdown_pct: 6.1,
+          }],
+        }),
+      });
+      return;
+    }
+
+    if (requestUrl.pathname === "/strategy-lab/cost-model/profiles") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 2,
+          items: [
+            {
+              profile_name: "standard_research",
+              profile_label: "Standard Research",
+              profile_description: "Baseline deterministic research cost profile.",
+              profile_multiplier: 1,
+              intended_use: "Default research review",
+              is_broker_calibrated: false,
+              live_ready: false,
+            },
+            {
+              profile_name: "stress_research",
+              profile_label: "Stress Research",
+              profile_description: "Conservative stress profile.",
+              profile_multiplier: 3,
+              intended_use: "Risk stress review",
+              is_broker_calibrated: false,
+              live_ready: false,
+            },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (requestUrl.pathname === "/strategy-lab/cost-model/stress-presets") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 2,
+          items: [
+            {
+              preset_name: "normal_liquidity",
+              preset_label: "Normal Liquidity",
+              preset_description: "Default deterministic preset.",
+              spread_multiplier: 1,
+              slippage_multiplier: 1,
+              commission_multiplier: 1,
+              is_broker_calibrated: false,
+              live_ready: false,
+            },
+            {
+              preset_name: "news_event_stress",
+              preset_label: "News Event Stress",
+              preset_description: "Stress preset for volatile sessions.",
+              spread_multiplier: 4,
+              slippage_multiplier: 4,
+              commission_multiplier: 1,
+              is_broker_calibrated: false,
+              live_ready: false,
+            },
+          ],
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
 }
 
 function buildCockpitModeState() {
@@ -153,6 +333,7 @@ test("data centre page loads with read-only heading", async ({ page }) => {
 });
 
 test("strategy lab page loads route and research review sections", async ({ page }) => {
+  await mockStrategyLabOverview(page);
   await page.goto("/strategy-lab");
   await expect(page.locator("main").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /strategy lab/i })).toBeVisible();
@@ -167,6 +348,7 @@ test("strategy lab page loads route and research review sections", async ({ page
 });
 
 test("strategy lab sidebar and research-only safety content render", async ({ page }) => {
+  await mockStrategyLabOverview(page);
   await page.goto("/strategy-lab");
   await expect(page.getByRole("link", { name: "Strategy Lab" })).toBeVisible();
   await expect(page.getByTestId("strategy-lab-safety-section")).toBeVisible();
@@ -174,6 +356,7 @@ test("strategy lab sidebar and research-only safety content render", async ({ pa
 });
 
 test("strategy lab cost, quality, and walk-forward sections render", async ({ page }) => {
+  await mockStrategyLabOverview(page);
   await page.goto("/strategy-lab");
   await expect(page.getByTestId("strategy-lab-cost-model-section")).toBeVisible();
   await expect(page.getByTestId("strategy-lab-quality-section")).toBeVisible();

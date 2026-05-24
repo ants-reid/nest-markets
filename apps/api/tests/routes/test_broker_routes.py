@@ -13,6 +13,7 @@ from app.clients.broker.broker_interface import (
 )
 from app.config import get_settings
 from app.db.models import TradingHalt
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.session import SessionLocal
 from app.services.broker_service import BrokerService
 from app.services.broker_mode_guard import LiveExecutionBlockedError  # noqa: F401 — import confirms symbol is importable
@@ -193,6 +194,22 @@ async def test_submit_order_returns_structured_403_when_paper_preflight_blocks(c
     assert any(item["code"] == "max_order_notional_exceeded" for item in data["blocking_reasons"])
     broker.submit_order.assert_not_called()
 
+    with SessionLocal() as session:
+        rows = (
+            session.query(BrokerSubmitDecision)
+            .order_by(BrokerSubmitDecision.created_at.asc())
+            .all()
+        )
+
+    assert len(rows) == 2
+    assert rows[0].preflight_json["source"] == "submit_preflight"
+    assert rows[0].preflight_json["decision_status"] == "would_block"
+    assert rows[0].preflight_json["allowed_to_submit"] is False
+    assert rows[1].preflight_json["source"] == "submit_attempt"
+    assert rows[1].preflight_json["submit_gate"] == "blocked"
+    assert rows[1].preflight_json["allowed_to_submit"] is False
+    assert rows[1].would_block is True
+
 
 @pytest.mark.asyncio
 async def test_submit_order_returns_halt_block_when_active_halt_exists(client):
@@ -331,6 +348,21 @@ async def test_resolved_halt_restores_existing_paper_submit_path(client):
     assert response.status_code == 200
     assert response.json()["status"] == "SUBMITTED"
     broker.submit_order.assert_called_once()
+
+    with SessionLocal() as session:
+        rows = (
+            session.query(BrokerSubmitDecision)
+            .order_by(BrokerSubmitDecision.created_at.asc())
+            .all()
+        )
+
+    assert len(rows) == 2
+    assert rows[0].preflight_json["source"] == "submit_preflight"
+    assert rows[0].preflight_json["decision_status"] == "advisory"
+    assert rows[1].preflight_json["source"] == "submit_attempt"
+    assert rows[1].preflight_json["decision_status"] == "allowed"
+    assert rows[1].preflight_json["submit_gate"] == "allowed"
+    assert rows[1].preflight_json["broker_order_id"] == "PAPER-HALT-CLEARED"
 
 
 @pytest.mark.asyncio
@@ -533,6 +565,17 @@ def _clear_active_global_halts():
             TradingHalt.scope == "global",
             TradingHalt.status == "active",
         ).delete(synchronize_session=False)
+        session.commit()
+
+
+@pytest.fixture(autouse=True)
+def _clear_submit_decisions():
+    with SessionLocal() as session:
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+        session.commit()
+    yield
+    with SessionLocal() as session:
+        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
         session.commit()
 
 

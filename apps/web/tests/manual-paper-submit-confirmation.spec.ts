@@ -386,11 +386,54 @@ test("manual paper submit confirmation payload freshness review requires a rerun
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusrerun_dry_run_required/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/guarded dry-run/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/future manual paper submit would require a fresh guarded broker dry-run preview first/i);
-  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusmissing_dry_run/i);
-  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded broker dry-run must be rerun before future manual review/i);
-  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/rerun_required/i);
-  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded dry-run/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/future manual paper submit would require a fresh guarded broker dry-run preview first/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/guarded broker dry-run/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
+});
+
+test("manual paper submit confirmation freshness fails closed when recommendation review evidence is stale", async ({ page }) => {
+  const recommendationId = "recommendation-stale-review";
+  let brokerOrdersCalls = 0;
+
+  await routeRecommendationEvidence(page, recommendationId, {
+    recommendationBody: {
+      created_at: "2024-01-01T00:00:00.000Z",
+      reviewed_at: "2024-01-01T00:05:00.000Z",
+    },
+  });
+  await page.route("**/broker/orders", async (route) => {
+    brokerOrdersCalls += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusstale_evidence/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation payload review timestamp is outside the current freshness window/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/upstream state has drifted or the reviewed evidence is stale/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/missing_context_triage_statusstale_evidence/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-missing-context-triage")).toContainText(/stale evidence blocks future manual review/i);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
+  expect(brokerOrdersCalls).toBe(0);
+});
+
+test("manual paper submit confirmation previews operator wording without exposing a confirmation control", async ({ page }) => {
+  const recommendationId = "recommendation-wording-only";
+  let brokerOrdersCalls = 0;
+
+  await routeRecommendationEvidence(page, recommendationId);
+  await page.route("**/broker/orders", async (route) => {
+    brokerOrdersCalls += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-wording-preview")).toContainText(/i understand this is an ibkr paper order only/i);
+  await expect(page.getByRole("checkbox", { name: /i understand this is an ibkr paper order only|final confirmation|confirm paper submit/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /confirm paper submit|confirm and submit|submit order/i })).toHaveCount(0);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
+  expect(brokerOrdersCalls).toBe(0);
 });
 
 test("manual paper submit confirmation triage groups payload, source-label, broker-mode, and blocking issues", async ({ page }) => {

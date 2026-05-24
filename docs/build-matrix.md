@@ -211,6 +211,12 @@ Manual IBKR paper submit checkpoint note — 2026-05-24:
 - If and only if the missing safety cases are added first, the next phase name remains `Guarded Manual IBKR Paper Submit Control, Paper-Only`.
 - The dedicated confirmation route stays the only approved future UI host, the in-flight panel stays review-only, `/broker/orders` stays the only serious-paper submit seam, live stays locked, and workers stay non-submitting.
 
+Manual IBKR paper submit safety-tests-only follow-up — 2026-05-24:
+- The missing confirmation-control safety coverage named by the checkpoint is now implemented and validated in tests only.
+- No submit implementation was added, no enabled submit button was added, no `/broker/orders` UI call was added from the confirmation surface, and no `submitBrokerOrder` import was added.
+- The dedicated confirmation route remains the only approved future UI host, the in-flight panel remains review-only, `/broker/orders` remains the only serious-paper submit seam, live remains locked, and workers remain non-submitting.
+- This block closes the named safety-test gap but does not itself reassess executable enablement.
+
 ### Bucket 4 — Future Live-Trading Prerequisites (Locked)
 
 | Phase           | Title                                          | Status   | Depends On             | Drift Lock |

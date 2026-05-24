@@ -15370,3 +15370,22 @@ still 100% green.
 - No worker submit capability was added.
 - No live-trading unlock was added.
 
+## Manual Paper Submit Safety Tests Only
+
+- **Scope:** Added safety-test-only coverage for the future guarded manual IBKR paper submit path without adding any executable submit behavior. The confirmation surface gained explicit stale-evidence and no-final-confirmation-control coverage, the in-flight review panel tests were aligned with the current blocked-by-review triage precedence and locked/live semantics, and the public `/broker/orders` route tests now assert append-only decision persistence for both blocked and allowed paper submit outcomes.
+- **Go/no-go blocker status:** The specific `NOT_READY_MISSING_SAFETY_TESTS` blocker named by the 2026-05-24 checkpoint is now covered by tests. This block does not reassess executable readiness and does not add the submit control itself.
+- **Explicit non-changes:** No submit implementation was added. No enabled submit button was added. No `/broker/orders` UI call was added from the confirmation surface. No `submitBrokerOrder` import was added. Live remains locked. Workers remain non-submitting.
+- **Validation:**
+  - `git diff --check` -> clean before and after the test-only edits.
+  - `cd apps/web && npm run lint && npm run build` -> passed.
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/manual-paper-submit-confirmation.spec.ts tests/in-flight-adjustments.spec.ts --reporter=line` -> `22 passed`.
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit|freshness|missing context|triage|go no-go|safety' --reporter=line` -> `32 passed`.
+  - `grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'` -> no hard-coded hex colours.
+  - `grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'` -> no hard-coded rgb/rgba colours.
+  - `cd apps/api && .venv/bin/ruff check app tests` -> passed.
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q` -> `3 passed`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/routes/test_broker_routes.py tests/routes/test_broker_dry_run.py tests/services/test_broker_service.py tests/test_broker_submit_decisions.py tests/test_post_lock_simulation_regression.py -q` -> `114 passed`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2408 passed`.
+  - `./scripts/test/test-learning.sh` -> `99 passed`.
+- **Files changed in this block:** `apps/web/tests/manual-paper-submit-confirmation.spec.ts`, `apps/web/tests/in-flight-adjustments.spec.ts`, and `apps/api/tests/routes/test_broker_routes.py`.
+
