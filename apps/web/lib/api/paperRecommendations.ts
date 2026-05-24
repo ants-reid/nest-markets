@@ -37,6 +37,28 @@ export interface PaperRecommendationRouteCheck {
   broker_mode: BrokerModeInfo;
 }
 
+export interface PaperRecommendationDetails {
+  id: string;
+  signal_id: string | null;
+  model_version_id: string | null;
+  ticker: string;
+  side: string;
+  quantity: number;
+  order_type: string;
+  limit_price: number | null;
+  confidence: number | null;
+  risk_score: number | null;
+  estimated_notional: number | null;
+  rationale: string | null;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_notes: string | null;
+  executed_at: string | null;
+  paper_order_ids: string[] | null;
+}
+
 export interface PaperRecommendationBrokerDryRunPreview {
   recommendation_id: string;
   recommendation_status: string;
@@ -86,6 +108,15 @@ export async function getPaperRecommendationRouteCheck(
 ): Promise<PaperRecommendationRouteCheck> {
   return apiRequest<PaperRecommendationRouteCheck>(
     `/paper/recommendations/${encodeURIComponent(recommendationId)}/serious-paper-route-check`,
+    { method: "GET" },
+  );
+}
+
+export async function getPaperRecommendation(
+  recommendationId: string,
+): Promise<PaperRecommendationDetails> {
+  return apiRequest<PaperRecommendationDetails>(
+    `/paper/recommendations/${encodeURIComponent(recommendationId)}`,
     { method: "GET" },
   );
 }

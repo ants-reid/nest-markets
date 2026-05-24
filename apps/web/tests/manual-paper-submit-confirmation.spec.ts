@@ -17,7 +17,51 @@ function isApiRequest(requestUrl: string, pathname: string): boolean {
 async function routeRecommendationEvidence(
   page: import("@playwright/test").Page,
   recommendationId: string,
+  options: {
+    recommendationBody?: Record<string, unknown>;
+    routeCheckBody?: Record<string, unknown>;
+    dryRunBody?: Record<string, unknown>;
+  } = {},
 ) {
+  const nowIso = new Date().toISOString();
+
+  await page.route("**/paper/recommendations/*", async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const expectedPath = `/paper/recommendations/${recommendationId}`;
+
+    if (requestUrl.pathname !== expectedPath) {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: recommendationId,
+        signal_id: null,
+        model_version_id: null,
+        ticker: "NVDA",
+        side: "BUY",
+        quantity: 3,
+        order_type: "MARKET",
+        limit_price: null,
+        confidence: null,
+        risk_score: 0.18,
+        estimated_notional: 300,
+        rationale: "Read-only confirmation test fixture.",
+        status: "approved",
+        created_at: nowIso,
+        reviewed_at: nowIso,
+        reviewed_by: "operator",
+        review_notes: "Approved for guarded paper review.",
+        executed_at: null,
+        paper_order_ids: null,
+        ...options.recommendationBody,
+      }),
+    });
+  });
+
   await page.route("**/paper/recommendations/**/serious-paper-route-check*", async (route) => {
     const requestUrl = new URL(route.request().url());
     const expectedPath = `/paper/recommendations/${recommendationId}/serious-paper-route-check`;
@@ -62,6 +106,7 @@ async function routeRecommendationEvidence(
           live_execution_enabled: false,
           paper_trading_enabled: true,
         },
+        ...options.routeCheckBody,
       }),
     });
   });
@@ -134,6 +179,7 @@ async function routeRecommendationEvidence(
         },
         preflight_context: null,
         paper_path_note: "Dry-run validates the canonical IBKR paper submit path without placing an order.",
+        ...options.dryRunBody,
       }),
     });
   });
@@ -225,6 +271,21 @@ test("manual paper submit confirmation surface stays design-only and never calls
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/submit-decision review status/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/operator action review status/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/final interaction spec status/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload freshness review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusfreshness_ready_for_future_manual_review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation_payload_freshtrue/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/route_check_freshtrue/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/dry_run_freshtrue/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/approval_package_freshtrue/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/preflight_contract_freshtrue/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/submit_enabled_nowfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/order_submittedfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/live_trading_enabledfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/workers_allowed_to_submitfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/submit remains disabled in this phase/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/future manual paper submit would require fresh route-check and dry-run evidence/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/live trading still locked/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/workers still non-submitting/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-rerun-checklist")).toContainText(/submit-time checks will rerun/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-decision-persistence")).toContainText(/submit_preflight decision before submit/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-wording-preview")).toContainText(/i understand this is an ibkr paper order only/i);
@@ -251,10 +312,67 @@ test("manual paper submit confirmation surface renders safe missing-context stat
   await expect(page.getByText(/no recommendation id was provided/i)).toBeVisible();
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/route_check_statusmissing_context/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/dry_run_statusmissing_context/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusrerun_route_check_required/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/rerun_route_check/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/review-chain status is unavailable until recommendation context is loaded/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/recommendation_id/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
   expect(brokerOrdersCalls).toBe(0);
+});
+
+test("manual paper submit confirmation payload freshness review fails closed when timestamps are missing", async ({ page }) => {
+  const recommendationId = "recommendation-missing-timestamps";
+
+  await routeRecommendationEvidence(page, recommendationId, {
+    recommendationBody: {
+      created_at: null,
+      reviewed_at: null,
+    },
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusmissing_timestamps/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/missing_freshness_fields/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation.created_at/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/recommendation.reviewed_at/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/missing timestamps prevent freshness confirmation/i);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
+});
+
+test("manual paper submit confirmation payload freshness review requires a rerun when dry-run evidence is missing", async ({ page }) => {
+  const recommendationId = "recommendation-missing-dry-run";
+
+  await routeRecommendationEvidence(page, recommendationId, {
+    routeCheckBody: {
+      next_required_action: "Run the guarded dry-run preview again before any future manual paper step.",
+    },
+    dryRunBody: {
+      dry_run_status: "missing_context",
+      dry_run_only: true,
+      dry_run_executed: false,
+      allowed_to_submit: false,
+      resolved_route: null,
+      resolved_execution_source: null,
+      dry_run_execution_source: null,
+      balance_source: null,
+      fees_source: null,
+      fills_source: null,
+      positions_source: null,
+      would_block: true,
+      blocked_reason: null,
+      next_required_action: "Run the guarded dry-run preview again before any future manual paper step.",
+      preflight_decision: null,
+      paper_path_note: "Guarded dry-run preview has not been executed yet.",
+    },
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/payload_freshness_statusrerun_dry_run_required/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/guarded dry-run/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-payload-freshness-review")).toContainText(/future manual paper submit would require a fresh guarded broker dry-run preview first/i);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
 });
 
 test("in-flight review chain links to the dedicated confirmation design surface without adding execution", async ({ page }) => {

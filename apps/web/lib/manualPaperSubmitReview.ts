@@ -1,4 +1,5 @@
 import type {
+  PaperRecommendationDetails,
   PaperRecommendationBrokerDryRunPreview,
   PaperRecommendationRouteCheck,
 } from "./api/paperRecommendations";
@@ -412,6 +413,57 @@ export type ManualPaperSubmitReviewChain = {
   finalInteractionSpec: FinalGuardedSubmitInteractionSpec | null;
 };
 
+export type ManualPaperSubmitPayloadFreshnessReviewStatus =
+  | "freshness_ready_for_future_manual_review"
+  | "stale_evidence"
+  | "missing_timestamps"
+  | "missing_context"
+  | "rerun_route_check_required"
+  | "rerun_dry_run_required"
+  | "rerun_approval_required"
+  | "rerun_preflight_required"
+  | "unknown";
+
+export type ManualPaperSubmitPayloadFreshnessReview = {
+  status: ManualPaperSubmitPayloadFreshnessReviewStatus;
+  title: string;
+  body: string;
+  payloadFreshnessStatus: string;
+  recommendationPayloadFresh: boolean;
+  routeCheckFresh: boolean;
+  dryRunFresh: boolean;
+  approvalPackageFresh: boolean;
+  preflightContractFresh: boolean;
+  finalPayloadFieldsAligned: boolean;
+  sourceLabelsCoherent: boolean;
+  brokerModeStillPaper: boolean;
+  upstreamStateDrifted: boolean;
+  missingFreshnessFields: string[];
+  staleEvidence: string[];
+  rerunRequired: string[];
+  rerunReasons: string[];
+  freshnessWindowDescription: string;
+  recommendationTimestampReference: string;
+  routeCheckTimestampReference: string;
+  dryRunTimestampReference: string;
+  approvalTimestampReference: string;
+  preflightTimestampReference: string;
+  submitEnabledNow: false;
+  orderSubmitted: false;
+  liveTradingEnabled: boolean;
+  workersAllowedToSubmit: boolean;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+};
+
+export type ManualPaperSubmitFreshnessEvidence = {
+  recommendation: PaperRecommendationDetails | null;
+  routeCheckObservedAt: string | null;
+  dryRunObservedAt: string | null;
+  freshnessWindowMinutes?: number;
+  nowTimestamp?: string;
+};
+
 function formatMaybeNumber(value: number | null): string {
   if (value === null) return "unknown";
   return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
@@ -422,6 +474,18 @@ function uniqueMessages(values: Array<string | null | undefined>): string[] {
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .filter((value, index, all) => all.indexOf(value) === index);
+}
+
+function minutesSince(timestamp: string | null, now: number): number | null {
+  if (!timestamp) return null;
+  const parsed = Date.parse(timestamp);
+  if (Number.isNaN(parsed)) return null;
+  return (now - parsed) / 60000;
+}
+
+function isWithinFreshnessWindow(timestamp: string | null, now: number, windowMinutes: number): boolean {
+  const elapsedMinutes = minutesSince(timestamp, now);
+  return elapsedMinutes !== null && elapsedMinutes >= 0 && elapsedMinutes <= windowMinutes;
 }
 
 export function buildManualConfirmationHref(recommendationId: string, symbol: string): string {
@@ -3456,6 +3520,243 @@ export function deriveFinalGuardedSubmitInteractionSpec(
     liveTradingEnabled: operatorActionReview.liveTradingEnabled,
     submitTimeChecksRerunLater,
     noSubmitControlPresent,
+    nextRequiredAction,
+    nextRequiredActionDetail,
+  };
+}
+
+export function deriveManualPaperSubmitPayloadFreshnessReview(
+  reviewChain: ManualPaperSubmitReviewChain,
+  result: PaperRecommendationRouteCheck | null,
+  preview: PaperRecommendationBrokerDryRunPreview | null,
+  evidence: ManualPaperSubmitFreshnessEvidence,
+): ManualPaperSubmitPayloadFreshnessReview {
+  const freshnessWindowMinutes = evidence.freshnessWindowMinutes ?? 15;
+  const now = Date.parse(evidence.nowTimestamp ?? new Date().toISOString());
+  const recommendation = evidence.recommendation;
+  const recommendationTimestamp = recommendation?.reviewed_at ?? recommendation?.created_at ?? null;
+  const routeCheckObservedAt = evidence.routeCheckObservedAt;
+  const dryRunObservedAt = evidence.dryRunObservedAt;
+  const routeCheckPresent = result !== null;
+  const dryRunPresent = preview !== null && preview.dry_run_executed;
+  const recommendationPayloadAligned =
+    recommendation !== null &&
+    result !== null &&
+    recommendation.ticker === (result.ticker ?? recommendation.ticker) &&
+    recommendation.side === (result.side ?? recommendation.side) &&
+    recommendation.quantity === (result.quantity ?? recommendation.quantity) &&
+    recommendation.order_type === (result.order_type ?? recommendation.order_type) &&
+    (recommendation.limit_price ?? null) === (result.limit_price ?? null);
+  const sourceLabelsCoherent =
+    result !== null &&
+    result.execution_source === "recommendation_route_check" &&
+    result.serious_paper_source === "ibkr_paper" &&
+    result.canonical_paper_route === "/broker/orders" &&
+    (preview?.dry_run_execution_source ?? "broker_dry_run") === "broker_dry_run" &&
+    (preview?.serious_paper_source ?? "ibkr_paper") === "ibkr_paper" &&
+    (preview?.canonical_paper_route ?? "/broker/orders") === "/broker/orders";
+  const brokerModeStillPaper =
+    result !== null &&
+    result.broker_account_mode === "paper" &&
+    result.broker_mode.paper_trading_enabled &&
+    (preview?.broker_account_mode ?? "paper") === "paper";
+  const recommendationPayloadFresh =
+    recommendation !== null &&
+    recommendation.executed_at === null &&
+    recommendation.status === "approved" &&
+    recommendationPayloadAligned &&
+    isWithinFreshnessWindow(recommendationTimestamp, now, freshnessWindowMinutes);
+  const routeCheckFresh =
+    result !== null &&
+    result.route_check_status === "eligible" &&
+    isWithinFreshnessWindow(routeCheckObservedAt, now, freshnessWindowMinutes);
+  const dryRunFresh =
+    preview !== null &&
+    preview.dry_run_executed &&
+    preview.dry_run_status === "ready" &&
+    preview.would_block === false &&
+    isWithinFreshnessWindow(dryRunObservedAt, now, freshnessWindowMinutes);
+  const approvalPackageFresh =
+    reviewChain.approvalPackage?.status === "approval_package_ready_for_future_manual_review" &&
+    recommendationPayloadFresh &&
+    routeCheckFresh &&
+    dryRunFresh;
+  const preflightContractFresh =
+    reviewChain.preflightContract?.status === "preflight_contract_ready_for_future_manual_step" &&
+    approvalPackageFresh;
+  const liveTradingEnabled = preview?.live_trading_enabled ?? result?.live_trading_enabled ?? false;
+  const workersAllowedToSubmit = preview?.workers_allowed_to_submit ?? result?.workers_allowed_to_submit ?? false;
+  const missingFreshnessFields = uniqueMessages([
+    recommendation === null ? "recommendation details" : null,
+    recommendation !== null && !recommendation.created_at ? "recommendation.created_at" : null,
+    recommendation !== null && !recommendation.reviewed_at ? "recommendation.reviewed_at" : null,
+    routeCheckPresent && !routeCheckObservedAt ? "route_check_observed_at" : null,
+    dryRunPresent && !dryRunObservedAt ? "dry_run_observed_at" : null,
+  ]);
+  const staleEvidence = uniqueMessages([
+    recommendation !== null && recommendationTimestamp && !recommendationPayloadFresh
+      ? "Recommendation payload review timestamp is outside the current freshness window."
+      : null,
+    routeCheckPresent && routeCheckObservedAt && !routeCheckFresh
+      ? "Route-check evidence is outside the current freshness window."
+      : null,
+    dryRunPresent && dryRunObservedAt && !dryRunFresh
+      ? "Guarded dry-run evidence is outside the current freshness window."
+      : null,
+    !recommendationPayloadAligned && recommendation !== null && result !== null
+      ? "The reviewed recommendation payload no longer aligns with the route-check payload fields."
+      : null,
+    !sourceLabelsCoherent ? "Source labels are not coherent for a future guarded IBKR paper submit review." : null,
+    !brokerModeStillPaper ? "Broker mode is no longer coherently paper." : null,
+    liveTradingEnabled ? "Live trading is no longer locked." : null,
+    workersAllowedToSubmit ? "Workers would be allowed to submit, which must remain blocked." : null,
+  ]);
+  const rerunRequired = uniqueMessages([
+    !routeCheckPresent || result?.route_check_status === "missing_context" ? "route-check" : null,
+    !dryRunPresent ? "guarded dry-run" : null,
+    reviewChain.approvalPackage === null || reviewChain.approvalPackage.status !== "approval_package_ready_for_future_manual_review"
+      ? "approval package review"
+      : null,
+    reviewChain.preflightContract === null || reviewChain.preflightContract.status !== "preflight_contract_ready_for_future_manual_step"
+      ? "preflight contract review"
+      : null,
+    !recommendationPayloadFresh ? "recommendation payload review" : null,
+    !sourceLabelsCoherent ? "source-label coherence review" : null,
+    !brokerModeStillPaper ? "broker mode paper check" : null,
+  ]);
+  const rerunReasons = uniqueMessages([
+    !routeCheckPresent || result?.route_check_status === "missing_context"
+      ? "Future manual paper submit would require a fresh recommendation route-check first."
+      : null,
+    !dryRunPresent ? "Future manual paper submit would require a fresh guarded broker dry-run preview first." : null,
+    reviewChain.approvalPackage === null || reviewChain.approvalPackage.status !== "approval_package_ready_for_future_manual_review"
+      ? "Approval package evidence is not currently fresh enough for a later manual submit step."
+      : null,
+    reviewChain.preflightContract === null || reviewChain.preflightContract.status !== "preflight_contract_ready_for_future_manual_step"
+      ? "Preflight contract evidence is not currently fresh enough for a later manual submit step."
+      : null,
+    missingFreshnessFields.length > 0
+      ? "Missing timestamps are treated conservatively, so freshness cannot be confirmed from the current read-only evidence."
+      : null,
+    staleEvidence.length > 0 ? staleEvidence[0] : null,
+  ]);
+  const upstreamStateDrifted =
+    staleEvidence.length > 0 || !recommendationPayloadAligned || !sourceLabelsCoherent || !brokerModeStillPaper;
+
+  let status: ManualPaperSubmitPayloadFreshnessReviewStatus = "unknown";
+  if (!routeCheckPresent) {
+    status = "rerun_route_check_required";
+  } else if (result.route_check_status === "missing_context") {
+    status = "missing_context";
+  } else if (missingFreshnessFields.length > 0) {
+    status = "missing_timestamps";
+  } else if (!dryRunPresent) {
+    status = "rerun_dry_run_required";
+  } else if (reviewChain.approvalPackage === null || reviewChain.approvalPackage.status !== "approval_package_ready_for_future_manual_review") {
+    status = "rerun_approval_required";
+  } else if (reviewChain.preflightContract === null || reviewChain.preflightContract.status !== "preflight_contract_ready_for_future_manual_step") {
+    status = "rerun_preflight_required";
+  } else if (upstreamStateDrifted || liveTradingEnabled || workersAllowedToSubmit) {
+    status = "stale_evidence";
+  } else if (
+    recommendationPayloadFresh &&
+    routeCheckFresh &&
+    dryRunFresh &&
+    approvalPackageFresh &&
+    preflightContractFresh &&
+    recommendationPayloadAligned &&
+    sourceLabelsCoherent &&
+    brokerModeStillPaper
+  ) {
+    status = "freshness_ready_for_future_manual_review";
+  }
+
+  let title = "Payload freshness review is unknown";
+  let body =
+    "Freshness review only, no order submitted. Submit remains disabled in this phase while the reviewed manual IBKR paper payload and evidence are inspected for drift.";
+  let nextRequiredAction = "review_payload_freshness";
+  let nextRequiredActionDetail =
+    "Future manual paper submit would require fresh route-check and dry-run evidence, even when the current read-only review chain appears coherent.";
+
+  if (status === "freshness_ready_for_future_manual_review") {
+    title = "Payload freshness review is ready for future manual review";
+    body =
+      "Freshness review only, no order submitted. The current recommendation payload, route-check evidence, guarded dry-run evidence, approval package, and preflight contract all remain aligned inside the configured freshness window, but submit remains disabled in this phase.";
+    nextRequiredAction = "freshness_ready_for_future_manual_review";
+    nextRequiredActionDetail =
+      "Future manual paper submit would still require a fresh submit-time route-check and guarded dry-run rerun, with live locked and workers non-submitting.";
+  } else if (status === "missing_timestamps") {
+    title = "Missing timestamps prevent freshness confirmation";
+    body =
+      "Freshness review only, no order submitted. The current read-only evidence does not expose enough timestamp data to confirm that the reviewed manual paper payload and review chain are still fresh, so this surface fails closed.";
+    nextRequiredAction = "collect_fresh_timestamped_evidence";
+    nextRequiredActionDetail = missingFreshnessFields[0] ?? nextRequiredActionDetail;
+  } else if (status === "rerun_route_check_required") {
+    title = "Route-check rerun required before future manual review";
+    body =
+      "Freshness review only, no order submitted. A future manual IBKR paper submit would require a fresh route-check before payload freshness can be trusted.";
+    nextRequiredAction = "rerun_route_check";
+    nextRequiredActionDetail = rerunReasons[0] ?? nextRequiredActionDetail;
+  } else if (status === "rerun_dry_run_required") {
+    title = "Guarded dry-run rerun required before future manual review";
+    body =
+      "Freshness review only, no order submitted. Route-check context exists, but the guarded broker dry-run evidence is missing or incomplete, so future manual paper submit remains blocked until dry-run evidence is refreshed.";
+    nextRequiredAction = "rerun_guarded_dry_run";
+    nextRequiredActionDetail = rerunReasons[0] ?? nextRequiredActionDetail;
+  } else if (status === "rerun_approval_required") {
+    title = "Approval package review must be rerun";
+    body =
+      "Freshness review only, no order submitted. The current approval package evidence is not fresh enough for a later manual paper submit step, so approval-style review would need to be rerun first.";
+    nextRequiredAction = "rerun_approval_review";
+    nextRequiredActionDetail = rerunReasons[0] ?? nextRequiredActionDetail;
+  } else if (status === "rerun_preflight_required") {
+    title = "Preflight contract review must be rerun";
+    body =
+      "Freshness review only, no order submitted. The current preflight contract evidence is not fresh enough for a later manual paper submit step, so preflight review would need to be rerun first.";
+    nextRequiredAction = "rerun_preflight_review";
+    nextRequiredActionDetail = rerunReasons[0] ?? nextRequiredActionDetail;
+  } else if (status === "stale_evidence") {
+    title = "Stale or drifted evidence blocks future manual review";
+    body =
+      "Freshness review only, no order submitted. Upstream state has drifted or the reviewed evidence is stale, so future manual paper submit readiness must fail closed until the route-check, dry-run, and downstream review evidence are refreshed.";
+    nextRequiredAction = "refresh_stale_evidence";
+    nextRequiredActionDetail = staleEvidence[0] ?? nextRequiredActionDetail;
+  } else if (status === "missing_context") {
+    title = "Missing context blocks payload freshness review";
+    body =
+      "Freshness review only, no order submitted. Recommendation or route-check context is incomplete, so the payload freshness contract cannot be confirmed.";
+    nextRequiredAction = "fix_missing_context";
+    nextRequiredActionDetail = result?.missing_data[0] ?? nextRequiredActionDetail;
+  }
+
+  return {
+    status,
+    title,
+    body,
+    payloadFreshnessStatus: status,
+    recommendationPayloadFresh,
+    routeCheckFresh,
+    dryRunFresh,
+    approvalPackageFresh,
+    preflightContractFresh,
+    finalPayloadFieldsAligned: recommendationPayloadAligned,
+    sourceLabelsCoherent,
+    brokerModeStillPaper,
+    upstreamStateDrifted,
+    missingFreshnessFields,
+    staleEvidence,
+    rerunRequired,
+    rerunReasons,
+    freshnessWindowDescription: `Recommendation, route-check, and guarded dry-run evidence must stay aligned within ${freshnessWindowMinutes} minutes to count as fresh on this read-only surface. Missing timestamps fail closed.`,
+    recommendationTimestampReference: recommendationTimestamp ?? "missing",
+    routeCheckTimestampReference: routeCheckObservedAt ?? "missing",
+    dryRunTimestampReference: dryRunObservedAt ?? "missing",
+    approvalTimestampReference: approvalPackageFresh ? routeCheckObservedAt ?? "missing" : "derived approval review timing unavailable",
+    preflightTimestampReference: preflightContractFresh ? dryRunObservedAt ?? "missing" : "derived preflight review timing unavailable",
+    submitEnabledNow: false,
+    orderSubmitted: false,
+    liveTradingEnabled,
+    workersAllowedToSubmit,
     nextRequiredAction,
     nextRequiredActionDetail,
   };

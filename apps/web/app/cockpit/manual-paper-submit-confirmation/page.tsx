@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import {
+  getPaperRecommendation,
   getPaperRecommendationRouteCheck,
   previewPaperRecommendationBrokerDryRun,
+  type PaperRecommendationDetails,
   type PaperRecommendationBrokerDryRunPreview,
   type PaperRecommendationRouteCheck,
 } from "../../../lib/api/paperRecommendations";
 import {
+  deriveManualPaperSubmitPayloadFreshnessReview,
   deriveManualPaperSubmitReviewChain,
   type ManualPaperSubmitReviewChain,
 } from "../../../lib/manualPaperSubmitReview";
@@ -358,13 +361,19 @@ function ManualPaperSubmitConfirmationSurface() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recommendation, setRecommendation] = useState<PaperRecommendationDetails | null>(null);
   const [routeCheck, setRouteCheck] = useState<PaperRecommendationRouteCheck | null>(null);
   const [dryRunPreview, setDryRunPreview] = useState<PaperRecommendationBrokerDryRunPreview | null>(null);
+  const [routeCheckObservedAt, setRouteCheckObservedAt] = useState<string | null>(null);
+  const [dryRunObservedAt, setDryRunObservedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!recommendationId) {
+      setRecommendation(null);
       setRouteCheck(null);
       setDryRunPreview(null);
+      setRouteCheckObservedAt(null);
+      setDryRunObservedAt(null);
       setError(null);
       return;
     }
@@ -378,16 +387,23 @@ function ManualPaperSubmitConfirmationSurface() {
       setError(null);
 
       try {
+        const nextRecommendation = await getPaperRecommendation(activeRecommendationId);
+        if (cancelled) return;
+        setRecommendation(nextRecommendation);
+
         const nextRouteCheck = await getPaperRecommendationRouteCheck(activeRecommendationId);
         if (cancelled) return;
         setRouteCheck(nextRouteCheck);
+        setRouteCheckObservedAt(new Date().toISOString());
 
         if (nextRouteCheck.route_check_status === "eligible") {
           const nextDryRunPreview = await previewPaperRecommendationBrokerDryRun(activeRecommendationId);
           if (cancelled) return;
           setDryRunPreview(nextDryRunPreview);
+          setDryRunObservedAt(new Date().toISOString());
         } else {
           setDryRunPreview(null);
+          setDryRunObservedAt(null);
         }
       } catch (loadError) {
         if (cancelled) return;
@@ -415,6 +431,11 @@ function ManualPaperSubmitConfirmationSurface() {
   const liveTradingEnabled = dryRunPreview?.live_trading_enabled ?? routeCheck?.live_trading_enabled ?? false;
   const workersAllowedToSubmit = dryRunPreview?.workers_allowed_to_submit ?? routeCheck?.workers_allowed_to_submit ?? false;
   const reviewChain = deriveManualPaperSubmitReviewChain(routeCheck, dryRunPreview, fallbackSymbol);
+  const freshnessReview = deriveManualPaperSubmitPayloadFreshnessReview(reviewChain, routeCheck, dryRunPreview, {
+    recommendation,
+    routeCheckObservedAt,
+    dryRunObservedAt,
+  });
   const reviewSections = buildReviewSections(reviewChain);
   const blockedReasons = Array.from(
     new Set(
@@ -537,6 +558,89 @@ function ManualPaperSubmitConfirmationSurface() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-payload-freshness-review">
+          <h2 className={styles.sectionTitle}>Payload freshness review</h2>
+          <p className={styles.sectionSubtitle}>
+            Freshness review only, no order submitted. Submit remains disabled in this phase. Future manual paper submit would require fresh route-check and dry-run evidence, with live trading still locked and workers still non-submitting.
+          </p>
+          <div className={styles.grid}>
+            <div className={styles.field}><span className={styles.label}>payload_freshness_status</span><span className={styles.value}>{freshnessReview.status}</span></div>
+            <div className={styles.field}><span className={styles.label}>recommendation_payload_fresh</span><span className={styles.value}>{freshnessReview.recommendationPayloadFresh ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>route_check_fresh</span><span className={styles.value}>{freshnessReview.routeCheckFresh ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>dry_run_fresh</span><span className={styles.value}>{freshnessReview.dryRunFresh ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>approval_package_fresh</span><span className={styles.value}>{freshnessReview.approvalPackageFresh ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>preflight_contract_fresh</span><span className={styles.value}>{freshnessReview.preflightContractFresh ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>final_payload_fields_aligned</span><span className={styles.value}>{freshnessReview.finalPayloadFieldsAligned ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>source_labels_coherent</span><span className={styles.value}>{freshnessReview.sourceLabelsCoherent ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>broker_mode_still_paper</span><span className={styles.value}>{freshnessReview.brokerModeStillPaper ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>upstream_state_drifted</span><span className={styles.value}>{freshnessReview.upstreamStateDrifted ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>submit_enabled_now</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>order_submitted</span><span className={styles.value}>false</span></div>
+            <div className={styles.field}><span className={styles.label}>live_trading_enabled</span><span className={styles.value}>{freshnessReview.liveTradingEnabled ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>workers_allowed_to_submit</span><span className={styles.value}>{freshnessReview.workersAllowedToSubmit ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>freshness_window_description</span><span className={styles.value}>{freshnessReview.freshnessWindowDescription}</span></div>
+            <div className={styles.field}><span className={styles.label}>recommendation_timestamp_reference</span><span className={styles.value}>{freshnessReview.recommendationTimestampReference}</span></div>
+            <div className={styles.field}><span className={styles.label}>route_check_timestamp_reference</span><span className={styles.value}>{freshnessReview.routeCheckTimestampReference}</span></div>
+            <div className={styles.field}><span className={styles.label}>dry_run_timestamp_reference</span><span className={styles.value}>{freshnessReview.dryRunTimestampReference}</span></div>
+            <div className={styles.field}><span className={styles.label}>approval_timestamp_reference</span><span className={styles.value}>{freshnessReview.approvalTimestampReference}</span></div>
+            <div className={styles.field}><span className={styles.label}>preflight_timestamp_reference</span><span className={styles.value}>{freshnessReview.preflightTimestampReference}</span></div>
+            <div className={styles.field}><span className={styles.label}>next_required_action</span><span className={styles.value}>{freshnessReview.nextRequiredAction}</span></div>
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>{freshnessReview.title}</h3>
+            <p className={styles.sectionSubtitle}>{freshnessReview.body}</p>
+            <p className={styles.emptyText}>{freshnessReview.nextRequiredActionDetail}</p>
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>rerun_required</h3>
+            {freshnessReview.rerunRequired.length === 0 ? (
+              <p className={styles.emptyText}>No reruns are currently surfaced beyond the mandatory later submit-time route-check and guarded dry-run reruns.</p>
+            ) : (
+              <ul className={styles.list}>
+                {freshnessReview.rerunRequired.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>rerun_reasons</h3>
+            {freshnessReview.rerunReasons.length === 0 ? (
+              <p className={styles.emptyText}>No extra rerun reasons are currently surfaced by the shared freshness review.</p>
+            ) : (
+              <ul className={styles.list}>
+                {freshnessReview.rerunReasons.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>missing_freshness_fields</h3>
+            {freshnessReview.missingFreshnessFields.length === 0 ? (
+              <p className={styles.emptyText}>No missing timestamp or freshness fields are currently surfaced.</p>
+            ) : (
+              <ul className={styles.list}>
+                {freshnessReview.missingFreshnessFields.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>stale_evidence</h3>
+            {freshnessReview.staleEvidence.length === 0 ? (
+              <p className={styles.emptyText}>No stale evidence is currently surfaced by the shared freshness review.</p>
+            ) : (
+              <ul className={styles.list}>
+                {freshnessReview.staleEvidence.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
 
         <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-context-gaps">

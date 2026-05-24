@@ -15010,3 +15010,92 @@ still 100% green.
 
 -> If a later phase needs executable guarded manual paper submit controls, keep both surfaces on this shared read-only derivation layer and add any future execution behavior only at the canonical `/broker/orders` seam after explicit safety approval.
 
+## Manual Paper Submit Confirmation Payload Freshness Review
+
+- **Date:** 2026-05-24
+- **Status:** ✅ Complete
+- **Scope:** Add a shared read-only payload freshness review for the dedicated manual IBKR paper submit confirmation surface. This block defines whether the reviewed recommendation payload, route-check evidence, guarded broker dry-run evidence, approval package, and preflight contract are fresh enough for a later manual paper submit phase while remaining strictly non-executable. No submit control was added, no `/broker/orders` UI call was added, no `submitBrokerOrder` import was added, no decision row is written here, live remains locked, and workers remain non-submitting.
+
+### A. Freshness Contract
+
+- New shared read-only helper in `apps/web/lib/manualPaperSubmitReview.ts`: `deriveManualPaperSubmitPayloadFreshnessReview(...)`.
+- New freshness status contract:
+  - `freshness_ready_for_future_manual_review`
+  - `stale_evidence`
+  - `missing_timestamps`
+  - `missing_context`
+  - `rerun_route_check_required`
+  - `rerun_dry_run_required`
+  - `rerun_approval_required`
+  - `rerun_preflight_required`
+  - `unknown`
+- The freshness review exposes:
+  - payload freshness status
+  - recommendation payload freshness
+  - route-check freshness
+  - guarded dry-run freshness
+  - approval package freshness
+  - preflight contract freshness
+  - final payload alignment
+  - source-label coherence
+  - broker-mode paper coherence
+  - stale evidence list
+  - missing freshness fields
+  - rerun requirements and rerun reasons
+  - freshness window description
+  - submit/live/worker safety fields that remain locked or false
+
+### B. Conservative Missing Timestamp Behavior
+
+- The existing route-check and guarded dry-run preview wire contracts do not expose persisted freshness timestamps.
+- The confirmation surface now also loads the existing read-only recommendation detail endpoint so recommendation `created_at` and `reviewed_at` are available without widening into any executable path.
+- If recommendation timestamps are missing, freshness fails closed as `missing_timestamps` rather than being treated as fresh.
+- Route-check and guarded dry-run freshness are based on the current read-only evidence load times inside the confirmation surface; missing observations also fail closed.
+
+### C. Rerun Requirements
+
+- If route-check evidence is missing, freshness reports `rerun_route_check_required`.
+- If guarded dry-run evidence is missing or not executed, freshness reports `rerun_dry_run_required`.
+- If approval package or preflight contract evidence is not currently ready, freshness reports approval or preflight rerun requirements conservatively.
+- Source-label drift, broker-mode drift, live enablement, or worker-submit enablement are treated as stale/drifted evidence and block future submit readiness.
+
+### D. Surfaces Changed
+
+- `apps/web/lib/api/paperRecommendations.ts`
+- `apps/web/lib/manualPaperSubmitReview.ts`
+- `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`
+- `apps/web/tests/manual-paper-submit-confirmation.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### E. Safety Invariants Preserved
+
+- No submit controls were added.
+- No `/broker/orders` frontend call was added.
+- No `submitBrokerOrder` import was added.
+- No `BrokerService.submit_order` path was called from the UI.
+- No submit-decision rows are written from this surface.
+- Live remains locked.
+- Workers remain non-submitting.
+
+### F. Validation
+
+- `cd apps/web && npm run lint`
+- `cd apps/web && npm run build`
+- `cd apps/web && NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run start -- --hostname 127.0.0.1 --port 3100`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/manual-paper-submit-confirmation.spec.ts --reporter=line`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit|freshness' --reporter=line`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- `cd apps/api && .venv/bin/ruff check app tests`
+- `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q`
+- `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+- `cd /Users/ants/Documents/market-hunter-mvp && git diff --check`
+
+### G. Next Recommended Phase
+
+-> If a later phase needs an executable guarded manual paper submit step, keep this payload freshness review read-only, carry it forward as advisory pre-submit evidence, and add any actual execution behavior only at the canonical `/broker/orders` seam with explicit submit-time reruns, append-only decision persistence, live lock, and worker non-submission still enforced.
+
