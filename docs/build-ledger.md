@@ -15389,3 +15389,43 @@ still 100% green.
   - `./scripts/test/test-learning.sh` -> `99 passed`.
 - **Files changed in this block:** `apps/web/tests/manual-paper-submit-confirmation.spec.ts`, `apps/web/tests/in-flight-adjustments.spec.ts`, and `apps/api/tests/routes/test_broker_routes.py`.
 
+## Post-Submit-Control Safety Audit and Ledger Update
+
+- **Baseline verified:** `main` and `origin/main` were both at `24d75cf71640acc8d24abf8b2849e46e6d6cc02d` with a clean working tree before the audit pass.
+- **Audit verdict:** `PAPER_ONLY_MANUAL_SUBMIT_IMPLEMENTED_AND_LIVE_LOCKED`
+- **Frontend findings:**
+  - The only cockpit surface importing `submitBrokerOrder` is `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`.
+  - The dedicated confirmation surface requires explicit final confirmation, fails closed when any review/freshness/triage/paper-mode gate fails, and submits only to `/broker/orders`.
+  - The in-flight route stays read-only through `RecommendationRouteCheckPanel.tsx` and still does not import `submitBrokerOrder`.
+  - Frontend grep audit found `/execution/paper` only in execution dashboards/helpers (`alerts`, `execution`, execution journal/history helpers), not in the guarded confirmation control.
+  - Risky CTA grep hits were limited to explicit negative assertions such as `No auto-submit` and `No live trading unlock or live submit enablement was added in this block.`
+- **Backend findings:**
+  - `POST /broker/orders` remains the only serious-paper submit seam.
+  - `BrokerService.submit_order(...)` reruns `assert_order_submission_allowed(...)` and reruns dry-run/preflight as `submit_preflight` before any broker execution in paper mode.
+  - Preflight `blocked` or `would_block` outcomes fail closed and return structured `paper_preflight_blocked` detail.
+  - Decision persistence remains append-only: blocked and allowed flows both write `submit_preflight` and/or `submit_attempt` rows with sanitized payloads.
+  - Live mode remains locked by trading control and mode guard, and worker/auto submit capability remains separately blocked.
+  - Canonical serious-paper routing remains `/broker/orders`; `/execution/paper` remains simulator-only.
+- **Validation commands and results:**
+  - `git diff --check` -> clean.
+  - `cd apps/web && npm run lint` -> passed.
+  - `cd apps/web && npm run build` -> passed.
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/manual-paper-submit-confirmation.spec.ts tests/in-flight-adjustments.spec.ts --reporter=line` -> `23 passed`.
+  - `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit|freshness|missing context|triage|go no-go|safety' --reporter=line` -> `32 passed`.
+  - `cd apps/api && .venv/bin/ruff check app tests` -> passed.
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q` -> `3 passed`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/routes/test_broker_routes.py tests/routes/test_broker_dry_run.py tests/services/test_broker_service.py tests/test_broker_submit_decisions.py tests/test_post_lock_simulation_regression.py -q` -> `114 passed`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2408 passed`.
+  - `./scripts/test/test-learning.sh` -> `99 passed`.
+- **Locked invariants confirmed:**
+  - The confirmation route is the only cockpit surface allowed to import or call `submitBrokerOrder`.
+  - The in-flight panel remains review-only and non-submitting.
+  - `/broker/orders` is the only serious-paper submit seam.
+  - `/execution/paper` remains simulator-only and was not adopted by the guarded submit control.
+  - Live trading remains locked and workers remain non-submitting.
+  - Append-only broker submit decision persistence remains in force for blocked and allowed attempts.
+- **Docs and audit conclusion:**
+  - The guarded manual submit landed safely on `main` without expanding live execution, worker submission, or simulator routing.
+  - The dedicated confirmation route is now the only executable cockpit host for guarded IBKR paper submit.
+  - The next recommended phase is `Broker Submit Decision Timeline / Paper Submit Result History`.
+
