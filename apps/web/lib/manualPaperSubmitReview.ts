@@ -3516,17 +3516,26 @@ export function deriveManualPaperSubmitReviewChain(
         futureManualSubmitDesignReview,
         submitDecisionReview,
       )
+    : deriveGuardedOperatorActionReview(
+        result,
+        null,
+        readiness,
+        handoff,
+        auditPackage,
+        approvalPackage,
+        preflightContract,
+        futureManualSubmitDesignReview,
+        submitDecisionReview,
+      );
+  const finalInteractionSpec = operatorActionReview
+    ? deriveFinalGuardedSubmitInteractionSpec(
+        result,
+        preview,
+        preflightContract,
+        submitDecisionReview,
+        operatorActionReview,
+      )
     : null;
-  const finalInteractionSpec =
-    preview && operatorActionReview
-      ? deriveFinalGuardedSubmitInteractionSpec(
-          result,
-          preview,
-          preflightContract,
-          submitDecisionReview,
-          operatorActionReview,
-        )
-      : null;
 
   return {
     readiness,

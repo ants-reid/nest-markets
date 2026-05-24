@@ -18,6 +18,7 @@ def test_recommendation_route_check_panel_does_not_import_submit_broker_order():
     source = panel_path.read_text(encoding="utf-8")
 
     assert 'from "../lib/api/paperRecommendations"' in source
+    assert 'from "../lib/manualPaperSubmitReview"' in source
     assert "submitBrokerOrder" not in source
     assert 'from "../lib/api/broker"' not in source
 

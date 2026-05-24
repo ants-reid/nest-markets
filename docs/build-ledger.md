@@ -14963,3 +14963,50 @@ still 100% green.
 
 -> If a later phase wants to reduce derivation drift further, move the in-flight review panel onto the shared read-only helper so both surfaces consume the same derivation code path before any executable control is even considered.
 
+## Remove Review-Chain Derivation Drift
+
+- **Date:** 2026-05-24
+- **Status:** ✅ Complete
+- **Scope:** Re-home the cockpit in-flight manual paper submit review chain onto the same shared frontend-only read-only derivation helper already used by the dedicated confirmation surface. This block adds no enabled submit button, no `/broker/orders` UI call, no new backend route, no new `BrokerService.submit_order` path, no worker authority expansion, and no live unlock.
+
+### A. What Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` now imports `buildManualConfirmationHref` and `deriveManualPaperSubmitReviewChain` from `apps/web/lib/manualPaperSubmitReview.ts`.
+- The cockpit panel now derives readiness, handoff, audit package, approval package, preflight contract, design review, submit-decision review, operator action review, and final interaction spec from the shared helper instead of maintaining a separate active derivation path.
+- The stale lower local review-chain derivation block was removed from the panel so the active read-only review logic lives in one shared non-executable helper.
+- The shared helper retains the panel-compatible null-preview fallback for `operatorActionReview`, so the cockpit panel and confirmation page stay aligned even when no dry-run preview is loaded yet.
+
+### B. Safety Invariants Preserved
+
+- No submit control was added.
+- No `/broker/orders` UI call was added.
+- No broker submit helper import was added.
+- No worker submit authority was added.
+- Live remains locked.
+- Workers remain non-submitting.
+- `/broker/orders` remains the only serious-paper submit seam for any future executable phase.
+
+### C. Files Changed
+
+- `apps/api/tests/test_recommendation_route_check_panel_submit_boundary.py`
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/lib/manualPaperSubmitReview.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### D. Validation
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx` parse/type diagnostics remained clean after the refactor.
+- Focused validation beyond diagnostics was rerun after the refactor in the follow-up validation block for this phase.
+
+### E. Known Limitations
+
+- The shared helper remains frontend-only and read-only; it does not perform submit-time reruns, decision persistence, or any executable broker action.
+- The panel and confirmation surface now share active derivation logic, but their presentational copy and layout remain intentionally separate.
+
+### Next Recommended Phase
+
+-> If a later phase needs executable guarded manual paper submit controls, keep both surfaces on this shared read-only derivation layer and add any future execution behavior only at the canonical `/broker/orders` seam after explicit safety approval.
+
