@@ -15099,3 +15099,87 @@ still 100% green.
 
 -> If a later phase needs an executable guarded manual paper submit step, keep this payload freshness review read-only, carry it forward as advisory pre-submit evidence, and add any actual execution behavior only at the canonical `/broker/orders` seam with explicit submit-time reruns, append-only decision persistence, live lock, and worker non-submission still enforced.
 
+## Compact Freshness Summary in In-Flight Panel
+
+- **Date:** 2026-05-24
+- **Status:** ✅ Complete
+- **Scope:** Add a compact read-only payload and evidence freshness summary to the in-flight recommendation route-check panel by reusing the existing shared frontend-only freshness derivation. This block adds operator visibility into freshness status, rerun requirements, missing freshness fields, stale evidence, source-label coherence, broker-mode coherence, and the still-disabled submit/live/worker state without adding any submit control or execution path.
+
+### A. Shared Helper Reused
+
+- Reused `deriveManualPaperSubmitPayloadFreshnessReview(...)` from `apps/web/lib/manualPaperSubmitReview.ts`.
+- No freshness derivation logic was duplicated inside `apps/web/components/RecommendationRouteCheckPanel.tsx`.
+- The panel now loads existing read-only recommendation details so the shared freshness helper can evaluate recommendation timestamps alongside route-check and guarded dry-run evidence.
+- Route-check and dry-run observation timestamps are captured client-side in the panel the same way they are on the dedicated confirmation surface.
+
+### B. Panel Change
+
+- Added a compact `Payload freshness` subpanel inside `apps/web/components/RecommendationRouteCheckPanel.tsx`.
+- The compact summary shows:
+  - freshness status
+  - rerun requirements
+  - missing freshness fields
+  - stale evidence
+  - source-label coherence
+  - broker-mode coherence
+  - `submit_enabled_now=false`
+  - `order_submitted=false`
+  - `live_trading_enabled=false`
+  - `workers_allowed_to_submit=false`
+- Required operator copy is surfaced directly in the panel:
+  - `Freshness summary only`
+  - `Submit remains disabled`
+  - `No order submitted`
+  - `Live trading remains locked`
+  - `Workers cannot submit`
+- The existing navigation-only link to the dedicated confirmation surface remains intact.
+
+### C. Confirmation Surface Impact
+
+- No logic change was made to the dedicated confirmation surface in this block.
+- Existing confirmation freshness review behavior remains unchanged and is retained as the fuller inspection surface.
+
+### D. Backend Change
+
+- No backend production code changed in this block.
+- No new backend route, broker seam, worker path, decision writer, or submit authority was added.
+
+### E. Safety Invariants Preserved
+
+- Design-only/read-only posture remains true.
+- No submit control was added.
+- No `/broker/orders` frontend call was added.
+- No `submitBrokerOrder` import was added.
+- No `BrokerService.submit_order` path was called.
+- No submit-decision record is created from this UI.
+- Live remains locked.
+- Workers remain non-submitting.
+
+### F. Files Changed
+
+- `apps/web/components/RecommendationRouteCheckPanel.tsx`
+- `apps/web/tests/in-flight-adjustments.spec.ts`
+- `docs/build-ledger.md`
+- `docs/build-matrix.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### G. Validation
+
+- `cd apps/web && npm run lint`
+- `cd apps/web && npm run build`
+- `cd apps/web && NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run start -- --hostname 127.0.0.1 --port 3100`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/in-flight-adjustments.spec.ts tests/manual-paper-submit-confirmation.spec.ts --reporter=line`
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 ./node_modules/.bin/playwright test tests/routes.spec.ts tests/responsive.spec.ts tests/smoke.spec.ts --grep 'manual paper submit confirmation|submit confirmation|IBKR paper|in-flight|cockpit|freshness' --reporter=line`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE '#[0-9A-Fa-f]{3,6}\b' apps/web/app apps/web/components --include='*.tsx'`
+- `cd /Users/ants/Documents/market-hunter-mvp && grep -RniE 'rgba?\s*\(' apps/web/app apps/web/components --include='*.tsx'`
+- `cd apps/api && .venv/bin/ruff check app tests`
+- `cd apps/api && .venv/bin/python -m pytest tests/test_recommendation_route_check_panel_submit_boundary.py -q`
+- `cd apps/api && .venv/bin/python -m pytest tests/ -q`
+- `cd /Users/ants/Documents/market-hunter-mvp && scripts/test/test-learning.sh`
+- `cd /Users/ants/Documents/market-hunter-mvp && git diff --check`
+
+### H. Next Recommended Phase
+
+-> Keep the panel summary compact and read-only. If a later phase needs broader freshness evidence on more cockpit surfaces, continue reusing the shared helper and keep any eventual execution behavior constrained to the canonical guarded `/broker/orders` seam only.
+

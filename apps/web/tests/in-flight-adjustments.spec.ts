@@ -12,6 +12,10 @@ function isApiRequest(requestUrl: string, pathname: string): boolean {
   return url.origin === API_ORIGIN && url.pathname === pathname;
 }
 
+function isoMinutesAgo(minutesAgo: number): string {
+  return new Date(Date.now() - minutesAgo * 60_000).toISOString();
+}
+
 type MockRouteResponse = {
   status: number;
   contentType: string;
@@ -57,6 +61,31 @@ async function routeRecommendationDryRunPreviews(
 
     const parts = requestUrl.pathname.split("/");
     const recommendationId = parts[3];
+    const response = recommendationId ? responses[recommendationId] : undefined;
+
+    if (!response) {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill(response);
+  });
+}
+
+async function routeRecommendationDetails(
+  page: import("@playwright/test").Page,
+  responses: Record<string, MockRouteResponse>,
+) {
+  await page.route("**/paper/recommendations/*", async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const parts = requestUrl.pathname.split("/");
+    const recommendationId = parts[3];
+
+    if (parts.length !== 4 || parts[1] !== "paper" || parts[2] !== "recommendations") {
+      await route.continue();
+      return;
+    }
+
     const response = recommendationId ? responses[recommendationId] : undefined;
 
     if (!response) {
@@ -165,6 +194,8 @@ async function mockInFlightReport(
   page: import("@playwright/test").Page,
   payload = buildInFlightReport(),
 ) {
+  const recentReviewTimestamp = isoMinutesAgo(5);
+
   await page.route("**/cockpit/in-flight-adjustments*", async (route) => {
     const request = route.request();
     const requestUrl = new URL(request.url());
@@ -182,6 +213,34 @@ async function mockInFlightReport(
       contentType: "application/json",
       body: JSON.stringify(payload),
     });
+  });
+
+  await routeRecommendationDetails(page, {
+    "recommendation-1": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "recommendation-1",
+        signal_id: null,
+        model_version_id: null,
+        ticker: "NVDA",
+        side: "BUY",
+        quantity: 3,
+        order_type: "MARKET",
+        limit_price: null,
+        confidence: null,
+        risk_score: 0.18,
+        estimated_notional: 300,
+        rationale: "Read-only in-flight freshness fixture.",
+        status: "approved",
+        created_at: recentReviewTimestamp,
+        reviewed_at: recentReviewTimestamp,
+        reviewed_by: "operator",
+        review_notes: "Approved for guarded paper review.",
+        executed_at: null,
+        paper_order_ids: null,
+      }),
+    },
   });
 
   await routeRecommendationRouteChecks(page, {
@@ -319,7 +378,13 @@ test("In-Flight Adjustments route renders summary and paper read-only wording", 
 });
 
 test("In-Flight Adjustments recommendation route-check renders eligible review state", async ({ page }) => {
+  let brokerOrdersCalls = 0;
+
   await mockInFlightReport(page);
+  await page.route("**/broker/orders", async (route) => {
+    brokerOrdersCalls += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
 
   await page.goto("/cockpit/in-flight-adjustments");
   await page.waitForLoadState("domcontentloaded");
@@ -348,6 +413,42 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
     "/broker#broker-execution",
   );
   await expect(page.getByTestId("recommendation-dry-run-preview-trigger-recommendation-1")).toBeVisible();
+  await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-1")).toContainText(
+    /rerun dry run required/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /freshness summary only/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /submit remains disabled/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /no order submitted/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /live trading remains locked/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /workers cannot submit/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /rerun requirements/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /guarded dry-run/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /submit_enabled_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /order_submittedfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /live_trading_enabledfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /workers_allowed_to_submitfalse/i,
+  );
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-1")).toContainText(
     /dry-run required/i,
   );
@@ -510,10 +611,17 @@ test("In-Flight Adjustments recommendation route-check renders eligible review s
   await expect(page.getByTestId("recommendation-final-guarded-submit-interaction-spec-recommendation-1")).toContainText(
     /no submit button is available here/i,
   );
+  expect(brokerOrdersCalls).toBe(0);
 });
 
 test("In-Flight Adjustments recommendation dry-run preview renders safe broker review details", async ({ page }) => {
+  let brokerOrdersCalls = 0;
+
   await mockInFlightReport(page);
+  await page.route("**/broker/orders", async (route) => {
+    brokerOrdersCalls += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
 
   await page.goto("/cockpit/in-flight-adjustments");
   await page.waitForLoadState("domcontentloaded");
@@ -533,6 +641,33 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
   );
   await expect(page.getByTestId("recommendation-dry-run-preview-recommendation-1")).toContainText(
     /dry-run validates the ibkr paper submit path without placing an order/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-1")).toContainText(
+    /freshness ready for future manual review/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-card-recommendation-1")).toContainText(
+    /payload freshness review is ready for future manual review/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /source_labels_coherenttrue/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /broker_mode_still_papertrue/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /submit_enabled_nowfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /order_submittedfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /live_trading_enabledfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /workers_allowed_to_submitfalse/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /no extra rerun requirements are surfaced/i,
   );
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-1")).toContainText(
     /ready for future manual paper submit/i,
@@ -809,6 +944,58 @@ test("In-Flight Adjustments recommendation dry-run preview renders safe broker r
   );
   await expect(page.getByRole("button", { name: /submit order|execute|buy|sell|approve live|auto submit|trade now/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /write decision|record decision/i })).toHaveCount(0);
+  expect(brokerOrdersCalls).toBe(0);
+});
+
+test("In-Flight Adjustments payload freshness summary fails closed when recommendation timestamps are missing", async ({ page }) => {
+  await mockInFlightReport(page);
+
+  await page.unroute("**/paper/recommendations/*");
+  await routeRecommendationDetails(page, {
+    "recommendation-1": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "recommendation-1",
+        signal_id: null,
+        model_version_id: null,
+        ticker: "NVDA",
+        side: "BUY",
+        quantity: 3,
+        order_type: "MARKET",
+        limit_price: null,
+        confidence: null,
+        risk_score: 0.18,
+        estimated_notional: 300,
+        rationale: "Read-only in-flight freshness fixture.",
+        status: "approved",
+        created_at: null,
+        reviewed_at: null,
+        reviewed_by: "operator",
+        review_notes: "Approved for guarded paper review.",
+        executed_at: null,
+        paper_order_ids: null,
+      }),
+    },
+  });
+
+  await page.goto("/cockpit/in-flight-adjustments");
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.getByTestId("recommendation-route-check-trigger-recommendation-1").click();
+
+  await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-1")).toContainText(
+    /missing timestamps/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /recommendation.created_at/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-1")).toContainText(
+    /recommendation.reviewed_at/i,
+  );
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-card-recommendation-1")).toContainText(
+    /missing timestamps prevent freshness confirmation/i,
+  );
 });
 
 test("In-Flight Adjustments recommendation preflight contract shows approval package required when approval package is not ready", async ({ page }) => {
@@ -1184,6 +1371,8 @@ test("In-Flight Adjustments recommendation audit package shows handoff required 
 
 test("In-Flight Adjustments recommendation route-check renders blocked and missing-context states", async ({ page }) => {
   let dryRunPreviewCalls = 0;
+  const recentReviewTimestamp = isoMinutesAgo(5);
+
   await mockInFlightReport(page, buildInFlightReport({
     items: [
       {
@@ -1238,6 +1427,60 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
       high_attention: 1,
     },
   }));
+
+  await page.unroute("**/paper/recommendations/*");
+  await routeRecommendationDetails(page, {
+    "recommendation-live-blocked": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "recommendation-live-blocked",
+        signal_id: null,
+        model_version_id: null,
+        ticker: "MSFT",
+        side: "SELL",
+        quantity: 5,
+        order_type: "MARKET",
+        limit_price: null,
+        confidence: null,
+        risk_score: 0.44,
+        estimated_notional: 500,
+        rationale: "Live-blocked review fixture.",
+        status: "approved",
+        created_at: recentReviewTimestamp,
+        reviewed_at: recentReviewTimestamp,
+        reviewed_by: "operator",
+        review_notes: "Approved for guarded paper review.",
+        executed_at: null,
+        paper_order_ids: null,
+      }),
+    },
+    "recommendation-missing-context": {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "recommendation-missing-context",
+        signal_id: null,
+        model_version_id: null,
+        ticker: "TSLA",
+        side: "BUY",
+        quantity: 2,
+        order_type: "MARKET",
+        limit_price: null,
+        confidence: null,
+        risk_score: 0.21,
+        estimated_notional: 200,
+        rationale: "Missing-context review fixture.",
+        status: "draft",
+        created_at: recentReviewTimestamp,
+        reviewed_at: recentReviewTimestamp,
+        reviewed_by: "operator",
+        review_notes: "Still missing approval context.",
+        executed_at: null,
+        paper_order_ids: null,
+      }),
+    },
+  });
 
   await page.unroute("**/paper/recommendations/**/serious-paper-route-check*");
   await routeRecommendationRouteChecks(page, {
@@ -1322,6 +1565,9 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await page.getByTestId("recommendation-route-check-trigger-recommendation-live-blocked").click();
   await expect(page.getByTestId("recommendation-route-check-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-live-blocked")).toContainText(/live submit remains locked/i);
+  await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-live-blocked")).toContainText(/rerun dry run required/i);
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-live-blocked")).toContainText(/guarded dry-run/i);
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-live-blocked")).toContainText(/broker mode is no longer coherently paper/i);
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-handoff-status-recommendation-live-blocked")).toContainText(/blocked/i);
   await expect(page.getByTestId("recommendation-submit-audit-package-status-recommendation-live-blocked")).toContainText(/blocked/i);
@@ -1335,6 +1581,8 @@ test("In-Flight Adjustments recommendation route-check renders blocked and missi
   await page.getByTestId("recommendation-route-check-trigger-recommendation-missing-context").click();
   await expect(page.getByTestId("recommendation-route-check-status-recommendation-missing-context")).toContainText(/missing context/i);
   await expect(page.getByTestId("recommendation-route-check-panel-recommendation-missing-context")).toContainText(/operator approval is required/i);
+  await expect(page.getByTestId("recommendation-payload-freshness-status-recommendation-missing-context")).toContainText(/missing context/i);
+  await expect(page.getByTestId("recommendation-payload-freshness-summary-recommendation-missing-context")).toContainText(/route-check/i);
   await expect(page.getByTestId("recommendation-submit-readiness-status-recommendation-missing-context")).toContainText(
     /missing context/i,
   );
