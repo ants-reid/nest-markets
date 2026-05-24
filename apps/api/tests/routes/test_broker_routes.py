@@ -183,6 +183,10 @@ async def test_submit_order_returns_structured_403_when_paper_preflight_blocks(c
                 "quantity": 10,
                 "order_type": "LIMIT",
                 "limit_price": 180.5,
+                "recommendation_id": "fddb0edb-4f0c-43fe-95df-b3d2e66f11ab",
+                "route_check_reference": "recommendation_route_check:eligible",
+                "dry_run_reference": "broker_dry_run:would_block",
+                "submit_decision_correlation_id": "manual_paper_submit_corr_1",
             },
         )
 
@@ -205,9 +209,23 @@ async def test_submit_order_returns_structured_403_when_paper_preflight_blocks(c
     assert rows[0].preflight_json["source"] == "submit_preflight"
     assert rows[0].preflight_json["decision_status"] == "would_block"
     assert rows[0].preflight_json["allowed_to_submit"] is False
+    assert rows[0].preflight_json["correlation_id"] == "manual_paper_submit_corr_1"
+    assert rows[0].preflight_json["recommendation_id"] == "fddb0edb-4f0c-43fe-95df-b3d2e66f11ab"
+    assert rows[0].preflight_json["route_check_reference"] == "recommendation_route_check:eligible"
+    assert rows[0].preflight_json["dry_run_reference"] == "broker_dry_run:would_block"
+    assert rows[0].preflight_json["request_summary"] == {
+        "ticker": "AAPL",
+        "side": "BUY",
+        "quantity": 10.0,
+        "order_type": "LIMIT",
+        "limit_price": 180.5,
+        "stop_price": None,
+    }
     assert rows[1].preflight_json["source"] == "submit_attempt"
     assert rows[1].preflight_json["submit_gate"] == "blocked"
     assert rows[1].preflight_json["allowed_to_submit"] is False
+    assert rows[1].preflight_json["correlation_id"] == "manual_paper_submit_corr_1"
+    assert rows[1].preflight_json["recommendation_id"] == "fddb0edb-4f0c-43fe-95df-b3d2e66f11ab"
     assert rows[1].would_block is True
 
 

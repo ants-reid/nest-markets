@@ -207,11 +207,57 @@ async def test_dry_run_does_not_execute_submit_order(client):
         persist_decision=True,
         decision_source="dry_run",
         intent="manual",
+        decision_metadata={
+            "correlation_id": None,
+            "recommendation_id": None,
+            "route_check_reference": None,
+            "dry_run_reference": None,
+            "ticker": "AAPL",
+            "side": "BUY",
+            "quantity": 10,
+            "order_type": "LIMIT",
+            "limit_price": 180.5,
+            "stop_price": None,
+        },
     )
     # If this attribute exists on the double, ensure it was never touched.
     submit = getattr(fake_service, "submit_order", None)
     if submit is not None:
         submit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dry_run_persists_optional_timeline_metadata(client):
+    response = client.post(
+        "/broker/orders/dry-run",
+        json=_payload(
+            recommendation_id="5b0fdb26-75e2-4693-8d1b-a5a19b3ea4fd",
+            route_check_reference="recommendation_route_check:eligible",
+            dry_run_reference="broker_dry_run:allowed",
+            submit_decision_correlation_id="manual_paper_submit_corr_dry_run",
+        ),
+    )
+
+    assert response.status_code == 200
+
+    with SessionLocal() as session:
+        rows = session.query(BrokerSubmitDecision).all()
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.preflight_json["source"] == "dry_run"
+    assert row.preflight_json["correlation_id"] == "manual_paper_submit_corr_dry_run"
+    assert row.preflight_json["recommendation_id"] == "5b0fdb26-75e2-4693-8d1b-a5a19b3ea4fd"
+    assert row.preflight_json["route_check_reference"] == "recommendation_route_check:eligible"
+    assert row.preflight_json["dry_run_reference"] == "broker_dry_run:allowed"
+    assert row.preflight_json["request_summary"] == {
+        "ticker": "AAPL",
+        "side": "BUY",
+        "quantity": 10.0,
+        "order_type": "LIMIT",
+        "limit_price": 180.5,
+        "stop_price": None,
+    }
 
 
 @pytest.mark.asyncio

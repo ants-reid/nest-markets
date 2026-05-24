@@ -30,6 +30,7 @@ const ROUTES = [
   { path: "/cockpit/eod-report", name: "cockpit-eod-report" },
   { path: "/cockpit/in-flight-adjustments", name: "cockpit-in-flight-adjustments" },
   { path: "/cockpit/manual-paper-submit-confirmation", name: "cockpit-manual-paper-submit-confirmation" },
+  { path: "/cockpit/audit/broker-submit-decisions", name: "cockpit-audit-broker-submit-decisions" },
   { path: "/cockpit/trade-close-explanations", name: "cockpit-trade-close-explanations" },
   { path: "/cockpit/daily-scoreboard", name: "cockpit-daily-scoreboard" },
   { path: "/cockpit/alerts-needing-attention", name: "cockpit-alerts-needing-attention" },

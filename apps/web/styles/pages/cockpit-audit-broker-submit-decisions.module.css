@@ -12,6 +12,14 @@
   gap: 1.25rem;
 }
 
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f59e0b;
+}
+
 .header {
   display: flex;
   align-items: flex-start;
@@ -38,6 +46,19 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.linkPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  text-decoration: none;
+  color: var(--text-body);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border, #1f2937);
 }
 
 .filters {
@@ -97,6 +118,34 @@
   border-radius: 0 6px 6px 0;
 }
 
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+
+.summaryCard {
+  background: linear-gradient(160deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.9));
+  border: 1px solid var(--card-border, #1f2937);
+  border-radius: 12px;
+  padding: 0.95rem 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.summaryValue {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
 .driftLockNotice {
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -124,60 +173,161 @@
   border-radius: 10px;
 }
 
-.tableWrap {
-  background: var(--card-bg, #111827);
+.cardList {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(15, 23, 42, 0.93));
   border: 1px solid var(--card-border, #1f2937);
-  border-radius: 10px;
-  overflow: auto;
+  border-radius: 16px;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.table thead th {
-  text-align: left;
-  font-size: 0.72rem;
+.cardEyebrow {
+  margin: 0;
+  font-size: 0.74rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid var(--card-border, #1f2937);
-  position: sticky;
-  top: 0;
 }
 
-.row td {
-  padding: 0.5rem 0.8rem;
-  border-bottom: 1px solid var(--card-border, #1f2937);
-  vertical-align: top;
-}
-
-.cellTime {
-  white-space: nowrap;
-  color: var(--text-muted);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-}
-
-.cellMono {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-  color: var(--text-body);
-}
-
-.cellIntent {
-  text-transform: lowercase;
+.cardTitle {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
   color: var(--text-strong);
 }
 
-.cellReason {
-  max-width: 32rem;
+.cardSubtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+
+.cardBadges {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+.metaItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 0.7rem 0.75rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.metaLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.metaValue {
   color: var(--text-body);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.inlineSection {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 0.85rem 0.9rem;
+}
+
+.inlineTitle {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.emptyInline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.kvList,
+.messageList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.kvList li,
+.messageItem {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.kvKey {
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.kvValue {
+  color: var(--text-body);
+  word-break: break-word;
+}
+
+.messageHead {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #fca5a5;
+}
+
+.messageBody {
+  color: var(--text-body);
+}
+
+.mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.badgeNeutral {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #93c5fd;
+  border: 1px solid currentColor;
+  background: rgba(147, 197, 253, 0.08);
 }
 
 .badgeBlocked {
@@ -204,4 +354,37 @@
   color: #22c55e;
   border: 1px solid currentColor;
   background: rgba(34, 197, 94, 0.08);
+}
+
+.badgeError {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fca5a5;
+  border: 1px solid currentColor;
+  background: rgba(252, 165, 165, 0.08);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 1.25rem 0.85rem 2rem;
+  }
+
+  .filters {
+    align-items: stretch;
+  }
+
+  .filterSelect,
+  .refreshButton,
+  .linkPill {
+    width: 100%;
+  }
+
+  .headerActions {
+    width: 100%;
+  }
 }

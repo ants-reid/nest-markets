@@ -1,9 +1,10 @@
 """Broker endpoints — order execution, account, positions."""
 import logging
+from typing import Any
 from decimal import Decimal
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.clients.broker.broker_interface import OrderRequest
 from app.config import get_settings
@@ -57,6 +58,32 @@ _logger = logging.getLogger(__name__)
 
 # Global broker service instance (in production, use dependency injection)
 _broker_service: BrokerService | None = None
+
+
+async def _extract_submit_decision_metadata(request: Request) -> dict[str, Any]:
+    try:
+        payload = await request.json()
+    except Exception:
+        return {}
+
+    if not isinstance(payload, dict):
+        return {}
+
+    correlation_id = payload.get("submit_decision_correlation_id") or payload.get(
+        "client_order_id"
+    )
+    return {
+        "correlation_id": correlation_id,
+        "recommendation_id": payload.get("recommendation_id"),
+        "route_check_reference": payload.get("route_check_reference"),
+        "dry_run_reference": payload.get("dry_run_reference"),
+        "ticker": payload.get("ticker"),
+        "side": payload.get("side"),
+        "quantity": payload.get("quantity"),
+        "order_type": payload.get("order_type"),
+        "limit_price": payload.get("limit_price"),
+        "stop_price": payload.get("stop_price"),
+    }
 
 
 def get_broker_service() -> BrokerService:
@@ -364,10 +391,11 @@ async def get_normalized_broker_trades(limit: int = Query(default=100, ge=1, le=
 
 
 @router.post("/orders", response_model=OrderResultSchema)
-async def submit_order(request: OrderRequestSchema):
+async def submit_order(request: OrderRequestSchema, raw_request: Request):
     """Submit an order to the broker."""
     try:
         service = get_broker_service()
+        decision_metadata = await _extract_submit_decision_metadata(raw_request)
 
         order_request = OrderRequest(
             ticker=request.ticker,
@@ -381,7 +409,10 @@ async def submit_order(request: OrderRequestSchema):
             client_order_id=request.client_order_id,
         )
 
-        result = await service.submit_order(order_request)
+        result = await service.submit_order(
+            order_request,
+            decision_metadata=decision_metadata,
+        )
         audit_log_service.log_broker_order_event(
             action="submit",
             ticker=request.ticker,
@@ -459,7 +490,7 @@ async def submit_order(request: OrderRequestSchema):
 
 
 @router.post("/orders/dry-run", response_model=OrderDryRunResultSchema)
-async def dry_run_order(request: OrderDryRunRequestSchema):
+async def dry_run_order(request: OrderDryRunRequestSchema, raw_request: Request):
     """Verify an order request without submitting anything to the broker.
 
     This endpoint is used for operator safety checks before paper execution.
@@ -472,6 +503,7 @@ async def dry_run_order(request: OrderDryRunRequestSchema):
     """
     try:
         service = get_broker_service()
+        decision_metadata = await _extract_submit_decision_metadata(raw_request)
 
         order_request = OrderRequest(
             ticker=request.ticker,
@@ -501,6 +533,7 @@ async def dry_run_order(request: OrderDryRunRequestSchema):
             persist_decision=True,
             decision_source="dry_run",
             intent="manual",
+            decision_metadata=decision_metadata,
         )
         audit_log_service.log_broker_order_event(
             action="dry_run",

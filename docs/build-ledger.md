@@ -15423,6 +15423,18 @@ still 100% green.
   - `/broker/orders` is the only serious-paper submit seam.
   - `/execution/paper` remains simulator-only and was not adopted by the guarded submit control.
   - Live trading remains locked and workers remain non-submitting.
+
+## Broker Submit Decision Timeline / Paper Submit Result History
+
+- **Scope:** Upgraded the existing read-only broker submit decision audit feed into an operator-facing timeline/history surface for dry-run rows, submit preflight decisions, blocked attempts, and successful guarded paper submit outcomes. The implementation reuses `GET /broker/submit-decisions/recent`, adds a typed safe response shape, extracts timeline fields from persisted decision JSON, adds read-only filters for source/status/correlation/recommendation, and upgrades the existing cockpit audit page into a card-based timeline with summary counts and read-only routing/source details.
+- **Metadata follow-through:** The guarded `/broker/orders` and `/broker/orders/dry-run` paths now preserve optional recommendation/correlation/review-reference metadata already sent by the frontend without changing the broker request contract or broker adapter contract. Persisted rows now carry correlation ids, recommendation ids when present, route-check and dry-run references, and a safe request summary for history rendering.
+- **Safety posture unchanged:** This metadata threading intentionally changed `BrokerService.submit_order`, `BrokerService.submit_auto_order`, `BrokerService._submit_order_for_intent`, and `BrokerService.dry_run_order`, so the corresponding SHA drift-lock pins were updated in the same change. The guard behavior remains fail-closed, auto trading remains OFF, live trading remains locked, and workers remain non-submitting.
+- **Explicit non-changes:** No new submit seam was added. No new worker authority was added. No new live path was added. `/broker/orders` remains the only serious-paper submit seam. `/execution/paper` remains simulator-only. The timeline page is strictly read-only and exposes no submit/rerun/approve controls.
+- **Validation:**
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_broker_submit_decisions.py tests/routes/test_broker_routes.py tests/routes/test_broker_dry_run.py -q` -> `53 passed`.
+  - `cd apps/web && npx playwright test tests/broker-submit-decisions-timeline.spec.ts` -> `1 passed`.
+  - `cd apps/web && npx playwright test tests/routes.spec.ts -g 'QA-R18C3'` -> `1 passed`.
+  - `cd apps/web && npx playwright test tests/responsive.spec.ts -g 'cockpit-audit-broker-submit-decisions'` -> `3 passed`.
   - Append-only broker submit decision persistence remains in force for blocked and allowed attempts.
 - **Docs and audit conclusion:**
   - The guarded manual submit landed safely on `main` without expanding live execution, worker submission, or simulator routing.

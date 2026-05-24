@@ -11,8 +11,8 @@ import inspect
 
 from app.services.broker_service import BrokerService
 
-_EXPECTED_SHA = "95a41e7ee8ae2442fd208fac1c3553308a859a3d68b637f052883c3c6447c19c"
-_EXPECTED_LEN = 379
+_EXPECTED_SHA = "73bdc642b5b738614d4ab9523b6837964d6ce33198fb4b0af554378d5294b48a"
+_EXPECTED_LEN = 554
 
 
 def _src_meta() -> tuple[str, int, str]:

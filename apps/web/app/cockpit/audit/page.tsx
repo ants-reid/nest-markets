@@ -34,7 +34,7 @@ const TILES: ReadonlyArray<AuditTile> = [
     href: "/cockpit/audit/broker-submit-decisions",
     title: "Broker Submit Decisions",
     description:
-      "Audit log of broker-submit preflight decisions (MH-148-B). Empty until MH-148-C writer ships.",
+      "Read-only broker submit decision timeline covering dry-runs, submit preflight gates, blocked attempts, and paper submit outcomes.",
     countLabel: "rows in latest window",
     loadCount: async () => {
       const resp = await getRecentBrokerSubmitDecisions({ limit: 200 });
@@ -172,8 +172,8 @@ export default function CockpitAuditIndexPage() {
 
         <div className={styles.driftLockNotice}>
           Drift lock: every linked page is strictly read-only and surfaces
-          tables that are intentionally empty until the corresponding writer
-          phase ships. Auto-paper, auto, and live trading remain OFF.
+          audit trails without exposing trading controls. Auto-paper, auto,
+          and live trading remain OFF.
         </div>
 
         <div className={styles.tileGrid}>

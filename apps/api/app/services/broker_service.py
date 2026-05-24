@@ -332,18 +332,42 @@ class BrokerService:
         """Backward-compatible MH-45 alias for manual snapshot capture."""
         return await self.capture_daily_pnl_snapshot(source="manual")
 
-    async def submit_order(self, request: OrderRequest) -> OrderResult:
-        return await self._submit_order_for_intent(request, intent="manual")
+    async def submit_order(
+        self,
+        request: OrderRequest,
+        *,
+        decision_metadata: dict[str, Any] | None = None,
+    ) -> OrderResult:
+        return await self._submit_order_for_intent(
+            request,
+            intent="manual",
+            decision_metadata=decision_metadata,
+        )
 
-    async def submit_auto_order(self, request: OrderRequest) -> OrderResult:
+    async def submit_auto_order(
+        self,
+        request: OrderRequest,
+        *,
+        decision_metadata: dict[str, Any] | None = None,
+    ) -> OrderResult:
         """First auto-trading broker submission seam.
 
         Auto trading remains blocked by default, but this path must share the
         same broker submit safety gate as manual paper submit when later enabled.
         """
-        return await self._submit_order_for_intent(request, intent="auto")
+        return await self._submit_order_for_intent(
+            request,
+            intent="auto",
+            decision_metadata=decision_metadata,
+        )
 
-    async def _submit_order_for_intent(self, request: OrderRequest, *, intent: str) -> OrderResult:
+    async def _submit_order_for_intent(
+        self,
+        request: OrderRequest,
+        *,
+        intent: str,
+        decision_metadata: dict[str, Any] | None = None,
+    ) -> OrderResult:
         """Submit an order to the broker.
 
         Args:
@@ -376,6 +400,7 @@ class BrokerService:
                 warnings=[],
                 source="submit_attempt",
                 submit_gate="blocked",
+                decision_metadata=decision_metadata,
             )
             raise
 
@@ -389,6 +414,7 @@ class BrokerService:
                     persist_decision=True,
                     decision_source="submit_preflight",
                     intent=intent,
+                    decision_metadata=decision_metadata,
                 )
                 preflight_decision = dict(preflight_result["preflight_decision"])
             except Exception as exc:
@@ -402,6 +428,7 @@ class BrokerService:
                     warnings=[],
                     source="submit_preflight",
                     submit_gate="blocked",
+                    decision_metadata=decision_metadata,
                 )
                 self._persist_submit_decision(
                     intent=intent,
@@ -409,6 +436,7 @@ class BrokerService:
                     warnings=[],
                     source="submit_attempt",
                     submit_gate="blocked",
+                    decision_metadata=decision_metadata,
                 )
                 preflight_decision["submit_gate"] = "blocked"
                 raise PaperPreflightBlockedError(
@@ -424,6 +452,7 @@ class BrokerService:
                     warnings=list(preflight_result.get("warnings") or []),
                     source="submit_attempt",
                     submit_gate="blocked",
+                    decision_metadata=decision_metadata,
                 )
                 raise PaperPreflightBlockedError(
                     preflight_decision=preflight_decision,
@@ -452,6 +481,7 @@ class BrokerService:
             source="submit_attempt",
             submit_gate="allowed",
             broker_order_id=result.broker_order_id,
+            decision_metadata=decision_metadata,
         )
         
         if result.status == "REJECTED":
@@ -702,6 +732,7 @@ class BrokerService:
         persist_decision: bool = False,
         decision_source: str = "dry_run",
         intent: str = "manual",
+        decision_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Verify whether an order would be accepted without submitting it.
 
@@ -775,6 +806,7 @@ class BrokerService:
                 result=result,
                 intent=intent,
                 source=decision_source,
+                decision_metadata=decision_metadata,
             )
 
         return result
@@ -813,6 +845,7 @@ class BrokerService:
         source: str,
         submit_gate: str,
         broker_order_id: str | None = None,
+        decision_metadata: dict[str, Any] | None = None,
     ) -> None:
         self._preflight_decisions.persist_submit_decision(
             intent=intent,
@@ -821,6 +854,7 @@ class BrokerService:
             source=source,
             submit_gate=submit_gate,
             broker_order_id=broker_order_id,
+            decision_metadata=decision_metadata,
         )
 
     def _persist_submit_decision_from_result(
@@ -829,11 +863,13 @@ class BrokerService:
         result: dict[str, Any],
         intent: str,
         source: str,
+        decision_metadata: dict[str, Any] | None = None,
     ) -> None:
         self._preflight_decisions.persist_submit_decision_from_result(
             result=result,
             intent=intent,
             source=source,
+            decision_metadata=decision_metadata,
         )
 
     def _collect_preflight_warnings(

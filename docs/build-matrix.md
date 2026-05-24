@@ -221,7 +221,12 @@ Manual IBKR paper submit post-implementation safety audit — 2026-05-24:
 - Verdict: `PAPER_ONLY_MANUAL_SUBMIT_IMPLEMENTED_AND_LIVE_LOCKED`.
 - The dedicated confirmation route now owns the only executable cockpit submit control and is guarded by explicit final confirmation plus fail-closed review, freshness, triage, paper-mode, live-lock, and worker-lock gates.
 - The in-flight panel remains review-only, `/broker/orders` remains the only serious-paper submit seam, `/execution/paper` remains simulator/monitoring-only, live remains locked, and workers remain non-submitting.
-- Recommended next phase: `Broker Submit Decision Timeline / Paper Submit Result History`.
+
+Broker submit decision timeline / paper submit result history — 2026-05-24:
+- Status: complete.
+- The existing `GET /broker/submit-decisions/recent` surface now returns a typed timeline-friendly response with extracted decision metadata and read-only filters for `source`, `decision_status`, `correlation_id`, and `recommendation_id`.
+- The existing cockpit audit route `/cockpit/audit/broker-submit-decisions` now serves as the operator-facing read-only timeline/history surface, and the cockpit hub links directly to it.
+- The guarded submit seam remains unchanged: `/broker/orders` is still the only serious-paper submit route, live remains locked, and workers remain non-submitting.
 
 ### Bucket 4 — Future Live-Trading Prerequisites (Locked)
 

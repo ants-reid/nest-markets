@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import UUID
 
 from app.db.session import SessionLocal
 from app.services.broker_mode_guard import get_broker_mode_metadata
@@ -19,6 +20,42 @@ from app.services.broker_submit_decision_service import (
 )
 
 _logger = logging.getLogger(__name__)
+
+_CORRELATION_ID_HARD_CAP = 160
+_REFERENCE_HARD_CAP = 240
+
+
+def _optional_str(value: Any, *, max_len: int | None = None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    value = value.strip()
+    if not value:
+        return None
+    if max_len is None or len(value) <= max_len:
+        return value
+    return value[:max_len]
+
+
+def _optional_uuid(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        return str(UUID(str(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return None
 
 
 class BrokerPreflightDecisionService:
@@ -173,6 +210,48 @@ class BrokerPreflightDecisionService:
             return broker_dry_run_sources(mode_meta)
         return broker_sources_from_mode(mode_meta)
 
+    def decision_metadata(self, metadata: dict[str, Any] | None) -> tuple[str | None, dict[str, Any]]:
+        sanitized: dict[str, Any] = {}
+        if not metadata:
+            return None, sanitized
+
+        correlation_id = _optional_str(
+            metadata.get("correlation_id"), max_len=_CORRELATION_ID_HARD_CAP
+        )
+        recommendation_id = _optional_uuid(metadata.get("recommendation_id"))
+        route_check_reference = _optional_str(
+            metadata.get("route_check_reference"), max_len=_REFERENCE_HARD_CAP
+        )
+        dry_run_reference = _optional_str(
+            metadata.get("dry_run_reference"), max_len=_REFERENCE_HARD_CAP
+        )
+        ticker = _optional_str(metadata.get("ticker"), max_len=32)
+        side = _optional_str(metadata.get("side"), max_len=16)
+        order_type = _optional_str(metadata.get("order_type"), max_len=32)
+        quantity = _optional_number(metadata.get("quantity"))
+        limit_price = _optional_number(metadata.get("limit_price"))
+        stop_price = _optional_number(metadata.get("stop_price"))
+
+        if recommendation_id is not None:
+            sanitized["recommendation_id"] = recommendation_id
+        if route_check_reference is not None:
+            sanitized["route_check_reference"] = route_check_reference
+        if dry_run_reference is not None:
+            sanitized["dry_run_reference"] = dry_run_reference
+
+        request_summary = {
+            "ticker": ticker,
+            "side": side,
+            "quantity": quantity,
+            "order_type": order_type,
+            "limit_price": limit_price,
+            "stop_price": stop_price,
+        }
+        if any(value is not None for value in request_summary.values()):
+            sanitized["request_summary"] = request_summary
+
+        return correlation_id, sanitized
+
     def persist_submit_decision(
         self,
         *,
@@ -182,6 +261,7 @@ class BrokerPreflightDecisionService:
         source: str,
         submit_gate: str,
         broker_order_id: str | None = None,
+        decision_metadata: dict[str, Any] | None = None,
     ) -> None:
         try:
             decision_status = str(preflight_decision.get("decision_status") or "unknown").strip().lower()
@@ -190,6 +270,7 @@ class BrokerPreflightDecisionService:
                 preflight_decision, warnings
             )
             execution_mode, account_mode = self.execution_mode_metadata()
+            correlation_id, extra_metadata = self.decision_metadata(decision_metadata)
 
             record = BrokerSubmitDecisionRecord(
                 intent=intent,
@@ -206,10 +287,17 @@ class BrokerPreflightDecisionService:
                 source=source,
                 submit_gate=submit_gate,
                 broker_order_id=broker_order_id,
+                correlation_id=correlation_id,
             )
             with SessionLocal() as session:
                 writer = BrokerSubmitDecisionService(session)
-                writer.persist(record, source_metadata=self.source_metadata(source=source))
+                writer.persist(
+                    record,
+                    source_metadata={
+                        **self.source_metadata(source=source),
+                        **extra_metadata,
+                    },
+                )
                 session.commit()
         except Exception:
             _logger.exception(
@@ -224,6 +312,7 @@ class BrokerPreflightDecisionService:
         result: dict[str, Any],
         intent: str,
         source: str,
+        decision_metadata: dict[str, Any] | None = None,
     ) -> None:
         preflight_decision = dict(result.get("preflight_decision") or {})
         warnings = list(result.get("warnings") or [])
@@ -234,4 +323,5 @@ class BrokerPreflightDecisionService:
             warnings=warnings,
             source=source,
             submit_gate=submit_gate,
+            decision_metadata=decision_metadata,
         )

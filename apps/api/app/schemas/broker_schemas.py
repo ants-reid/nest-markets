@@ -291,6 +291,83 @@ class OrderDryRunRequestSchema(OrderRequestSchema):
     daily_loss: Optional[float] = None
 
 
+class BrokerSubmitDecisionMessageSchema(BaseModel):
+    """Sanitized warning or blocked-reason item from decision persistence."""
+
+    code: str | None = None
+    message: str | None = None
+    source: str | None = None
+    classification: str | None = None
+    severity: str | None = None
+
+
+class BrokerSubmitDecisionRequestSummarySchema(BaseModel):
+    """Safe request summary for one submit or dry-run decision row."""
+
+    ticker: str | None = None
+    side: str | None = None
+    quantity: float | None = None
+    order_type: str | None = None
+    limit_price: float | None = None
+    stop_price: float | None = None
+
+
+class BrokerSubmitDecisionRowSchema(BaseModel):
+    """Read-only broker submit decision timeline entry."""
+
+    id: UUID
+    created_at: str | None = None
+    signal_id: UUID | None = None
+    intent: str
+    would_block: bool
+    blocked_reason_code: str | None = None
+    blocked_reason_text: str | None = None
+    decision_status: str | None = None
+    allowed_to_submit: bool | None = None
+    decision_reason: str | None = None
+    source: str | None = None
+    submit_gate: str | None = None
+    broker_order_id: str | None = None
+    correlation_id: str | None = None
+    recommendation_id: UUID | None = None
+    route_check_reference: str | None = None
+    dry_run_reference: str | None = None
+    execution_mode: str | None = None
+    account_mode: str | None = None
+    risk_profile_id: str | None = None
+    risk_block_reason: str | None = None
+    execution_source: str | None = None
+    serious_paper_source: str | None = None
+    canonical_paper_route: str | None = None
+    broker_account_mode: str | None = None
+    live_state: str | None = None
+    request_summary: BrokerSubmitDecisionRequestSummarySchema | None = None
+    warnings: list[BrokerSubmitDecisionMessageSchema] = Field(default_factory=list)
+    blocked_reasons: list[BrokerSubmitDecisionMessageSchema] = Field(default_factory=list)
+    preflight_json: dict | None = None
+
+
+class BrokerSubmitDecisionsFiltersSchema(BaseModel):
+    """Echo of the active filters on the broker submit decision feed."""
+
+    intent: str | None = None
+    would_block: bool | None = None
+    source: str | None = None
+    decision_status: str | None = None
+    correlation_id: str | None = None
+    recommendation_id: UUID | None = None
+
+
+class BrokerSubmitDecisionsResponseSchema(BaseModel):
+    """Read-only broker submit decision timeline response."""
+
+    count: int
+    limit: int
+    filters: BrokerSubmitDecisionsFiltersSchema
+    advisory: str
+    items: list[BrokerSubmitDecisionRowSchema]
+
+
 class BrokerOrderAuditEntrySchema(BaseModel):
     """One append-only broker order audit event."""
 

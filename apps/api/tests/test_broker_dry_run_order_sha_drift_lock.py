@@ -11,8 +11,8 @@ import inspect
 
 from app.services.broker_service import BrokerService
 
-_EXPECTED_SHA = "675177c99c37a56b30b1b6d8a6f33cfba251cf4eec6b4b1ac600b08817a0c272"
-_EXPECTED_LEN = 3080
+_EXPECTED_SHA = "1f1215e43e82b36bab21469c65bc1f621301732c2d43fc5abf621573c61f5b6c"
+_EXPECTED_LEN = 3190
 
 
 def test_broker_dry_run_order_sha_pin() -> None:

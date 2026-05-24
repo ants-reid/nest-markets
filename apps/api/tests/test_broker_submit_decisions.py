@@ -54,7 +54,14 @@ def test_endpoint_returns_empty_when_no_decisions_yet(fresh_table):
     assert "items" in body
     assert isinstance(body["items"], list)
     assert body["limit"] == 25
-    assert body["filters"] == {"intent": None, "would_block": None}
+    assert body["filters"] == {
+        "intent": None,
+        "would_block": None,
+        "source": None,
+        "decision_status": None,
+        "correlation_id": None,
+        "recommendation_id": None,
+    }
     assert "audit feed" in body["advisory"].lower()
 
 
@@ -111,6 +118,9 @@ def test_endpoint_surfaces_inserted_rows_newest_first(fresh_table):
     assert new_item["would_block"] is True
     assert new_item["blocked_reason_code"] == "risk_block"
     assert new_item["blocked_reason_text"] == "Spread above limit"
+    assert new_item["decision_status"] is None
+    assert new_item["source"] is None
+    assert new_item["correlation_id"] is None
     assert new_item["preflight_json"]["spread"] == 0.05
 
 
@@ -149,6 +159,129 @@ def test_endpoint_filter_by_intent_and_would_block(fresh_table):
     block_ids = {i["id"] for i in block_items}
     assert str(b.id) in block_ids
     assert str(a.id) not in block_ids
+
+
+def test_endpoint_extracts_safe_timeline_fields_and_supports_metadata_filters(fresh_table):
+    recommendation_id = uuid.uuid4()
+    row = BrokerSubmitDecision(
+        intent="manual",
+        would_block=False,
+        blocked_reason_code=None,
+        blocked_reason_text=None,
+        preflight_json={
+            "decision_status": "allowed",
+            "allowed_to_submit": True,
+            "decision_reason": "all checks clear",
+            "source": "submit_attempt",
+            "submit_gate": "allowed",
+            "broker_order_id": "PAPER-123",
+            "correlation_id": "manual_submit_corr_123",
+            "recommendation_id": str(recommendation_id),
+            "route_check_reference": "recommendation_route_check:eligible",
+            "dry_run_reference": "broker_dry_run:allowed",
+            "execution_mode": "ibkr_paper",
+            "account_mode": "paper",
+            "canonical_paper_route": "/broker/orders",
+            "broker_account_mode": "paper",
+            "live_state": "ibkr_live_locked",
+            "execution_source": "ibkr_paper",
+            "serious_paper_source": "ibkr_paper",
+            "request_summary": {
+                "ticker": "AAPL",
+                "side": "BUY",
+                "quantity": 10,
+                "order_type": "LIMIT",
+                "limit_price": 180.5,
+                "stop_price": None,
+            },
+            "warnings": [
+                {
+                    "code": "warn_1",
+                    "message": "warning message",
+                    "source": "risk",
+                    "classification": "advisory",
+                    "severity": "warning",
+                }
+            ],
+            "blocked_reasons": [
+                {
+                    "code": "reason_1",
+                    "message": "blocked message",
+                    "source": "risk",
+                    "classification": "would_block",
+                    "severity": "error",
+                }
+            ],
+        },
+    )
+    with SessionLocal() as session:
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        fresh_table.append(row.id)
+
+    response = client.get(
+        "/broker/submit-decisions/recent"
+        f"?source=submit_attempt&decision_status=allowed&correlation_id=manual_submit_corr_123"
+        f"&recommendation_id={recommendation_id}"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 1
+    assert body["filters"] == {
+        "intent": None,
+        "would_block": None,
+        "source": "submit_attempt",
+        "decision_status": "allowed",
+        "correlation_id": "manual_submit_corr_123",
+        "recommendation_id": str(recommendation_id),
+    }
+
+    item = body["items"][0]
+    assert item["id"] == str(row.id)
+    assert item["decision_status"] == "allowed"
+    assert item["allowed_to_submit"] is True
+    assert item["decision_reason"] == "all checks clear"
+    assert item["source"] == "submit_attempt"
+    assert item["submit_gate"] == "allowed"
+    assert item["broker_order_id"] == "PAPER-123"
+    assert item["correlation_id"] == "manual_submit_corr_123"
+    assert item["recommendation_id"] == str(recommendation_id)
+    assert item["route_check_reference"] == "recommendation_route_check:eligible"
+    assert item["dry_run_reference"] == "broker_dry_run:allowed"
+    assert item["execution_mode"] == "ibkr_paper"
+    assert item["account_mode"] == "paper"
+    assert item["canonical_paper_route"] == "/broker/orders"
+    assert item["broker_account_mode"] == "paper"
+    assert item["live_state"] == "ibkr_live_locked"
+    assert item["execution_source"] == "ibkr_paper"
+    assert item["serious_paper_source"] == "ibkr_paper"
+    assert item["request_summary"] == {
+        "ticker": "AAPL",
+        "side": "BUY",
+        "quantity": 10.0,
+        "order_type": "LIMIT",
+        "limit_price": 180.5,
+        "stop_price": None,
+    }
+    assert item["warnings"] == [
+        {
+            "code": "warn_1",
+            "message": "warning message",
+            "source": "risk",
+            "classification": "advisory",
+            "severity": "warning",
+        }
+    ]
+    assert item["blocked_reasons"] == [
+        {
+            "code": "reason_1",
+            "message": "blocked message",
+            "source": "risk",
+            "classification": "would_block",
+            "severity": "error",
+        }
+    ]
 
 
 def test_model_round_trip(fresh_table):

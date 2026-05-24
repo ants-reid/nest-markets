@@ -59,6 +59,12 @@ const SECTIONS: ReadonlyArray<{
           "Read-only paper attention queue for alerts, unresolved incidents, monitor degradation, stale data, risk warnings, and halt context.",
       },
       {
+        href: "/cockpit/audit/broker-submit-decisions",
+        title: "Broker submit decision timeline",
+        description:
+          "Read-only paper submit history covering dry-run outcomes, submit preflight decisions, blocked attempts, and successful paper submit results.",
+      },
+      {
         href: "/cockpit/eod-report",
         title: "End-of-Day report",
         description:
