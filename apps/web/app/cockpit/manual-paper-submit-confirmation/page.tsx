@@ -10,6 +10,10 @@ import {
   type PaperRecommendationBrokerDryRunPreview,
   type PaperRecommendationRouteCheck,
 } from "../../../lib/api/paperRecommendations";
+import {
+  deriveManualPaperSubmitReviewChain,
+  type ManualPaperSubmitReviewChain,
+} from "../../../lib/manualPaperSubmitReview";
 import styles from "../../../styles/pages/manual-paper-submit-confirmation.module.css";
 
 type ChecklistItem = {
@@ -22,6 +26,18 @@ type PreviewField = {
   value: string;
   detail: string;
   missing: boolean;
+};
+
+type ReviewSection = {
+  key: string;
+  title: string;
+  status: string;
+  body: string;
+  nextRequiredAction: string;
+  nextRequiredActionDetail: string;
+  blockedReasons: string[];
+  missingData: string[];
+  warnings: string[];
 };
 
 function formatMaybeNumber(value: number | null): string {
@@ -206,6 +222,135 @@ const decisionPersistenceRequirements: ChecklistItem[] = [
 const finalConfirmationWording =
   "I understand this is an IBKR paper order only. I understand submit-time checks will rerun. I understand this is not live trading. I understand no worker is allowed to submit this order. I understand the system must block if any guard fails.";
 
+function formatDerivedStatus(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
+function buildReviewSections(reviewChain: ManualPaperSubmitReviewChain): ReviewSection[] {
+  const sections: Array<ReviewSection | null> = [
+    reviewChain.readiness
+      ? {
+          key: "readiness",
+          title: "Readiness status",
+          status: reviewChain.readiness.status,
+          body: reviewChain.readiness.body,
+          nextRequiredAction: reviewChain.readiness.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.readiness.nextRequiredActionDetail,
+          blockedReasons: reviewChain.readiness.blockedReasons,
+          missingData: reviewChain.readiness.missingData,
+          warnings: reviewChain.readiness.warnings,
+        }
+      : null,
+    reviewChain.handoff
+      ? {
+          key: "handoff",
+          title: "Handoff status",
+          status: reviewChain.handoff.status,
+          body: reviewChain.handoff.body,
+          nextRequiredAction: reviewChain.handoff.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.handoff.nextRequiredActionDetail,
+          blockedReasons: reviewChain.handoff.blockedReasons,
+          missingData: reviewChain.handoff.missingData,
+          warnings: reviewChain.handoff.warnings,
+        }
+      : null,
+    reviewChain.auditPackage
+      ? {
+          key: "audit-package",
+          title: "Audit package status",
+          status: reviewChain.auditPackage.status,
+          body: reviewChain.auditPackage.body,
+          nextRequiredAction: reviewChain.auditPackage.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.auditPackage.nextRequiredActionDetail,
+          blockedReasons: reviewChain.auditPackage.blockedReasons,
+          missingData: reviewChain.auditPackage.missingData,
+          warnings: reviewChain.auditPackage.warnings,
+        }
+      : null,
+    reviewChain.approvalPackage
+      ? {
+          key: "approval-package",
+          title: "Approval package status",
+          status: reviewChain.approvalPackage.status,
+          body: reviewChain.approvalPackage.body,
+          nextRequiredAction: reviewChain.approvalPackage.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.approvalPackage.nextRequiredActionDetail,
+          blockedReasons: reviewChain.approvalPackage.blockedReasons,
+          missingData: reviewChain.approvalPackage.missingData,
+          warnings: reviewChain.approvalPackage.warnings,
+        }
+      : null,
+    reviewChain.preflightContract
+      ? {
+          key: "preflight-contract",
+          title: "Preflight contract status",
+          status: reviewChain.preflightContract.status,
+          body: reviewChain.preflightContract.body,
+          nextRequiredAction: reviewChain.preflightContract.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.preflightContract.nextRequiredActionDetail,
+          blockedReasons: reviewChain.preflightContract.blockedReasons,
+          missingData: reviewChain.preflightContract.missingData,
+          warnings: reviewChain.preflightContract.warnings,
+        }
+      : null,
+    reviewChain.futureManualSubmitDesignReview
+      ? {
+          key: "design-review",
+          title: "Design review status",
+          status: reviewChain.futureManualSubmitDesignReview.status,
+          body: reviewChain.futureManualSubmitDesignReview.body,
+          nextRequiredAction: "design_only_not_enabled",
+          nextRequiredActionDetail:
+            "Future manual paper submit would still use guarded /broker/orders and remains not enabled in this phase.",
+          blockedReasons: [],
+          missingData: [],
+          warnings: [],
+        }
+      : null,
+    reviewChain.submitDecisionReview
+      ? {
+          key: "submit-decision-review",
+          title: "Submit-decision review status",
+          status: reviewChain.submitDecisionReview.status,
+          body: reviewChain.submitDecisionReview.body,
+          nextRequiredAction: reviewChain.submitDecisionReview.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.submitDecisionReview.nextRequiredActionDetail,
+          blockedReasons: reviewChain.submitDecisionReview.blockedReasons,
+          missingData: reviewChain.submitDecisionReview.missingData,
+          warnings: reviewChain.submitDecisionReview.warnings,
+        }
+      : null,
+    reviewChain.operatorActionReview
+      ? {
+          key: "operator-action-review",
+          title: "Operator action review status",
+          status: reviewChain.operatorActionReview.status,
+          body: reviewChain.operatorActionReview.body,
+          nextRequiredAction: reviewChain.operatorActionReview.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.operatorActionReview.nextRequiredActionDetail,
+          blockedReasons: reviewChain.operatorActionReview.blockedReasons,
+          missingData: reviewChain.operatorActionReview.missingData,
+          warnings: reviewChain.operatorActionReview.warnings,
+        }
+      : null,
+    reviewChain.finalInteractionSpec
+      ? {
+          key: "final-interaction-spec",
+          title: "Final interaction spec status",
+          status: reviewChain.finalInteractionSpec.status,
+          body: reviewChain.finalInteractionSpec.body,
+          nextRequiredAction: reviewChain.finalInteractionSpec.nextRequiredAction,
+          nextRequiredActionDetail: reviewChain.finalInteractionSpec.nextRequiredActionDetail,
+          blockedReasons: reviewChain.finalInteractionSpec.blockedReasons,
+          missingData: reviewChain.finalInteractionSpec.missingData,
+          warnings: reviewChain.finalInteractionSpec.warnings,
+        }
+      : null,
+  ];
+
+  return sections.filter((section): section is ReviewSection => section !== null);
+}
+
 function ManualPaperSubmitConfirmationSurface() {
   const searchParams = useSearchParams();
   const recommendationId = searchParams.get("recommendationId");
@@ -269,6 +414,29 @@ function ManualPaperSubmitConfirmationSurface() {
   const effectiveSymbol = routeCheck?.ticker ?? dryRunPreview?.ticker ?? fallbackSymbol;
   const liveTradingEnabled = dryRunPreview?.live_trading_enabled ?? routeCheck?.live_trading_enabled ?? false;
   const workersAllowedToSubmit = dryRunPreview?.workers_allowed_to_submit ?? routeCheck?.workers_allowed_to_submit ?? false;
+  const reviewChain = deriveManualPaperSubmitReviewChain(routeCheck, dryRunPreview, fallbackSymbol);
+  const reviewSections = buildReviewSections(reviewChain);
+  const blockedReasons = Array.from(
+    new Set(
+      reviewSections.flatMap((section) => section.blockedReasons),
+    ),
+  );
+  const missingContext = Array.from(
+    new Set([
+      ...reviewSections.flatMap((section) => section.missingData),
+      ...payloadPreviewFields.filter((field) => field.missing).map((field) => field.label),
+    ]),
+  );
+  const warnings = Array.from(
+    new Set(reviewSections.flatMap((section) => section.warnings)),
+  );
+  const readinessStatus = reviewChain.readiness?.status ?? "not_available";
+  const handoffStatus = reviewChain.handoff?.status ?? "not_available";
+  const auditPackageStatus = reviewChain.auditPackage?.status ?? "not_available";
+  const approvalPackageStatus = reviewChain.approvalPackage?.status ?? "not_available";
+  const preflightContractStatus = reviewChain.preflightContract?.status ?? "not_available";
+  const routeCheckStatus = routeCheck?.route_check_status ?? "missing_context";
+  const dryRunStatus = dryRunPreview?.dry_run_status ?? (recommendationId ? "not_loaded" : "missing_context");
 
   return (
     <main
@@ -339,6 +507,75 @@ function ManualPaperSubmitConfirmationSurface() {
             <div className={styles.field}><span className={styles.label}>recommendation_id</span><span className={`${styles.value} ${styles.mono}`}>{recommendationId ?? "not provided"}</span></div>
             <div className={styles.field}><span className={styles.label}>symbol</span><span className={styles.value}>{effectiveSymbol}</span></div>
             <div className={styles.field}><span className={styles.label}>loading_review_context</span><span className={styles.value}>{loading ? "true" : "false"}</span></div>
+            <div className={styles.field}><span className={styles.label}>route_check_status</span><span className={styles.value}>{routeCheckStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>dry_run_status</span><span className={styles.value}>{dryRunStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>readiness_status</span><span className={styles.value}>{readinessStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>handoff_status</span><span className={styles.value}>{handoffStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>audit_package_status</span><span className={styles.value}>{auditPackageStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>approval_package_status</span><span className={styles.value}>{approvalPackageStatus}</span></div>
+            <div className={styles.field}><span className={styles.label}>preflight_contract_status</span><span className={styles.value}>{preflightContractStatus}</span></div>
+          </div>
+        </section>
+
+        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-review-statuses">
+          <h2 className={styles.sectionTitle}>Read-only confirmation preview</h2>
+          <p className={styles.sectionSubtitle}>
+            Future manual paper submit would still use guarded /broker/orders. The statuses below are derived from the existing read-only recommendation review chain where evidence is available.
+          </p>
+          {reviewSections.length === 0 ? (
+            <p className={styles.emptyText}>Review-chain status is unavailable until recommendation context is loaded.</p>
+          ) : (
+            <div className={styles.grid}>
+              {reviewSections.map((section) => (
+                <div key={section.key} className={styles.field} data-testid={`cockpit-manual-paper-submit-confirmation-${section.key}-status`}>
+                  <span className={styles.label}>{section.title}</span>
+                  <span className={styles.value}>{formatDerivedStatus(section.status)}</span>
+                  <span className={styles.label}>{section.body}</span>
+                  <span className={styles.value}>next_required_action: {section.nextRequiredAction}</span>
+                  <span className={styles.label}>{section.nextRequiredActionDetail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className={styles.sectionCard} data-testid="cockpit-manual-paper-submit-confirmation-context-gaps">
+          <h2 className={styles.sectionTitle}>Missing context, blocked reasons, and warnings</h2>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>missing_context</h3>
+            {missingContext.length === 0 ? (
+              <p className={styles.emptyText}>No missing context is currently surfaced from the read-only review chain.</p>
+            ) : (
+              <ul className={styles.list}>
+                {missingContext.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>blocked_reasons</h3>
+            {blockedReasons.length === 0 ? (
+              <p className={styles.emptyText}>No blocking reasons are currently surfaced from the read-only review chain.</p>
+            ) : (
+              <ul className={styles.list}>
+                {blockedReasons.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className={styles.subsection}>
+            <h3 className={styles.subsectionTitle}>warnings</h3>
+            {warnings.length === 0 ? (
+              <p className={styles.emptyText}>No warnings are currently surfaced from the read-only review chain.</p>
+            ) : (
+              <ul className={styles.list}>
+                {warnings.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 

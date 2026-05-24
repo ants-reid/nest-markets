@@ -14906,3 +14906,60 @@ still 100% green.
 
 -> If a later phase needs a true manual IBKR paper submit control, keep this dedicated confirmation surface as the host, continue to reuse the existing `OrderRequestSchema` contract, rerun all submit-time guards immediately before execution, persist append-only blocked and allowed decisions through the current decision services, keep workers non-submitting, and keep live locked unless a separate safety phase explicitly changes that contract.
 
+## Manual Paper Submit Confirmation Surface Data Wiring
+
+- **Date:** 2026-05-23
+- **Status:** ✅ Complete
+- **Scope:** Wire the existing design-only manual IBKR paper submit confirmation surface to real read-only recommendation and review-chain context while keeping the page non-executable. This block adds no enabled submit button, no `/broker/orders` UI call, no submit-decision write, no new backend route, no new `BrokerService.submit_order` path, no worker authority expansion, and no live unlock.
+
+### A. What Was Added
+
+- New shared read-only frontend helper: `apps/web/lib/manualPaperSubmitReview.ts`.
+- The confirmation page now derives and renders the same read-only review-chain states already used in the cockpit review path: readiness, handoff, audit package, approval package, preflight contract, design review, submit-decision review, operator action review, and final interaction spec.
+- The confirmation page now consolidates derived blocked reasons, missing context, and warnings from that review chain instead of relying only on local placeholder copy.
+- Static drift-lock coverage now also proves the shared derivation helper does not import `submitBrokerOrder`.
+
+### B. Surface Behavior
+
+- The page still reads only existing recommendation route-check and guarded broker dry-run preview evidence.
+- The page now exposes derived read-only status fields for `route_check_status`, `dry_run_status`, `readiness_status`, `handoff_status`, `audit_package_status`, `approval_package_status`, and `preflight_contract_status`.
+- The page now renders a read-only confirmation preview grid showing the derived review-chain summaries and next required actions when evidence is available.
+- The page still renders safely without a recommendation id; in that state it shows unavailable review-chain context rather than guessing.
+- The page remains design-only and continues to expose only a disabled button labelled `Submit not enabled in this phase`.
+
+### C. Safety Invariants Preserved
+
+- No `/broker/orders` call is made from the confirmation page.
+- No `submitBrokerOrder` import is added to the confirmation page or the new shared review helper.
+- No backend route, broker service, or worker submit behavior changes in this phase.
+- No submit-decision records are written from this UI.
+- Live remains locked.
+- Workers remain non-submitting.
+- `/broker/orders` remains the only serious-paper submit seam for any future executable phase.
+
+### D. Files Changed
+
+- `apps/api/tests/test_recommendation_route_check_panel_submit_boundary.py`
+- `apps/web/app/cockpit/manual-paper-submit-confirmation/page.tsx`
+- `apps/web/lib/manualPaperSubmitReview.ts`
+- `apps/web/tests/manual-paper-submit-confirmation.spec.ts`
+- `docs/build-matrix.md`
+- `docs/build-ledger.md`
+- `docs/implementation-matrix.md`
+- `docs/regression-qa-matrix.md`
+
+### E. Validation
+
+- `cd apps/web && npm run build` -> passed
+- `cd apps/web && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npx playwright test tests/manual-paper-submit-confirmation.spec.ts` -> `3 passed`
+
+### F. Known Limitations
+
+- The confirmation page still duplicates the review derivation implementation surface relative to the in-flight panel; this phase introduced a shared helper for the confirmation route only and did not yet re-home the in-flight panel onto that helper.
+- The page remains read-only and does not perform confirmation gating, submit-time reruns, payload locking, or decision persistence; it only derives and displays the current review-chain context.
+- Broader repo-wide backend validation remains separate from this focused phase and was not changed here.
+
+### Next Recommended Phase
+
+-> If a later phase wants to reduce derivation drift further, move the in-flight review panel onto the shared read-only helper so both surfaces consume the same derivation code path before any executable control is even considered.
+

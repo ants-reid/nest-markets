@@ -213,13 +213,47 @@ test("manual paper submit confirmation surface stays design-only and never calls
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/order_submittedfalse/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/live_trading_enabledfalse/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/workers_allowed_to_submitfalse/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/route_check_statuseligible/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/dry_run_statusready/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/readiness_statusready_for_future_manual_paper_submit/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/handoff_statushandoff_ready_for_future_manual_step/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/audit_package_statuspackage_ready_for_future_manual_review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/approval_package_statusapproval_package_ready_for_future_manual_review/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/preflight_contract_statuspreflight_contract_ready_for_future_manual_step/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-future-route")).toContainText(/future_submit_route\/broker\/orders/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/read-only confirmation preview/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/submit-decision review status/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/operator action review status/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/final interaction spec status/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-rerun-checklist")).toContainText(/submit-time checks will rerun/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-decision-persistence")).toContainText(/submit_preflight decision before submit/i);
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-wording-preview")).toContainText(/i understand this is an ibkr paper order only/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/no missing context is currently surfaced/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/no blocking reasons are currently surfaced/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/no warnings are currently surfaced/i);
   await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
   await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-page")).toContainText(/submit not enabled in this phase/i);
   await expect(page.getByRole("button", { name: /trade now|auto submit|approve live|one-click execute|live submit|buy now|sell now|execute now|submit order now/i })).toHaveCount(0);
+  expect(brokerOrdersCalls).toBe(0);
+});
+
+test("manual paper submit confirmation surface renders safe missing-context state without recommendation id", async ({ page }) => {
+  let brokerOrdersCalls = 0;
+
+  await page.route("**/broker/orders", async (route) => {
+    brokerOrdersCalls += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+  });
+
+  await page.goto("/cockpit/manual-paper-submit-confirmation");
+
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-page")).toBeVisible();
+  await expect(page.getByText(/no recommendation id was provided/i)).toBeVisible();
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/route_check_statusmissing_context/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-surface-status-grid")).toContainText(/dry_run_statusmissing_context/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-review-statuses")).toContainText(/review-chain status is unavailable until recommendation context is loaded/i);
+  await expect(page.getByTestId("cockpit-manual-paper-submit-confirmation-context-gaps")).toContainText(/recommendation_id/i);
+  await expect(page.getByTestId("manual-paper-submit-disabled-button")).toBeDisabled();
   expect(brokerOrdersCalls).toBe(0);
 });
 

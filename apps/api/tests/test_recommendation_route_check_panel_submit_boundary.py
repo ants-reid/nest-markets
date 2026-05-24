@@ -39,3 +39,14 @@ def test_manual_paper_submit_confirmation_page_does_not_import_submit_broker_ord
     assert 'from "../../../lib/api/paperRecommendations"' in source
     assert "submitBrokerOrder" not in source
     assert 'from "../../../lib/api/broker"' not in source
+
+
+def test_manual_paper_submit_review_helper_does_not_import_submit_broker_order():
+    repo_root = Path(__file__).resolve().parents[3]
+    helper_path = repo_root / "apps" / "web" / "lib" / "manualPaperSubmitReview.ts"
+
+    source = helper_path.read_text(encoding="utf-8")
+
+    assert 'from "./api/paperRecommendations"' in source
+    assert "submitBrokerOrder" not in source
+    assert 'from "./api/broker"' not in source
