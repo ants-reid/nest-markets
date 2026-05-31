@@ -229,6 +229,11 @@ Broker submit decision timeline / paper submit result history — 2026-05-24:
 - The existing cockpit audit route `/cockpit/audit/broker-submit-decisions` now serves as the operator-facing read-only timeline/history surface, and the cockpit hub links directly to it.
 - The guarded submit seam remains unchanged: `/broker/orders` is still the only serious-paper submit route, live remains locked, and workers remain non-submitting.
 
+Paper submit result UX / operator outcome view — 2026-06-01:
+- Status: complete (frontend UX-only).
+- The dedicated manual IBKR paper submit confirmation page now renders a post-attempt `OperatorOutcomeView` that summarises whether the submit was `allowed`, `blocked`, or `failed`, echoes the persistent safety badges (Paper only, Live remains locked, Workers cannot submit, No live order was placed), shows the attempt details (symbol, side, qty, order type, TIF, estimated notional, recommendation id, correlation id, timestamp), surfaces the guard result (broker mode, preflight status, allowed_to_submit, would_block, response status, blocked reasons, safe error message), links to the read-only `/cockpit/audit/broker-submit-decisions?correlation_id=…&recommendation_id=…` timeline, and renders outcome-specific next-step guidance with no auto-resubmit control.
+- No new submit route, no live unlock, no auto-submit, no worker submit, no new mutation. `/broker/orders` remains the only serious-paper submit seam, `/execution/paper` remains simulator-only, live remains locked, and workers remain non-submitting.
+
 ### Bucket 4 — Future Live-Trading Prerequisites (Locked)
 
 | Phase           | Title                                          | Status   | Depends On             | Drift Lock |

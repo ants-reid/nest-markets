@@ -71,6 +71,15 @@
   min-width: 0;
 }
 
+.outcomeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .checkboxRow {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -247,5 +256,4 @@
 
   .title {
     font-size: 1.45rem;
-  }
-}
+  }}

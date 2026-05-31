@@ -330,6 +330,39 @@ test("manual paper submit confirmation requires explicit final confirmation befo
   expect(capturedPayload?.dry_run_reference).toBe("broker_dry_run:allowed");
   expect(typeof capturedPayload?.client_order_id).toBe("string");
   expect(capturedPayload?.client_order_id).toBe(capturedPayload?.submit_decision_correlation_id);
+
+  const outcomeView = page.getByTestId("manual-paper-submit-outcome-view");
+  await expect(outcomeView).toBeVisible();
+  await expect(outcomeView).toHaveAttribute("data-outcome-status", "allowed");
+  await expect(page.getByTestId("manual-paper-submit-outcome-status")).toContainText(/paper submit allowed/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-paper-only-badge")).toBeVisible();
+  await expect(page.getByTestId("manual-paper-submit-outcome-live-locked-badge")).toContainText(/live remains locked/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-workers-badge")).toContainText(/workers cannot submit/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-no-live-order-badge")).toContainText(/no live order was placed/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-attempt-details")).toContainText(/NVDA/);
+  await expect(page.getByTestId("manual-paper-submit-outcome-attempt-details")).toContainText(/BUY/);
+  await expect(page.getByTestId("manual-paper-submit-outcome-attempt-details")).toContainText(/MARKET/);
+  await expect(page.getByTestId("manual-paper-submit-outcome-attempt-details")).toContainText(/DAY/);
+  await expect(page.getByTestId("manual-paper-submit-outcome-recommendation-id")).toContainText(recommendationId);
+  await expect(page.getByTestId("manual-paper-submit-outcome-correlation-id")).toContainText(/manual_paper_submit_/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/broker_mode/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/preflight_decision_status/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/response_status/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/PAPER-123/);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/live_execution_enabledfalse/i);
+  const timelineLink = page.getByTestId("manual-paper-submit-outcome-timeline-href");
+  await expect(timelineLink).toContainText(/view full submit decision timeline/i);
+  await expect(timelineLink).toHaveAttribute(
+    "href",
+    new RegExp(`^/cockpit/audit/broker-submit-decisions\\?correlation_id=manual_paper_submit_[a-z0-9_]+&recommendation_id=${recommendationId}$`),
+  );
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/review timeline and monitor paper account/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/no automatic resubmission will occur/i);
+  await expect(page.getByRole("button", { name: /trade now|auto submit|approve live|one-click execute|live submit|buy now|sell now|execute now/i })).toHaveCount(0);
+
+  // Confirm no second submit occurs automatically after the outcome view renders.
+  await page.waitForTimeout(150);
+  expect(brokerOrdersCalls).toBe(1);
 });
 
 test("manual paper submit confirmation surface renders safe missing-context state without recommendation id", async ({ page }) => {
@@ -480,6 +513,80 @@ test("manual paper submit confirmation renders a safe blocked state when /broker
   await expect(page.getByTestId("manual-paper-submit-error-state")).toContainText(/submit_gate=blocked/i);
   await expect(page.getByTestId("manual-paper-submit-error-state")).toContainText(/decision_status=would_block/i);
   await expect(page.getByTestId("manual-paper-submit-error-state")).toContainText(/order notional exceeds the active paper risk limit/i);
+  expect(brokerOrdersCalls).toBe(1);
+
+  const outcomeView = page.getByTestId("manual-paper-submit-outcome-view");
+  await expect(outcomeView).toBeVisible();
+  await expect(outcomeView).toHaveAttribute("data-outcome-status", "blocked");
+  await expect(page.getByTestId("manual-paper-submit-outcome-status")).toContainText(/paper submit blocked/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-live-locked-badge")).toContainText(/live remains locked/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-workers-badge")).toContainText(/workers cannot submit/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-no-live-order-badge")).toContainText(/no live order was placed/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-blocked-reasons")).toContainText(/order notional exceeds the active paper risk limit/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/submit_gate/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-guard-result")).toContainText(/response_decision_status/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-recommendation-id")).toContainText(recommendationId);
+  await expect(page.getByTestId("manual-paper-submit-outcome-timeline-href")).toHaveAttribute(
+    "href",
+    new RegExp(`^/cockpit/audit/broker-submit-decisions\\?correlation_id=manual_paper_submit_[a-z0-9_]+&recommendation_id=${recommendationId}$`),
+  );
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/resolve blockers and rerun review/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/rerun the dry-run before any further paper submit attempt/i);
+
+  // Ensure no auto-resubmit is triggered after the outcome view renders.
+  await page.waitForTimeout(150);
+  expect(brokerOrdersCalls).toBe(1);
+});
+
+test("manual paper submit outcome view renders a safe failed state when /broker/orders fails with a generic 500", async ({ page }) => {
+  const recommendationId = "recommendation-failed-submit";
+  let brokerOrdersCalls = 0;
+
+  await routeRecommendationEvidence(page, recommendationId);
+  await page.route("**/broker/orders", async (route) => {
+    if (new URL(route.request().url()).pathname !== "/broker/orders") {
+      await route.continue();
+      return;
+    }
+
+    brokerOrdersCalls += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Upstream broker gateway unavailable." }),
+    });
+  });
+
+  await page.goto(`/cockpit/manual-paper-submit-confirmation?recommendationId=${recommendationId}&symbol=NVDA`);
+  await page.getByTestId("manual-paper-submit-confirmation-checkbox").check();
+  await page.getByTestId("manual-paper-submit-button").click();
+
+  await expect(page.getByTestId("manual-paper-submit-error-state")).toContainText(/paper submit failed/i);
+  expect(brokerOrdersCalls).toBe(1);
+
+  const outcomeView = page.getByTestId("manual-paper-submit-outcome-view");
+  await expect(outcomeView).toBeVisible();
+  await expect(outcomeView).toHaveAttribute("data-outcome-status", "failed");
+  await expect(page.getByTestId("manual-paper-submit-outcome-status")).toContainText(/paper submit failed/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-live-locked-badge")).toContainText(/live remains locked/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-workers-badge")).toContainText(/workers cannot submit/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-no-live-order-badge")).toContainText(/no live order was placed/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-warning")).toBeVisible();
+  await expect(page.getByTestId("manual-paper-submit-outcome-timeline-href")).toHaveAttribute(
+    "href",
+    new RegExp(`^/cockpit/audit/broker-submit-decisions\\?correlation_id=manual_paper_submit_[a-z0-9_]+&recommendation_id=${recommendationId}$`),
+  );
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/check broker\/api status and timeline before retry/i);
+  await expect(page.getByTestId("manual-paper-submit-outcome-next-step")).toContainText(/no automatic resubmission will occur/i);
+  await expect(page.getByRole("button", { name: /trade now|auto submit|approve live|one-click execute|live submit|buy now|sell now|execute now/i })).toHaveCount(0);
+
+  // No secret-like fields like api keys, tokens, or passwords should appear in the outcome view.
+  await expect(outcomeView).not.toContainText(/api[_-]?key/i);
+  await expect(outcomeView).not.toContainText(/secret/i);
+  await expect(outcomeView).not.toContainText(/password/i);
+  await expect(outcomeView).not.toContainText(/bearer/i);
+
+  await page.waitForTimeout(150);
   expect(brokerOrdersCalls).toBe(1);
 });
 

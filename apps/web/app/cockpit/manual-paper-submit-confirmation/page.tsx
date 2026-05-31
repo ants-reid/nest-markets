@@ -52,6 +52,28 @@ type PaperSubmitFailureDetail = {
   submitGate: string | null;
   decisionStatus: string | null;
   reasons: string[];
+  kind: "blocked" | "failed";
+};
+
+type SubmitAttemptRecord = {
+  ticker: string;
+  side: string;
+  quantity: number | null;
+  orderType: string;
+  limitPrice: number | null;
+  timeInForce: string;
+  estimatedNotional: number | null;
+  recommendationId: string;
+  correlationId: string;
+  attemptedAtIso: string;
+  brokerMode: string | null;
+  brokerAccountMode: string | null;
+  executionSource: string | null;
+  preflightDecisionStatus: string | null;
+  dryRunAllowedToSubmit: boolean | null;
+  dryRunWouldBlock: boolean | null;
+  routeCheckReference: string;
+  dryRunReference: string;
 };
 
 function normalizeIdFragment(value: string): string {
@@ -118,6 +140,7 @@ function buildBlockedSubmitDetail(error: unknown): PaperSubmitFailureDetail {
         submitGate: typeof detail.submit_gate === "string" ? detail.submit_gate : null,
         decisionStatus: typeof detail.decision_status === "string" ? detail.decision_status : null,
         reasons,
+        kind: detail.code === "paper_preflight_blocked" ? "blocked" : "failed",
       };
     }
   }
@@ -128,6 +151,7 @@ function buildBlockedSubmitDetail(error: unknown): PaperSubmitFailureDetail {
     submitGate: null,
     decisionStatus: null,
     reasons: [],
+    kind: "failed",
   };
 }
 
@@ -372,6 +396,231 @@ function formatDerivedStatus(status: string): string {
   return status.replaceAll("_", " ");
 }
 
+type OutcomeStatus = "allowed" | "blocked" | "failed";
+
+function deriveOutcomeStatus(
+  result: BrokerOrderResult | null,
+  failure: PaperSubmitFailureDetail | null,
+): OutcomeStatus {
+  if (result) return "allowed";
+  if (failure?.kind === "blocked") return "blocked";
+  return "failed";
+}
+
+function describeOutcome(status: OutcomeStatus): { label: string; copy: string } {
+  if (status === "allowed") {
+    return {
+      label: "Paper submit allowed",
+      copy: "The guarded IBKR paper order was accepted by /broker/orders. No live order was placed.",
+    };
+  }
+  if (status === "blocked") {
+    return {
+      label: "Paper submit blocked",
+      copy: "The submit-time guards blocked the IBKR paper order. No paper order was placed and no live order was placed.",
+    };
+  }
+  return {
+    label: "Paper submit failed",
+    copy: "The IBKR paper submit attempt failed before or during the broker call. No live order was placed.",
+  };
+}
+
+function describeNextStep(status: OutcomeStatus): { headline: string; actions: string[] } {
+  if (status === "allowed") {
+    return {
+      headline: "Review timeline and monitor paper account",
+      actions: [
+        "Review the broker submit decision timeline for the persisted preflight and attempt rows.",
+        "Monitor the IBKR paper account for fills and follow-up adjustments.",
+        "Return to the cockpit hub when monitoring is handed off.",
+      ],
+    };
+  }
+  if (status === "blocked") {
+    return {
+      headline: "Resolve blockers and rerun review",
+      actions: [
+        "Open the broker submit decision timeline to inspect the blocked-attempt row and reasons.",
+        "Fix the missing context surfaced on this page (rerun route-check and guarded dry-run as required).",
+        "Rerun the dry-run before any further paper submit attempt.",
+        "Return to the in-flight review for the originating recommendation.",
+      ],
+    };
+  }
+  return {
+    headline: "Check broker/API status and timeline before retry",
+    actions: [
+      "Check broker and API status before another paper submit attempt.",
+      "Open the broker submit decision timeline to confirm whether a preflight or attempt row was persisted.",
+      "Rerun the dry-run before any further paper submit attempt.",
+      "Return to the in-flight review for the originating recommendation.",
+    ],
+  };
+}
+
+function formatOutcomeNumber(value: number | null): string {
+  if (value === null || value === undefined) return "unavailable";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function buildTimelineHref(correlationId: string, recommendationId: string): string {
+  const params = new URLSearchParams();
+  if (correlationId) params.set("correlation_id", correlationId);
+  if (recommendationId) params.set("recommendation_id", recommendationId);
+  const qs = params.toString();
+  return qs
+    ? `/cockpit/audit/broker-submit-decisions?${qs}`
+    : "/cockpit/audit/broker-submit-decisions";
+}
+
+function OperatorOutcomeView({
+  attempt,
+  result,
+  failure,
+}: {
+  attempt: SubmitAttemptRecord;
+  result: BrokerOrderResult | null;
+  failure: PaperSubmitFailureDetail | null;
+}) {
+  const status = deriveOutcomeStatus(result, failure);
+  const outcomeCopy = describeOutcome(status);
+  const nextStep = describeNextStep(status);
+  const timelineHref = buildTimelineHref(attempt.correlationId, attempt.recommendationId);
+  const responseBrokerMode = result?.broker_mode?.mode ?? attempt.brokerMode ?? "unknown";
+  const liveExecutionEnabled = result?.broker_mode?.live_execution_enabled ?? false;
+  const paperTradingEnabled = result?.broker_mode?.paper_trading_enabled ?? null;
+  const responseStatus = result?.status ?? (failure ? failure.decisionStatus ?? "no_broker_status" : "no_broker_status");
+  const brokerOrderId = result?.broker_order_id ?? "not_assigned";
+  const filledQty = result?.filled_quantity ?? null;
+  const filledPrice = result?.filled_price ?? null;
+  const errorMessage = result?.error_message ?? failure?.message ?? null;
+  const reasons = failure?.reasons ?? [];
+
+  return (
+    <section
+      className={styles.sectionCard}
+      data-testid="manual-paper-submit-outcome-view"
+      data-outcome-status={status}
+    >
+      <div className={styles.outcomeHeader}>
+        <div>
+          <p className={styles.eyebrow}>Paper submit outcome</p>
+          <h2 className={styles.sectionTitle} data-testid="manual-paper-submit-outcome-status">
+            {outcomeCopy.label}
+          </h2>
+          <p className={styles.sectionSubtitle}>{outcomeCopy.copy}</p>
+        </div>
+        <div className={styles.heroMeta}>
+          <span className={styles.statusPill} data-testid="manual-paper-submit-outcome-paper-only-badge">Paper only</span>
+          <span className={styles.statusPill} data-testid="manual-paper-submit-outcome-live-locked-badge">Live remains locked</span>
+          <span className={styles.statusPill} data-testid="manual-paper-submit-outcome-workers-badge">Workers cannot submit</span>
+          <span className={styles.statusPill} data-testid="manual-paper-submit-outcome-no-live-order-badge">No live order was placed</span>
+        </div>
+      </div>
+
+      <div className={styles.subsection} data-testid="manual-paper-submit-outcome-attempt-details">
+        <h3 className={styles.subsectionTitle}>Attempt details</h3>
+        <div className={styles.grid}>
+          <div className={styles.field}><span className={styles.label}>symbol</span><span className={styles.value}>{attempt.ticker}</span></div>
+          <div className={styles.field}><span className={styles.label}>side</span><span className={styles.value}>{attempt.side}</span></div>
+          <div className={styles.field}><span className={styles.label}>quantity</span><span className={styles.value}>{formatOutcomeNumber(attempt.quantity)}</span></div>
+          <div className={styles.field}><span className={styles.label}>order_type</span><span className={styles.value}>{attempt.orderType}</span></div>
+          <div className={styles.field}><span className={styles.label}>time_in_force</span><span className={styles.value}>{attempt.timeInForce}</span></div>
+          <div className={styles.field}><span className={styles.label}>limit_price</span><span className={styles.value}>{attempt.limitPrice === null ? "not required" : formatOutcomeNumber(attempt.limitPrice)}</span></div>
+          <div className={styles.field}><span className={styles.label}>estimated_notional</span><span className={styles.value}>{formatOutcomeNumber(attempt.estimatedNotional)}</span></div>
+          <div className={styles.field}><span className={styles.label}>recommendation_id</span><span className={`${styles.value} ${styles.mono}`} data-testid="manual-paper-submit-outcome-recommendation-id">{attempt.recommendationId}</span></div>
+          <div className={styles.field}><span className={styles.label}>correlation_id</span><span className={`${styles.value} ${styles.mono}`} data-testid="manual-paper-submit-outcome-correlation-id">{attempt.correlationId}</span></div>
+          <div className={styles.field}><span className={styles.label}>attempted_at</span><span className={styles.value}>{attempt.attemptedAtIso}</span></div>
+        </div>
+      </div>
+
+      <div className={styles.subsection} data-testid="manual-paper-submit-outcome-guard-result">
+        <h3 className={styles.subsectionTitle}>Guard result</h3>
+        <p className={styles.sectionSubtitle}>
+          Submit-time checks reran on /broker/orders. The values below reflect the guarded review evidence that gated the submit attempt and the broker mode returned by the response when available.
+        </p>
+        <div className={styles.grid}>
+          <div className={styles.field}><span className={styles.label}>outcome_status</span><span className={styles.value}>{status}</span></div>
+          <div className={styles.field}><span className={styles.label}>broker_mode</span><span className={styles.value}>{responseBrokerMode}</span></div>
+          <div className={styles.field}><span className={styles.label}>broker_account_mode</span><span className={styles.value}>{attempt.brokerAccountMode ?? "unknown"}</span></div>
+          <div className={styles.field}><span className={styles.label}>execution_source</span><span className={styles.value}>{attempt.executionSource ?? "unknown"}</span></div>
+          <div className={styles.field}><span className={styles.label}>preflight_decision_status</span><span className={styles.value}>{attempt.preflightDecisionStatus ?? "unknown"}</span></div>
+          <div className={styles.field}><span className={styles.label}>dry_run_allowed_to_submit</span><span className={styles.value}>{attempt.dryRunAllowedToSubmit === null ? "unknown" : attempt.dryRunAllowedToSubmit ? "true" : "false"}</span></div>
+          <div className={styles.field}><span className={styles.label}>dry_run_would_block</span><span className={styles.value}>{attempt.dryRunWouldBlock === null ? "unknown" : attempt.dryRunWouldBlock ? "true" : "false"}</span></div>
+          <div className={styles.field}><span className={styles.label}>response_status</span><span className={styles.value}>{responseStatus}</span></div>
+          <div className={styles.field}><span className={styles.label}>broker_order_id</span><span className={`${styles.value} ${styles.mono}`}>{brokerOrderId}</span></div>
+          <div className={styles.field}><span className={styles.label}>filled_quantity</span><span className={styles.value}>{formatOutcomeNumber(filledQty)}</span></div>
+          <div className={styles.field}><span className={styles.label}>filled_price</span><span className={styles.value}>{formatOutcomeNumber(filledPrice)}</span></div>
+          <div className={styles.field}><span className={styles.label}>live_execution_enabled</span><span className={styles.value}>{liveExecutionEnabled ? "true" : "false"}</span></div>
+          <div className={styles.field}><span className={styles.label}>paper_trading_enabled</span><span className={styles.value}>{paperTradingEnabled === null ? "unknown" : paperTradingEnabled ? "true" : "false"}</span></div>
+          {failure?.submitGate ? (
+            <div className={styles.field}><span className={styles.label}>submit_gate</span><span className={styles.value}>{failure.submitGate}</span></div>
+          ) : null}
+          {failure?.decisionStatus ? (
+            <div className={styles.field}><span className={styles.label}>response_decision_status</span><span className={styles.value}>{failure.decisionStatus}</span></div>
+          ) : null}
+          <div className={styles.field}><span className={styles.label}>route_check_reference</span><span className={`${styles.value} ${styles.mono}`}>{attempt.routeCheckReference}</span></div>
+          <div className={styles.field}><span className={styles.label}>dry_run_reference</span><span className={`${styles.value} ${styles.mono}`}>{attempt.dryRunReference}</span></div>
+        </div>
+      </div>
+
+      {reasons.length > 0 ? (
+        <div className={styles.subsection} data-testid="manual-paper-submit-outcome-blocked-reasons">
+          <h3 className={styles.subsectionTitle}>Blocked reasons</h3>
+          <ul className={styles.list}>
+            {reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className={styles.subsection} data-testid="manual-paper-submit-outcome-blocked-reasons">
+          <h3 className={styles.subsectionTitle}>Blocked reasons</h3>
+          <p className={styles.emptyText}>No blocking reasons were returned with this outcome.</p>
+        </div>
+      )}
+
+      {errorMessage && status !== "allowed" ? (
+        <div className={styles.subsection} data-testid="manual-paper-submit-outcome-warning">
+          <h3 className={styles.subsectionTitle}>Warning</h3>
+          <p className={styles.sectionSubtitle}>{errorMessage}</p>
+        </div>
+      ) : null}
+
+      <div className={styles.subsection} data-testid="manual-paper-submit-outcome-timeline-link">
+        <h3 className={styles.subsectionTitle}>Broker submit decision timeline</h3>
+        <p className={styles.sectionSubtitle}>
+          The append-only decision trail records preflight and attempt rows for this correlation id. The timeline view stays read-only — it has no submit, rerun, approve, or delete controls.
+        </p>
+        <div className={styles.placeholderRow}>
+          <Link href={timelineHref} className={styles.linkPill} data-testid="manual-paper-submit-outcome-timeline-href">
+            View full submit decision timeline
+          </Link>
+          <Link href="/cockpit/in-flight-adjustments" className={styles.linkPill}>
+            Return to in-flight review
+          </Link>
+          <Link href="/cockpit" className={styles.linkPill}>
+            Return to cockpit
+          </Link>
+        </div>
+      </div>
+
+      <div className={styles.subsection} data-testid="manual-paper-submit-outcome-next-step">
+        <h3 className={styles.subsectionTitle}>{nextStep.headline}</h3>
+        <ul className={styles.list}>
+          {nextStep.actions.map((action) => (
+            <li key={action}>{action}</li>
+          ))}
+        </ul>
+        <p className={styles.emptyText}>
+          No automatic resubmission will occur. Live trading remains locked. Workers remain non-submitting.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function buildReviewSections(reviewChain: ManualPaperSubmitReviewChain): ReviewSection[] {
   const sections: Array<ReviewSection | null> = [
     reviewChain.readiness
@@ -513,6 +762,7 @@ function ManualPaperSubmitConfirmationSurface() {
   const [submitPending, setSubmitPending] = useState(false);
   const [submitResult, setSubmitResult] = useState<BrokerOrderResult | null>(null);
   const [submitFailure, setSubmitFailure] = useState<PaperSubmitFailureDetail | null>(null);
+  const [submitAttempt, setSubmitAttempt] = useState<SubmitAttemptRecord | null>(null);
 
   useEffect(() => {
     if (!recommendationId) {
@@ -526,6 +776,7 @@ function ManualPaperSubmitConfirmationSurface() {
       setSubmitPending(false);
       setSubmitResult(null);
       setSubmitFailure(null);
+      setSubmitAttempt(null);
       return;
     }
 
@@ -538,6 +789,7 @@ function ManualPaperSubmitConfirmationSurface() {
       setError(null);
       setSubmitResult(null);
       setSubmitFailure(null);
+      setSubmitAttempt(null);
       setFinalConfirmationChecked(false);
 
       try {
@@ -667,8 +919,33 @@ function ManualPaperSubmitConfirmationSurface() {
       return;
     }
 
+    const attemptRecord: SubmitAttemptRecord = {
+      ticker: submitPayload.ticker,
+      side: submitPayload.side,
+      quantity: typeof submitPayload.quantity === "number" ? submitPayload.quantity : null,
+      orderType: submitPayload.order_type,
+      limitPrice: typeof submitPayload.limit_price === "number" ? submitPayload.limit_price : null,
+      timeInForce: submitPayload.tif ?? "DAY",
+      estimatedNotional: dryRunPreview?.estimated_notional ?? null,
+      recommendationId: submitPayload.recommendation_id,
+      correlationId: submitPayload.submit_decision_correlation_id,
+      attemptedAtIso: new Date().toISOString(),
+      brokerMode:
+        dryRunPreview?.broker_mode?.mode ?? routeCheck?.broker_mode?.mode ?? null,
+      brokerAccountMode:
+        dryRunPreview?.broker_account_mode ?? routeCheck?.broker_account_mode ?? null,
+      executionSource:
+        dryRunPreview?.serious_paper_source ?? routeCheck?.serious_paper_source ?? null,
+      preflightDecisionStatus: dryRunPreview?.preflight_decision?.decision_status ?? null,
+      dryRunAllowedToSubmit: dryRunPreview?.allowed_to_submit ?? null,
+      dryRunWouldBlock: dryRunPreview?.would_block ?? null,
+      routeCheckReference: buildRouteCheckReference(routeCheck),
+      dryRunReference: buildDryRunReference(dryRunPreview),
+    };
+
     setSubmitPending(true);
     setSubmitFailure(null);
+    setSubmitAttempt(attemptRecord);
 
     try {
       const result = await submitBrokerOrder(submitPayload);
@@ -1114,6 +1391,14 @@ function ManualPaperSubmitConfirmationSurface() {
             </Link>
           </div>
         </section>
+
+        {submitAttempt && (submitResult || submitFailure) ? (
+          <OperatorOutcomeView
+            attempt={submitAttempt}
+            result={submitResult}
+            failure={submitFailure}
+          />
+        ) : null}
       </div>
     </main>
   );
