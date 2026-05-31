@@ -16,6 +16,7 @@ Drift-lock notes:
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 from typing import Any
 
@@ -321,4 +322,114 @@ def test_timeline_handler_does_not_import_submit_seams() -> None:
         f"broker_submit_decisions route module imported submit seam(s) "
         f"{leaks}. The audit feed module must never import any broker "
         "submission entrypoint."
+    )
+
+
+# ── source/body SHA pins ────────────────────────────────────────────────
+#
+# Pin the exact source of the read-only timeline handler and its
+# frontend client helper. Any intentional edit must rehash and update
+# the constants below, which forces a deliberate drift-lock review that
+# the route remains read-only and the client remains GET-only.
+
+_EXPECTED_HANDLER_SHA = (
+    "6789b6fea09bfec63e4518e9e033ab0acd15f76a3753c0a8e743f39fec2c014f"
+)
+_EXPECTED_HANDLER_LEN = 2716
+
+_EXPECTED_CLIENT_HELPER_SHA = (
+    "e0286e79d78541ecc6f4f5470011a74008e85b9bc2a1f31125f981a28c89fe56"
+)
+_EXPECTED_CLIENT_HELPER_LEN = 1209
+
+# Repo root: tests/<f>.py -> tests -> apps/api -> apps -> repo
+import re as _re  # noqa: E402  (local import; only used by helper hash test)
+from pathlib import Path as _Path  # noqa: E402
+
+_REPO_ROOT = _Path(__file__).resolve().parents[3]
+_CLIENT_HELPER_PATH = (
+    _REPO_ROOT / "apps" / "web" / "lib" / "api" / "brokerSubmitDecisions.ts"
+)
+
+
+def _hash_source(src: str) -> tuple[str, int]:
+    return hashlib.sha256(src.encode("utf-8")).hexdigest(), len(src)
+
+
+def _extract_get_recent_helper_body() -> str:
+    """Return the exact text of the ``getRecentBrokerSubmitDecisions``
+    declaration, from ``export async function`` through the matching
+    closing brace. Brace counting starts at the body-opening ``{``
+    (which follows ``): Promise<...> {``), so the ``= {}`` default in
+    the parameter list does not confuse the scan."""
+    text = _CLIENT_HELPER_PATH.read_text(encoding="utf-8")
+    start = text.index("export async function getRecentBrokerSubmitDecisions")
+    m = _re.search(r"\): Promise<[^>]+> \{", text[start:])
+    assert m is not None, (
+        "Could not locate getRecentBrokerSubmitDecisions body-opening "
+        "brace; the client helper signature has changed shape."
+    )
+    brace_open = start + m.end() - 1
+    depth = 1
+    j = brace_open + 1
+    while depth > 0 and j < len(text):
+        c = text[j]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        j += 1
+    assert depth == 0, (
+        "Unbalanced braces while extracting getRecentBrokerSubmitDecisions; "
+        "the client helper is malformed."
+    )
+    return text[start:j]
+
+
+def test_submit_decisions_recent_handler_body_hash_is_pinned() -> None:
+    """SHA-pin the body of the read-only timeline handler.
+
+    If this fails because of an intentional edit, recompute the hash::
+
+        cd apps/api
+        .venv/bin/python -c 'import hashlib, inspect; \
+            from app.api.routes import broker_submit_decisions as m; \
+            s = inspect.getsource(m.list_recent_broker_submit_decisions); \
+            print(hashlib.sha256(s.encode()).hexdigest(), len(s))'
+
+    Then update ``_EXPECTED_HANDLER_SHA`` / ``_EXPECTED_HANDLER_LEN``
+    AFTER confirming the handler remains read-only (no INSERT/UPDATE/
+    DELETE, no broker submit call, no risk-control relaxation).
+    """
+    src = inspect.getsource(route_module.list_recent_broker_submit_decisions)
+    sha, length = _hash_source(src)
+    assert sha == _EXPECTED_HANDLER_SHA and length == _EXPECTED_HANDLER_LEN, (
+        "Timeline handler body drift: expected "
+        f"sha256={_EXPECTED_HANDLER_SHA} len={_EXPECTED_HANDLER_LEN}; "
+        f"got sha256={sha} len={length}. "
+        "Re-verify the handler is still read-only before updating the pin."
+    )
+
+
+def test_submit_decisions_timeline_client_helper_body_hash_is_pinned() -> None:
+    """SHA-pin the body of the frontend timeline client helper.
+
+    If this fails because of an intentional edit, recompute the hash::
+
+        cd <repo root>
+        .venv/bin/python apps/api/tests/_compute_helper_hash.py  # or
+        # inline the _extract_get_recent_helper_body logic in a REPL.
+
+    Then update ``_EXPECTED_CLIENT_HELPER_SHA`` /
+    ``_EXPECTED_CLIENT_HELPER_LEN`` AFTER confirming the helper remains
+    GET-only and still calls ``/broker/submit-decisions/recent``.
+    """
+    body = _extract_get_recent_helper_body()
+    sha, length = _hash_source(body)
+    assert sha == _EXPECTED_CLIENT_HELPER_SHA and length == _EXPECTED_CLIENT_HELPER_LEN, (
+        "Timeline client helper body drift: expected "
+        f"sha256={_EXPECTED_CLIENT_HELPER_SHA} len={_EXPECTED_CLIENT_HELPER_LEN}; "
+        f"got sha256={sha} len={length}. "
+        "Re-verify the helper is still GET-only and still targets "
+        "/broker/submit-decisions/recent before updating the pin."
     )

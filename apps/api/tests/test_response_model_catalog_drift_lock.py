@@ -29,6 +29,11 @@ SAFETY_RESPONSE_MODELS: dict[tuple[str, str, str], str] = {
     ("execution.py", "post", "/paper"): "PaperExecutionResponse",
     ("workflow.py", "post", "/run"): "WorkflowRunResponse",
     ("execution.py", "post", "/live"): "LiveExecutionResponse",
+    (
+        "broker_submit_decisions.py",
+        "get",
+        "/submit-decisions/recent",
+    ): "BrokerSubmitDecisionsResponseSchema",
 }
 
 # Broader catalog — every (method, path) -> response_model in the two
@@ -48,6 +53,11 @@ EXPECTED_RESPONSE_MODELS: dict[tuple[str, str, str], str] = {
     ("execution.py", "put", "/paper/{execution_id}/journal"): "PaperExecutionJournalResponse",
     ("execution.py", "post", "/live"): "LiveExecutionResponse",
     ("workflow.py", "post", "/run"): "WorkflowRunResponse",
+    (
+        "broker_submit_decisions.py",
+        "get",
+        "/submit-decisions/recent",
+    ): "BrokerSubmitDecisionsResponseSchema",
 }
 
 # Find @router.<method>("<path>" ... response_model=<expr> ...) with
@@ -122,7 +132,7 @@ def _scan_file(path: Path) -> dict[tuple[str, str, str], str]:
 
 def _scan_safety_files() -> dict[tuple[str, str, str], str]:
     out: dict[tuple[str, str, str], str] = {}
-    for fname in {"execution.py", "workflow.py"}:
+    for fname in {"execution.py", "workflow.py", "broker_submit_decisions.py"}:
         out.update(_scan_file(ROUTE_FILES_ROOT / fname))
     return out
 
@@ -166,7 +176,8 @@ def test_full_response_model_catalog_exact_match() -> None:
     if mismatched:
         msg_parts.append("Mismatched response_model:\n" + "\n".join(mismatched))
     assert not msg_parts, (
-        "execution.py / workflow.py response_model catalog drift:\n"
+        "safety-adjacent route response_model catalog drift "
+        "(execution.py / workflow.py / broker_submit_decisions.py):\n"
         + "\n".join(msg_parts)
         + "\nIf intentional, update EXPECTED_RESPONSE_MODELS and ledger."
     )

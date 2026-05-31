@@ -260,6 +260,7 @@ Applies to ALL Bucket 1–4 phases above:
 15. **The "Auto Trade Today" button is permanently disabled** in the UI until Bucket 4 unlock; mode selectors render Live/Limited-Auto-Live as disabled with a lock tooltip.
 16. **Loss-framing rule**: every plain-English explainer must surface downside before upside.
 17. **No frontend toggle may bypass a backend gate.** Monitor and Cockpit pages render the gate state read-only; toggling UI must POST to a gated backend endpoint that re-validates.
+18. **Broker submit decision timeline is body-hash-pinned.** The read-only handler `list_recent_broker_submit_decisions` and the client helper `getRecentBrokerSubmitDecisions` are SHA-256-pinned; any body change must re-verify read-only/GET-only posture and update the pinned constants. The cockpit-audit landing page must keep linking to `/cockpit/audit/broker-submit-decisions` via the read-only audit feed.
 
 ---
 

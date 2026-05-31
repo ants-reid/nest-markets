@@ -41,6 +41,17 @@ _CLIENT_HELPER = (
 )
 _CLIENT_HELPER_EXPECTED_ROUTE = "/broker/submit-decisions/recent"
 
+_COCKPIT_AUDIT_INDEX = (
+    _REPO_ROOT
+    / "apps"
+    / "web"
+    / "app"
+    / "cockpit"
+    / "audit"
+    / "page.tsx"
+)
+_EXPECTED_TIMELINE_HREF = "/cockpit/audit/broker-submit-decisions"
+
 # Forbidden identifiers/strings — appearance of any of these on the
 # timeline page or its client helper would mean the read-only audit
 # surface has acquired a submit/mutation path.
@@ -146,4 +157,42 @@ def test_timeline_page_advertises_read_only_posture() -> None:
     assert "read-only" in source, (
         "Timeline page no longer advertises 'read-only' in its UI text; "
         "the operator-facing safety signal has been removed."
+    )
+
+
+# ── cockpit audit landing link pin ──────────────────────────────────────
+
+
+def test_cockpit_audit_index_links_to_timeline_page() -> None:
+    """The cockpit audit hub at /cockpit/audit must keep linking to the
+    read-only broker submit decision timeline. If this fails, the
+    timeline page has been silently delisted from the audit hub or the
+    href shape has drifted; both are user-visible regressions."""
+    source = _read(_COCKPIT_AUDIT_INDEX)
+    assert _EXPECTED_TIMELINE_HREF in source, (
+        f"Cockpit audit hub no longer references the timeline href "
+        f"{_EXPECTED_TIMELINE_HREF!r}. The audit landing page must "
+        "expose the broker submit decision timeline tile."
+    )
+
+
+def test_cockpit_audit_index_tile_advertises_broker_submit_decisions() -> None:
+    """The audit-hub tile copy must keep naming the broker submit
+    decision feed so operators can find it. Drift here would be silent
+    UI rot rather than a safety bug."""
+    source = _read(_COCKPIT_AUDIT_INDEX).lower()
+    assert "broker submit decision" in source, (
+        "Cockpit audit hub no longer mentions 'broker submit decision' "
+        "in its tile copy; the timeline tile description has drifted."
+    )
+
+
+def test_cockpit_audit_index_uses_audit_client_helper() -> None:
+    """The audit-hub tile must keep loading its row count via the
+    read-only ``getRecentBrokerSubmitDecisions`` helper. If this fails,
+    the tile may have been wired to a non-audit helper."""
+    source = _read(_COCKPIT_AUDIT_INDEX)
+    assert "getRecentBrokerSubmitDecisions" in source, (
+        "Cockpit audit hub no longer imports getRecentBrokerSubmitDecisions; "
+        "the audit-hub tile is not reading from the read-only audit feed."
     )

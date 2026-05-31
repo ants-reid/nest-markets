@@ -15484,3 +15484,36 @@ still 100% green.
   - The audit feed module cannot silently import a submit seam.
 - **Recommended next phase:** Next drift-lock cycle (Claude Opus 4.7) — continue with the standard cycle prompt: "Build the next 2–10 safe chunks from the registered roadmap, but only if they are tightly related and can be completed without weakening the drift lock." Natural candidates: SHA-pin the timeline route handler and client helper; pin the cockpit-audit landing-page link to `/cockpit/audit/broker-submit-decisions`; extend `test_response_model_catalog_drift_lock.py`'s broader catalog to include `broker_submit_decisions.py` so cross-file response-model swaps are also caught.
 
+## Timeline SHA + Cockpit Audit Link Drift Locks
+
+- **Scope:** Additive drift-lock pins layered on top of the previous timeline drift-lock block. SHA-256-pins the body of the read-only timeline handler and its frontend client helper, pins the cockpit-audit landing page link to the timeline, and extends the broader response-model catalog scan to cover `broker_submit_decisions.py`. No production code changed; no submit behaviour added; no new routes; no roadmap shift.
+- **Backend SHA/body hash pin added (`apps/api/tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py`, +2 tests):**
+  - `test_submit_decisions_recent_handler_body_hash_is_pinned` SHA-256-pins `inspect.getsource(list_recent_broker_submit_decisions)` at `6789b6fea09bfec63e4518e9e033ab0acd15f76a3753c0a8e743f39fec2c014f` (len 2716). Any intentional edit must re-verify the handler remains read-only before updating the constants.
+- **Frontend SHA/body hash pin added (same file, +1 test):**
+  - `test_submit_decisions_timeline_client_helper_body_hash_is_pinned` SHA-256-pins the body of `getRecentBrokerSubmitDecisions` (extracted from `apps/web/lib/api/brokerSubmitDecisions.ts` by walking from `export async function ...` to the matching closing brace, anchored at the `): Promise<...> {` body opener so the `= {}` parameter default does not confuse the scan) at `e0286e79d78541ecc6f4f5470011a74008e85b9bc2a1f31125f981a28c89fe56` (len 1209). Any intentional edit must re-verify the helper is still GET-only and still calls `/broker/submit-decisions/recent`.
+- **Cockpit-audit landing link pin added (`apps/api/tests/test_broker_submit_decision_timeline_frontend_drift_lock.py`, +3 tests):**
+  - `test_cockpit_audit_index_links_to_timeline_page` asserts `apps/web/app/cockpit/audit/page.tsx` references the literal href `/cockpit/audit/broker-submit-decisions`.
+  - `test_cockpit_audit_index_tile_advertises_broker_submit_decisions` asserts the audit-hub tile copy keeps the operator-facing phrase "broker submit decision".
+  - `test_cockpit_audit_index_uses_audit_client_helper` asserts the audit-hub imports `getRecentBrokerSubmitDecisions` so the tile's count comes from the read-only audit feed (not a non-audit helper).
+- **Response-model catalog extension (`apps/api/tests/test_response_model_catalog_drift_lock.py`):**
+  - Added `("broker_submit_decisions.py", "get", "/submit-decisions/recent") -> "BrokerSubmitDecisionsResponseSchema"` to both `SAFETY_RESPONSE_MODELS` and `EXPECTED_RESPONSE_MODELS`.
+  - Extended `_scan_safety_files()` to also scan `broker_submit_decisions.py` alongside `execution.py` and `workflow.py`. Updated catalog drift assertion message to reflect the new scanned file. No existing catalog assertions weakened.
+- **Explicit non-changes:**
+  - No production code touched. Zero edits under `apps/api/app/`, `apps/web/app/`, `apps/web/components/`, `apps/web/lib/`.
+  - No mutation route added; no submit behaviour added.
+  - Auto trading remains OFF; live trading remains locked; workers remain non-submitting.
+  - `/broker/orders` remains the only serious-paper submit seam; `/execution/paper` remains simulator-only.
+  - `build-matrix.md` left untouched apart from the standing drift-lock note; this remains a test/docs-only block.
+- **Validation commands and results:**
+  - `cd apps/api && .venv/bin/ruff check app tests` -> `All checks passed!`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py tests/test_broker_submit_decision_timeline_frontend_drift_lock.py tests/test_response_model_catalog_drift_lock.py -q` -> `28 passed in 0.77s` (was 20+3=23; +5 new: 2 SHA + 3 cockpit-link).
+  - `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2435 passed in 284.58s` (was 2430; +5 new).
+  - `./scripts/test/test-learning.sh` -> `99 passed`.
+  - `git diff --check` -> clean.
+- **Locked invariants confirmed:**
+  - Any body change to `list_recent_broker_submit_decisions` now requires a deliberate hash update with an explicit read-only re-verification.
+  - Any fetch/path/method/normalization change to `getRecentBrokerSubmitDecisions` now requires the same deliberate hash update.
+  - The cockpit-audit landing page cannot silently delist the timeline tile, rename its copy off the "broker submit decision" phrase, or wire its count to a non-audit helper.
+  - Cross-file response-model swaps in `broker_submit_decisions.py` are now caught by the same catalog mechanism as `execution.py` and `workflow.py`.
+- **Recommended next phase:** Next drift-lock cycle (Claude Opus 4.7) with the standard cycle prompt. Natural candidates: SHA-pin the timeline page React component body (`apps/web/app/cockpit/audit/broker-submit-decisions/page.tsx`); pin the response shape of the audit-hub tile's `loadCount` against the timeline envelope's `count` field; extend the response-model catalog or no-secret-fields scan to additional cockpit audit routes (`risk-decisions`, `news-in-decision-log`, `llm-logs`, `worker-run-log`).
+
