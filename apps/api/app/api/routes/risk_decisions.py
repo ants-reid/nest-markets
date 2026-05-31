@@ -27,6 +27,7 @@ from sqlalchemy import desc, select
 
 from app.db.models.risk_decision import RiskDecision
 from app.db.session import SessionLocal
+from app.schemas.audit_feeds import RiskDecisionAuditResponseSchema
 
 router = APIRouter(prefix="/risk-decisions", tags=["risk-decisions"])
 
@@ -62,7 +63,7 @@ def _serialize(row: RiskDecision) -> Dict[str, Any]:
     }
 
 
-@router.get("/recent")
+@router.get("/recent", response_model=RiskDecisionAuditResponseSchema)
 def list_recent_risk_decisions(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     approved: Optional[str] = Query(None, max_length=20),

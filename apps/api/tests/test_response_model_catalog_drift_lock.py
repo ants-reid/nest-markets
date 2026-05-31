@@ -58,6 +58,26 @@ EXPECTED_RESPONSE_MODELS: dict[tuple[str, str, str], str] = {
         "get",
         "/submit-decisions/recent",
     ): "BrokerSubmitDecisionsResponseSchema",
+    (
+        "risk_decisions.py",
+        "get",
+        "/recent",
+    ): "RiskDecisionAuditResponseSchema",
+    (
+        "news_in_decision_log.py",
+        "get",
+        "/recent",
+    ): "NewsInDecisionLogAuditResponseSchema",
+    (
+        "llm_logs.py",
+        "get",
+        "/recent",
+    ): "LlmLogAuditResponseSchema",
+    (
+        "monitor_worker_run_log.py",
+        "get",
+        "/worker-run-log/overview",
+    ): "WorkerRunLogOverviewResponseSchema",
 }
 
 # Find @router.<method>("<path>" ... response_model=<expr> ...) with
@@ -132,7 +152,15 @@ def _scan_file(path: Path) -> dict[tuple[str, str, str], str]:
 
 def _scan_safety_files() -> dict[tuple[str, str, str], str]:
     out: dict[tuple[str, str, str], str] = {}
-    for fname in {"execution.py", "workflow.py", "broker_submit_decisions.py"}:
+    for fname in {
+        "execution.py",
+        "workflow.py",
+        "broker_submit_decisions.py",
+        "risk_decisions.py",
+        "news_in_decision_log.py",
+        "llm_logs.py",
+        "monitor_worker_run_log.py",
+    }:
         out.update(_scan_file(ROUTE_FILES_ROOT / fname))
     return out
 
@@ -177,7 +205,9 @@ def test_full_response_model_catalog_exact_match() -> None:
         msg_parts.append("Mismatched response_model:\n" + "\n".join(mismatched))
     assert not msg_parts, (
         "safety-adjacent route response_model catalog drift "
-        "(execution.py / workflow.py / broker_submit_decisions.py):\n"
+        "(execution.py / workflow.py / broker_submit_decisions.py / "
+        "risk_decisions.py / news_in_decision_log.py / llm_logs.py / "
+        "monitor_worker_run_log.py):\n"
         + "\n".join(msg_parts)
         + "\nIf intentional, update EXPECTED_RESPONSE_MODELS and ledger."
     )

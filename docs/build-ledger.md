@@ -15543,3 +15543,39 @@ still 100% green.
   - The cockpit-audit landing link, tile copy, and audit-client helper remain pinned (prior block).
 - **Recommended next phase:** Next drift-lock cycle (Claude Opus 4.7) with the standard cycle prompt. Natural candidates: (a) introduce `response_model=` on the four sibling audit feeds (`risk_decisions`, `news_in_decision_log`, `llm_logs`, `monitor_worker_run_log`) in a small feature block, then extend `test_response_model_catalog_drift_lock.py` to scan them; (b) SHA-pin the audit-hub page component body itself so silent layout/content changes also require a deliberate hash update; (c) extend the timeline page no-submit scan to forbid additional identifiers such as `placeOrder`, `cancelOrder`, `modifyOrder` so future helper-name drift is also caught.
 
+
+## Audit Feed Response Models for Sibling Feeds
+
+- **Scope:** Small additive API-contract feature block + drift-lock extension. Bound explicit `response_model=` envelopes onto the four sibling cockpit audit feeds previously identified as deferred (`risk_decisions`, `news_in_decision_log`, `llm_logs`, `monitor_worker_run_log`), so the response-model catalog scan can cover them and a no-secret field-name pin can be added across all four. Production response bytes are unchanged: the new Pydantic schemas mirror each route's existing `_serialize` output (or, for `monitor_worker_run_log`, the existing service output) field-for-field, so the existing cockpit pages and `lib/api/*.ts` client modules need no source change.
+- **Target routes updated:**
+  - `GET /risk-decisions/recent` -> `RiskDecisionAuditResponseSchema`.
+  - `GET /news-in-decision-log/recent` -> `NewsInDecisionLogAuditResponseSchema`.
+  - `GET /llm-logs/recent` -> `LlmLogAuditResponseSchema`.
+  - `GET /monitor/worker-run-log/overview` -> `WorkerRunLogOverviewResponseSchema`.
+  - All four remain GET-only with unchanged paths, query parameters, and serialized output keys.
+- **New schema module (`apps/api/app/schemas/audit_feeds.py`):**
+  - 13 typed Pydantic models covering rows, filter echoes, and envelopes for the four feeds, plus retention and totals sub-models for the worker-run-log overview. All fields mirror what each route's `_serialize` already returns (including `count`/`limit`/`filters`/`advisory`/`items` envelopes for the three table-backed feeds, and `advisory`/`limit`/`retention`/`totals`/`entries` for the file-backed worker overview), so frontend bytes do not change.
+- **Drift-lock catalog extension (`apps/api/tests/test_response_model_catalog_drift_lock.py`):**
+  - `_scan_safety_files()` now also scans `risk_decisions.py`, `news_in_decision_log.py`, `llm_logs.py`, and `monitor_worker_run_log.py`.
+  - `EXPECTED_RESPONSE_MODELS` now pins the four new mappings; `SAFETY_RESPONSE_MODELS` is unchanged (these feeds are audit-only, not on the auto/live submit surface).
+- **No-secret coverage (`apps/api/tests/test_audit_feed_response_model_no_secret_drift_lock.py`, +2 tests):**
+  - `test_audit_feed_schemas_have_no_secret_field_names` scans every field on the 13 new schemas against a credential-shaped forbidden set (`password`, `passwd`, `secret`, `secret_key`, `client_secret`, `api_key`, `api_token`, `access_token`, `refresh_token`, `bearer_token`, `authorization`, `auth_token`, `private_key`, `ssh_key`, `session_token`, `cookie`, `set_cookie`). Length-capped previews and one-way hashes such as `system_prompt_preview` or `user_prompt_hash` are intentionally not on the forbidden list because they are already redacted at write time and necessary for operator audit.
+  - `test_audit_feed_schemas_cover_expected_envelope_keys` pins the top-level envelope key set for each of the four response schemas, catching silent renames such as `count` -> `size`.
+- **Frontend impact:** None. The existing TypeScript client modules and cockpit pages (`apps/web/lib/api/{riskDecisions,newsInDecisionLog,llmLogs,workerRunLog}.ts` and `apps/web/app/cockpit/audit/{risk-decisions,news-in-decision-log,llm-logs,worker-run-log}/page.tsx`) consume exactly the keys the new schemas expose, in the same types they already typed locally. No frontend source bytes changed.
+- **Explicit non-changes:**
+  - No new mutation routes; no POST/PUT/PATCH/DELETE added; no path or query-parameter shape changed.
+  - No submit behaviour added; `assert_auto_trading_allowed()` remains unconditional; `/broker/orders` stays the only serious-paper submit seam; `/execution/paper` remains simulator-only.
+  - Auto trading remains OFF; live trading remains locked; workers remain non-submitting; worker authority not expanded.
+  - No migrations; no DB schema change; no service-layer behaviour change.
+- **Validation commands and results:**
+  - `cd apps/api && .venv/bin/ruff check app tests` -> `All checks passed!`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/test_response_model_catalog_drift_lock.py tests/test_audit_feed_response_model_no_secret_drift_lock.py tests/test_risk_decisions_route.py tests/test_news_in_decision_log_route.py tests/test_llm_logs_route.py tests/test_monitor_worker_run_log_route.py tests/test_audit_response_shape_drift_lock.py tests/test_broker_submit_decision_timeline_frontend_drift_lock.py tests/test_router_prefix_catalog_drift_lock.py tests/test_route_registry_drift_lock.py tests/test_openapi_safety_paths_catalog_drift_lock.py -q` -> `53 passed in 3.93s`.
+  - `cd apps/api && .venv/bin/python -m pytest tests/ -q` -> `2439 passed in 291.16s` (was 2437; +2 new).
+  - `./scripts/test/test-learning.sh` -> `99 passed`.
+  - `git diff --check` -> clean.
+  - Frontend validation skipped because frontend source bytes were unchanged.
+- **Locked invariants confirmed:**
+  - The four sibling audit feeds now carry a typed Pydantic envelope; any future swap of the response model class (e.g. silently widening to a base schema or dropping required fields) is caught by `test_full_response_model_catalog_exact_match`.
+  - Any new field on any audit-feed schema that matches a credential-shaped name is caught by `test_audit_feed_schemas_have_no_secret_field_names`.
+  - Any silent envelope-key rename (`count` -> `size`, `entries` -> `rows`, etc.) on the four envelopes is caught by `test_audit_feed_schemas_cover_expected_envelope_keys`.
+- **Recommended next phase:** Next drift-lock or small feature cycle. Natural candidates: (a) SHA-pin the cockpit audit landing page body (`apps/web/app/cockpit/audit/page.tsx`) so tile/layout drift also requires a deliberate hash update; (b) extend the timeline page no-submit scan to forbid additional helper identifiers (`placeOrder`, `cancelOrder`, `modifyOrder`, `executeOrder`); (c) pin `response_model=` bindings on any remaining bare-`dict[str, Any]` cockpit feed routes outside the audit cluster, then extend `_scan_safety_files()` accordingly.

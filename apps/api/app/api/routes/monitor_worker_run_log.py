@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.schemas.audit_feeds import WorkerRunLogOverviewResponseSchema
 from app.services.worker_run_log_overview_service import (
     WorkerRunLogOverviewError,
     get_worker_run_log_overview,
@@ -12,7 +13,10 @@ from app.services.worker_run_log_overview_service import (
 router = APIRouter(prefix="/monitor", tags=["monitor"])
 
 
-@router.get("/worker-run-log/overview")
+@router.get(
+    "/worker-run-log/overview",
+    response_model=WorkerRunLogOverviewResponseSchema,
+)
 def read_worker_run_log_overview(
     limit: int = Query(20, ge=1, le=200),
 ) -> dict:

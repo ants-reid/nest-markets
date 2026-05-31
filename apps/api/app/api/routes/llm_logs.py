@@ -21,6 +21,7 @@ from sqlalchemy import desc, select
 
 from app.db.models.llm_request_log import LLMRequestLog
 from app.db.session import SessionLocal
+from app.schemas.audit_feeds import LlmLogAuditResponseSchema
 
 router = APIRouter(prefix="/llm-logs", tags=["llm-logs"])
 
@@ -72,7 +73,7 @@ def _serialize(row: LLMRequestLog) -> Dict[str, Any]:
     }
 
 
-@router.get("/recent")
+@router.get("/recent", response_model=LlmLogAuditResponseSchema)
 def list_recent_llm_logs(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     provider: Optional[str] = Query(None, max_length=50),
