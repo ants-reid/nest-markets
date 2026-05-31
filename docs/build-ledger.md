@@ -15441,3 +15441,46 @@ still 100% green.
   - The dedicated confirmation route is now the only executable cockpit host for guarded IBKR paper submit.
   - The next recommended phase is `Broker Submit Decision Timeline / Paper Submit Result History`.
 
+## Timeline Drift-Lock Pins for Broker Submit Decision History
+
+- **Scope:** Additive drift-lock pins protecting the freshly shipped Broker Submit Decision Timeline (cockpit `/cockpit/audit/broker-submit-decisions`, audit feed `GET /broker/submit-decisions/recent`). No production code changed; no submit behaviour added; no new routes; no docs-driven roadmap shift.
+- **Backend pins added (`apps/api/tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py`, 13 tests):**
+  - Router prefix pinned to `/broker`.
+  - `/broker/submit-decisions/recent` exists, is `GET`-only, and has no sibling `POST`/`PUT`/`PATCH`/`DELETE` on the `/submit-decisions*` prefix.
+  - Response model binding pinned to `BrokerSubmitDecisionsResponseSchema`.
+  - Handler filter signature pinned to `{limit, intent, would_block, source, decision_status, correlation_id, recommendation_id}`.
+  - Pydantic field catalogs pinned exactly for `BrokerSubmitDecisionRowSchema` (30 fields), `BrokerSubmitDecisionsResponseSchema` (5 fields), `BrokerSubmitDecisionsFiltersSchema` (6 fields), `BrokerSubmitDecisionRequestSummarySchema` (6 fields), `BrokerSubmitDecisionMessageSchema` (5 fields).
+  - No-secret-fields scan across all 5 timeline schemas forbids field names containing `password`, `secret`, `token`, `api_key`/`apikey`, `authorization`, `private_key`, `account_password`, `credential`.
+  - Module + handler docstrings keep advertising the `read-only` + `never modifies state` posture.
+  - Route module globals must not contain submit seams (`submit_order`, `submit_auto_order`, `_submit_order_for_intent`, `BrokerService`).
+- **Frontend pins added (`apps/api/tests/test_broker_submit_decision_timeline_frontend_drift_lock.py`, 7 tests):**
+  - `apps/web/app/cockpit/audit/broker-submit-decisions/page.tsx` exists.
+  - Page does not contain identifiers `submitBrokerOrder`, `cancelBrokerOrder`, `submitOrder`.
+  - Page does not contain route literals `"/broker/orders"` or `"/execution/paper"` (single- or double-quoted).
+  - Page does not import from `"…/lib/api/broker"` (the lib that hosts `submitBrokerOrder`).
+  - `apps/web/lib/api/brokerSubmitDecisions.ts` references `/broker/submit-decisions/recent`, contains no `/broker/orders` or `/execution/paper` literal, and issues no `method: "POST"|"PUT"|"PATCH"|"DELETE"` call.
+  - Client helper exposes no submit identifiers.
+  - Page UI text keeps advertising its `read-only` posture.
+- **Pre-existing pins reused (no changes):**
+  - `tests/test_broker_submit_decision_column_catalog_drift_lock.py` already pins the DB column catalog of `BrokerSubmitDecision`.
+  - `tests/test_broker_submit_decision_schema_drift_lock.py` already pins table name, column nullability, type families (including the `JSONBType`/`JSONB`/`JSON` family acceptance for `preflight_json`), string lengths, and PK shape.
+  - `tests/test_response_model_catalog_drift_lock.py` continues to pin safety-route `response_model` bindings on `execution.py` and `workflow.py`.
+- **Explicit non-changes:**
+  - No production code touched.
+  - No mutation route added; no submit behaviour added.
+  - Auto trading remains OFF; live trading remains locked; workers remain non-submitting.
+  - `/broker/orders` remains the only serious-paper submit seam; `/execution/paper` remains simulator-only.
+  - `build-matrix.md` intentionally not modified — this is a drift-lock-only block, not a roadmap change.
+- **Validation commands and results:**
+  - `cd apps/api && .venv/bin/ruff check app tests` -> `All checks passed!`.
+  - `cd apps/api && APP_ENV=test .venv/bin/python -m pytest tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py tests/test_broker_submit_decision_timeline_frontend_drift_lock.py -v` -> `20 passed`.
+  - `cd apps/api && APP_ENV=test .venv/bin/python -m pytest tests/ -q` -> `2430 passed in 309.34s` (was 2410; +20 new).
+  - `./scripts/test/test-learning.sh` -> `99 passed`.
+  - `git diff --check` -> clean.
+- **Locked invariants confirmed:**
+  - `/broker/submit-decisions/recent` is GET-only with a fixed response shape and a fixed filter signature.
+  - The timeline schema family is closed against secret-like field-name additions.
+  - The cockpit timeline page and its client helper cannot silently acquire a submit/cancellation/mutation surface without a deliberate update to these drift-lock files.
+  - The audit feed module cannot silently import a submit seam.
+- **Recommended next phase:** Next drift-lock cycle (Claude Opus 4.7) — continue with the standard cycle prompt: "Build the next 2–10 safe chunks from the registered roadmap, but only if they are tightly related and can be completed without weakening the drift lock." Natural candidates: SHA-pin the timeline route handler and client helper; pin the cockpit-audit landing-page link to `/cockpit/audit/broker-submit-decisions`; extend `test_response_model_catalog_drift_lock.py`'s broader catalog to include `broker_submit_decisions.py` so cross-file response-model swaps are also caught.
+

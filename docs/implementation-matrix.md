@@ -437,6 +437,7 @@ Clarification:
 | QA-T16 | `apps/api/tests/test_phase3_routes.py` | scoring/models/governance/regime route coverage | implemented | tested | documented | WS-05 | Phase 3 route suite covers scoring, models, governance, and regime endpoints; full backend pytest rerun green on 2026-05-19 |
 | QA-T17 | `apps/api/tests/{test_route_registry_drift_lock.py,test_router_prefix_catalog_drift_lock.py}` | route inventory drift-lock coverage | implemented | tested | documented | WS-05 | Router registry and prefix catalogs keep the active API route surface pinned during backend pytest runs |
 | QA-T18 | `apps/learning/tests` | learning validation coverage | implemented | tested | documented | WS-05 | Learning suite passed `99` tests on 2026-05-19 via `scripts/test/test-learning.sh` |
+| QA-T19 | `apps/api/tests/{test_broker_submit_decision_timeline_route_surface_drift_lock.py,test_broker_submit_decision_timeline_frontend_drift_lock.py}` | broker submit decision timeline drift-lock coverage | implemented | tested | documented | WS-05 | Added 2026-05-31. Pins GET-only `/broker/submit-decisions/recent` route surface, response_model binding, filter signature, 5 Pydantic timeline schema field catalogs, no-secret-fields scan, no-submit-seam import scan; plus frontend static pins that the cockpit timeline page and client helper remain read-only and never reference `/broker/orders` or `/execution/paper`. 20/20 tests green; full backend pytest 2430/2430 green. |
 
 ## Database Models
 

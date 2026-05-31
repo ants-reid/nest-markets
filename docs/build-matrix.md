@@ -54,6 +54,7 @@ These guards apply to ALL phases unless explicitly overridden by a phase spec:
 8. **Existing tests must not regress.** New phases may add tests; never delete existing ones.
 9. **Journal stays JSON-file-backed** until MH-10.
 10. **OpenAI signal pipeline is frozen** until a phase explicitly targets it.
+11. **Broker submit decision timeline is read-only.** `/broker/submit-decisions/recent` stays GET-only with a pinned filter signature and pinned response schema; the cockpit timeline page and its client helper must never reference `/broker/orders` or `/execution/paper` and must never import the broker submit lib. Pinned by `apps/api/tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py` and `apps/api/tests/test_broker_submit_decision_timeline_frontend_drift_lock.py` (2026-05-31).
 
 ---
 

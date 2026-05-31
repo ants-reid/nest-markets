@@ -294,6 +294,13 @@ All rows below are `pending` until implemented. Status updates to `passing` only
 | QA-225 | Performance UI | /performance page renders win-rate breakdown and overall stats | automated | pending | WEB-P16 | BP3-07.02; Playwright |
 | QA-226 | Adaptations UI | /prompt-adaptations page renders proposals; Apply button calls POST /prompt-adaptations/apply | automated | pending | WEB-P17, API-R10 | BP3-07.03; Playwright |
 
+### Broker Submit Decision Timeline — Drift-Lock Pins
+
+| ID | Scope | Check | Method | Status | Related Items | Notes |
+|---|---|---|---|---|---|---|
+| QA-227 | Timeline route surface | `/broker/submit-decisions/recent` stays GET-only with pinned filter signature `{limit, intent, would_block, source, decision_status, correlation_id, recommendation_id}`, response model `BrokerSubmitDecisionsResponseSchema`, and no sibling POST/PUT/PATCH/DELETE on the `/submit-decisions*` prefix. Pinned Pydantic field catalogs for the 5 timeline schemas; no-secret-fields scan; route module imports no submit seam. | automated | passing | API-RX (broker_submit_decisions.py), API-SC (broker_schemas.py) | `apps/api/tests/test_broker_submit_decision_timeline_route_surface_drift_lock.py` — 13 tests; all green 2026-05-31. |
+| QA-228 | Timeline frontend read-only | Cockpit page `/cockpit/audit/broker-submit-decisions` and client helper `lib/api/brokerSubmitDecisions.ts` must not import the broker submit lib, must not reference `/broker/orders` or `/execution/paper`, must expose no submit identifiers, must issue only GET, and must keep advertising their read-only posture. | automated | passing | WEB-Pxx (cockpit-audit-broker-submit-decisions), WEB-Lxx (brokerSubmitDecisions.ts) | `apps/api/tests/test_broker_submit_decision_timeline_frontend_drift_lock.py` — 7 tests; all green 2026-05-31. |
+
 ---
 
 ## Operating Notes
