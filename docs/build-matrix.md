@@ -261,6 +261,7 @@ Applies to ALL Bucket 1–4 phases above:
 16. **Loss-framing rule**: every plain-English explainer must surface downside before upside.
 17. **No frontend toggle may bypass a backend gate.** Monitor and Cockpit pages render the gate state read-only; toggling UI must POST to a gated backend endpoint that re-validates.
 18. **Broker submit decision timeline is body-hash-pinned.** The read-only handler `list_recent_broker_submit_decisions` and the client helper `getRecentBrokerSubmitDecisions` are SHA-256-pinned; any body change must re-verify read-only/GET-only posture and update the pinned constants. The cockpit-audit landing page must keep linking to `/cockpit/audit/broker-submit-decisions` via the read-only audit feed.
+19. **Timeline page body is SHA-pinned.** `apps/web/app/cockpit/audit/broker-submit-decisions/page.tsx` is SHA-256-pinned (full file); any change must re-verify the page is still read-only/submit-free and update the hash. The cockpit audit hub tile must keep deriving its row-count from the audit envelope's `count` field; switching to `items.length`/`total`/`size`/`length` is explicitly forbidden.
 
 ---
 

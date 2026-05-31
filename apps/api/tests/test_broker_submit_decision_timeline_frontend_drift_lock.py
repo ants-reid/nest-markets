@@ -18,6 +18,8 @@ Drift-lock notes:
 
 from __future__ import annotations
 
+import hashlib
+import re
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -195,4 +197,130 @@ def test_cockpit_audit_index_uses_audit_client_helper() -> None:
     assert "getRecentBrokerSubmitDecisions" in source, (
         "Cockpit audit hub no longer imports getRecentBrokerSubmitDecisions; "
         "the audit-hub tile is not reading from the read-only audit feed."
+    )
+
+
+# ── timeline page body SHA pin ──────────────────────────────────────────
+#
+# Pin the full source of the timeline page. Visual/layout/control changes
+# to the audit timeline page now require a deliberate hash update, which
+# forces a review that the page remains read-only, submit-free,
+# /broker/orders-free, and /execution/paper-free.
+
+_EXPECTED_TIMELINE_PAGE_SHA = (
+    "18af398acafee3b81c41a97a95b3bbcfdec3c2382fdd0b27a9dd6daf4174ba87"
+)
+_EXPECTED_TIMELINE_PAGE_LEN = 16723
+
+
+def test_submit_decisions_timeline_page_body_hash_is_pinned() -> None:
+    """SHA-pin the timeline page body.
+
+    If this fails because of an intentional edit, recompute::
+
+        cd <repo root>
+        python -c 'import hashlib, pathlib; \
+            p=pathlib.Path("apps/web/app/cockpit/audit/broker-submit-decisions/page.tsx"); \
+            t=p.read_text(encoding="utf-8"); \
+            print(hashlib.sha256(t.encode()).hexdigest(), len(t))'
+
+    Then update ``_EXPECTED_TIMELINE_PAGE_SHA`` /
+    ``_EXPECTED_TIMELINE_PAGE_LEN`` AFTER confirming the page remains
+    read-only, submit-free, and does NOT introduce any reference to
+    ``/broker/orders``, ``/execution/paper``, ``submitBrokerOrder``,
+    ``cancelBrokerOrder``, or ``submitOrder``.
+    """
+    text = _read(_TIMELINE_PAGE)
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    length = len(text)
+    assert sha == _EXPECTED_TIMELINE_PAGE_SHA and length == _EXPECTED_TIMELINE_PAGE_LEN, (
+        "Timeline page body drift: expected "
+        f"sha256={_EXPECTED_TIMELINE_PAGE_SHA} len={_EXPECTED_TIMELINE_PAGE_LEN}; "
+        f"got sha256={sha} len={length}. "
+        "Re-verify the page is still read-only and submit-free before "
+        "updating the pin."
+    )
+
+
+# ── audit-hub count contract pin ────────────────────────────────────────
+#
+# The broker-submit-decisions tile on the cockpit audit hub derives its
+# row-count display from the *envelope* ``count`` field returned by the
+# audit feed. Pin that contract so a schema-keyed refactor cannot
+# silently zero the tile by switching to ``items.length`` or a wrong
+# field name.
+
+_AUDIT_HUB_FORBIDDEN_COUNT_DERIVATIONS: tuple[str, ...] = (
+    "resp.items.length",
+    "resp.items?.length",
+    "resp?.items?.length",
+    "response.items.length",
+    "resp.total",
+    "resp.size",
+    "resp.length",
+)
+
+
+def _extract_broker_submit_decisions_tile_block(source: str) -> str:
+    """Return the substring of ``apps/web/app/cockpit/audit/page.tsx``
+    that starts at the broker-submit-decisions tile's ``href`` literal
+    and ends at the closing brace of that tile's ``loadCount``
+    arrow-function body (matched with balanced-brace scanning).
+
+    This bounds the count-contract assertion to the broker-submit
+    tile only, avoiding false positives from neighbouring tiles."""
+    href = _EXPECTED_TIMELINE_HREF
+    start = source.find(href)
+    assert start != -1, (
+        f"Audit hub no longer contains the timeline href {href!r}; "
+        "the broker-submit-decisions tile is gone."
+    )
+    # Find loadCount: async () => { ... after this position.
+    m = re.search(r"loadCount:\s*async\s*\(\s*\)\s*=>\s*\{", source[start:])
+    assert m is not None, (
+        "Could not find loadCount arrow-function for the broker-submit "
+        "tile; the audit-hub tile shape has drifted."
+    )
+    brace_open = start + m.end() - 1
+    depth = 1
+    j = brace_open + 1
+    while depth > 0 and j < len(source):
+        c = source[j]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        j += 1
+    assert depth == 0, (
+        "Unbalanced braces in audit-hub loadCount; the audit-hub tile "
+        "shape has drifted."
+    )
+    return source[start:j]
+
+
+def test_audit_hub_broker_submit_decisions_count_uses_envelope_count() -> None:
+    """The broker-submit-decisions tile must derive its count from the
+    audit envelope's ``count`` field, not from ``items.length`` or a
+    fabricated field. A silent switch would zero the tile."""
+    source = _read(_COCKPIT_AUDIT_INDEX)
+    block = _extract_broker_submit_decisions_tile_block(source)
+    assert "getRecentBrokerSubmitDecisions" in block, (
+        "Broker-submit-decisions tile no longer calls "
+        "getRecentBrokerSubmitDecisions inside its loadCount; the tile "
+        "is not reading from the read-only audit feed."
+    )
+    assert "resp.count" in block, (
+        "Broker-submit-decisions tile loadCount no longer returns "
+        "'resp.count'. The cockpit audit hub must derive the row count "
+        "from the audit envelope's `count` field, not from "
+        "`items.length` or any other derived value (which would "
+        "silently zero the tile if items are paginated or filtered)."
+    )
+    leaks = [
+        pattern for pattern in _AUDIT_HUB_FORBIDDEN_COUNT_DERIVATIONS
+        if pattern in block
+    ]
+    assert not leaks, (
+        f"Broker-submit-decisions tile loadCount uses forbidden count "
+        f"derivation(s) {leaks}. Use the envelope `count` field instead."
     )
