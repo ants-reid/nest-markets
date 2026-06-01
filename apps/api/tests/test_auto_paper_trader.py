@@ -403,3 +403,55 @@ def test_auto_paper_respects_position_cap():
     # Risk gate never called because cap check fires first
     mock_risk_cls.return_value.evaluate.assert_not_called()
     mock_session.add.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# IBKR working-status acceptance (PreSubmitted / PendingSubmit / ApiPending)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "broker_status",
+    ["PreSubmitted", "PendingSubmit", "ApiPending"],
+)
+def test_auto_paper_treats_ibkr_working_status_as_accepted(broker_status):
+    """IBKR working statuses must persist a PaperOrder and open a Position."""
+    mock_session = MagicMock()
+
+    opportunity = _make_opportunity("AAPL")
+    signal = _make_signal(opportunity.signal_id)
+
+    mock_session.execute.return_value.scalar_one.return_value = 0
+    mock_session.get.return_value = signal
+
+    risk_profile = _make_risk_profile()
+    mock_session.query.return_value.filter.return_value.first.return_value = risk_profile
+
+    approved_output = RiskOutput(approved=True, decision="approved")
+
+    with patch("app.workers.auto_paper_trader_worker.OpportunityRankerService") as mock_ranker_cls, \
+         patch("app.workers.auto_paper_trader_worker.RiskService") as mock_risk_cls, \
+         patch("app.workers.auto_paper_trader_worker.BrokerService.submit_auto_order", new_callable=AsyncMock) as mock_submit_auto_order:
+
+        mock_ranker_cls.return_value.rank.return_value = [opportunity]
+        mock_risk_cls.return_value.evaluate.return_value = approved_output
+        mock_submit_auto_order.return_value = OrderResult(
+            broker_order_id="12", status=broker_status
+        )
+
+        worker = AutoPaperTraderWorker(session=mock_session)
+        result = worker.run()
+
+    assert result.status == "ok"
+    assert "1 positions opened" in result.message
+    assert "unsupported" not in result.message
+
+    add_calls = mock_session.add.call_args_list
+    assert len(add_calls) == 2  # PaperOrder + Position
+    paper_order = add_calls[0].args[0]
+    position = add_calls[1].args[0]
+    assert paper_order.status == "accepted"
+    # Preserve the raw broker status for the timeline / audit surface.
+    assert paper_order.ibkr_status == broker_status
+    assert position.broker_order_id == "12"
+    assert signal.signal_status == SignalStatus.PAPER_SUBMITTED

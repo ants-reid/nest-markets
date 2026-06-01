@@ -45,7 +45,11 @@ _DEFAULT_MAX_OPEN = 5
 
 # Recency window passed to the ranker
 _RECENCY_HOURS = 8
-_ACCEPTED_BROKER_STATUSES = {"SUBMITTED", "FILLED"}
+# IBKR working states reported on initial acceptance before exchange routing.
+# These represent orders successfully lodged at the broker and must be persisted
+# so the daily cap (derived from PaperOrder rows) reflects reality.
+_WORKING_BROKER_STATUSES = {"PRESUBMITTED", "PENDINGSUBMIT", "APIPENDING"}
+_ACCEPTED_BROKER_STATUSES = {"SUBMITTED", "FILLED"} | _WORKING_BROKER_STATUSES
 _REJECTED_BROKER_STATUSES = {"REJECTED", "CANCELLED"}
 
 
@@ -141,7 +145,7 @@ class AutoPaperTraderWorker(BaseWorker):
 
     def _normalize_paper_order_status(self, broker_status: str) -> str:
         normalized = broker_status.upper()
-        if normalized == "SUBMITTED":
+        if normalized == "SUBMITTED" or normalized in _WORKING_BROKER_STATUSES:
             return OrderStatus.ACCEPTED.value
         if normalized == "FILLED":
             return OrderStatus.FILLED.value
