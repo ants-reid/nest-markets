@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     live_execution_enabled: bool = Field(default=False)
     ibkr_account_type: str = Field(default="paper")
 
+    # TWS / IB Gateway socket adapter (P2 scaffold, read-only).
+    # Not routed by default — broker_provider remains "ibkr". These
+    # fields exist only so the optional "tws" factory branch can be
+    # constructed when a caller explicitly selects it.
+    tws_host: str = Field(default="127.0.0.1")
+    tws_port: int = Field(default=4002)
+    tws_client_id: int = Field(default=43)
+    tws_enabled: bool = Field(default=False)
+
     # MH-46B-1: scheduled P&L snapshot cadence (ingestion-only)
     pnl_snapshot_scheduler_enabled: bool = Field(default=False)
     pnl_snapshot_interval_seconds: int = Field(default=60)
