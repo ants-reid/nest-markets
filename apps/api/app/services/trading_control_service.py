@@ -191,6 +191,60 @@ def assert_auto_trading_allowed() -> None:
     )
 
 
+_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN = 1
+_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY = 1
+_CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD = 100.0
+
+
+def is_controlled_auto_paper_allowed() -> bool:
+    """Return True only if every env-level controlled auto-paper precondition holds.
+
+    This is a narrow paper-only exception to the unconditional auto-trading
+    block. It does NOT enable live, MARKET, multi-order, or non-TWS paths.
+    The inner ``assert_auto_trading_allowed()`` remains unchanged and is still
+    invoked on the non-controlled branch.
+    """
+    import os
+
+    settings = get_settings()
+
+    if not settings.auto_paper_enabled:
+        return False
+    if settings.live_execution_enabled:
+        return False
+    if settings.broker_mode.lower() != "paper":
+        return False
+    if settings.broker_provider.lower() != "tws":
+        return False
+    if not settings.tws_enabled:
+        return False
+    if not settings.auto_paper_require_tws:
+        return False
+    if settings.auto_paper_order_type.upper() != "LIMIT":
+        return False
+    if settings.auto_paper_max_orders_per_run < 1:
+        return False
+    if settings.auto_paper_max_orders_per_run > _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN:
+        return False
+    if settings.auto_paper_max_orders_per_day < 1:
+        return False
+    if settings.auto_paper_max_orders_per_day > _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY:
+        return False
+    if settings.auto_paper_max_notional_usd <= 0:
+        return False
+    if settings.auto_paper_max_notional_usd > _CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD:
+        return False
+    allowlist_raw = settings.auto_paper_symbol_allowlist or ""
+    if not [s for s in (sym.strip() for sym in allowlist_raw.split(",")) if s]:
+        return False
+    # PAPER_TRADING_ENABLED is not a Settings field; check env directly,
+    # defaulting to True when the broker is already in paper mode.
+    paper_env = os.getenv("PAPER_TRADING_ENABLED", "true").strip().lower()
+    if paper_env not in {"true", "1", "yes"}:
+        return False
+    return True
+
+
 def assert_order_submission_allowed(
     *,
     intent: str,
@@ -200,6 +254,9 @@ def assert_order_submission_allowed(
     """Validate whether an order path is allowed for the given intent."""
     normalized_intent = intent.lower()
     if normalized_intent == "auto":
+        if is_controlled_auto_paper_allowed():
+            assert_emergency_stop_clear()
+            return
         assert_auto_trading_allowed()
         return
     if normalized_intent != "manual":

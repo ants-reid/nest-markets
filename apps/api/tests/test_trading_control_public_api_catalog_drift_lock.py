@@ -26,6 +26,7 @@ EXPECTED_PUBLIC_FUNCTIONS: frozenset[str] = frozenset(
         "assert_mode_configuration_consistent",
         "assert_order_submission_allowed",
         "get_trading_mode",
+        "is_controlled_auto_paper_allowed",
     }
 )
 

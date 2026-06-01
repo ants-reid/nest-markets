@@ -52,7 +52,7 @@ EXPECTED_HASHES: dict[str, str] = {
     "assert_auto_trading_allowed":
         "a4ea8ee5d23d693ca635306d0cdf706e4e66be93a2a0c6c40ed48ec56a842452",
     "assert_order_submission_allowed":
-        "490d9e879fb708d59aa0fe51b3efc797dc16fdae097848ab2587a511ea62750b",
+        "e3e5084cc5c2e93f33135d57d75329362e0a673ab340cbaf99bc8572a1dc924c",
     "BrokerService.submit_auto_order":
         "73bdc642b5b738614d4ab9523b6837964d6ce33198fb4b0af554378d5294b48a",
     "BrokerService._submit_order_for_intent":
