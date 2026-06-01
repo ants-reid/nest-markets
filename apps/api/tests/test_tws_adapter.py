@@ -124,17 +124,18 @@ async def test_get_positions_maps_fields_correctly() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Read-only enforcement
+# Read-only enforcement (default: submit_enabled=False)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_submit_order_raises_not_implemented() -> None:
+async def test_submit_order_raises_when_submit_disabled() -> None:
     broker = _make_broker(_make_ib([], []))
     req = OrderRequest(
         ticker="AAPL",
         side="BUY",
         quantity=Decimal("1"),
-        order_type="MARKET",
+        order_type="LIMIT",
+        limit_price=Decimal("50"),
     )
     with pytest.raises(NotImplementedError, match="TWS adapter is read-only"):
         await broker.submit_order(req)
@@ -142,8 +143,7 @@ async def test_submit_order_raises_not_implemented() -> None:
 
 @pytest.mark.asyncio
 async def test_place_order_alias_raises_not_implemented() -> None:
-    """Spec lists ``place_order`` explicitly; we expose it as a thin
-    read-only stub even though ``submit_order`` is the canonical name."""
+    """``place_order`` remains a hard read-only stub even when submit is on."""
     broker = _make_broker(_make_ib([], []))
     with pytest.raises(NotImplementedError, match="TWS adapter is read-only"):
         await broker.place_order(
@@ -151,7 +151,8 @@ async def test_place_order_alias_raises_not_implemented() -> None:
                 ticker="AAPL",
                 side="BUY",
                 quantity=Decimal("1"),
-                order_type="MARKET",
+                order_type="LIMIT",
+                limit_price=Decimal("50"),
             )
         )
 
@@ -168,6 +169,156 @@ async def test_modify_order_raises_not_implemented() -> None:
     broker = _make_broker(_make_ib([], []))
     with pytest.raises(NotImplementedError, match="TWS adapter is read-only"):
         await broker.modify_order("abc", quantity=Decimal("2"))
+
+
+# ---------------------------------------------------------------------------
+# Guarded submit (submit_enabled=True) — LIMIT only
+# ---------------------------------------------------------------------------
+
+def _make_submit_broker(ib: MagicMock) -> TwsBroker:
+    return TwsBroker(
+        host="127.0.0.1",
+        port=4002,
+        client_id=43,
+        account_id="DUP1",
+        ib_factory=lambda: ib,
+        submit_enabled=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_limit_order_returns_broker_order_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    ib = _make_ib([], [])
+    trade = SimpleNamespace(
+        order=SimpleNamespace(orderId=4242, permId=999),
+        orderStatus=SimpleNamespace(status="Submitted", filled=0, avgFillPrice=0.0),
+    )
+    ib.placeOrder.return_value = trade
+    ib.qualifyContracts.return_value = None
+    ib.sleep = MagicMock(return_value=None)
+
+    fake_ib_async = SimpleNamespace(
+        LimitOrder=lambda action, totalQuantity, lmtPrice: SimpleNamespace(
+            action=action,
+            totalQuantity=totalQuantity,
+            lmtPrice=lmtPrice,
+            account=None,
+            tif=None,
+            outsideRth=None,
+            transmit=None,
+        ),
+        Stock=lambda symbol, exch, ccy: SimpleNamespace(
+            symbol=symbol, exchange=exch, currency=ccy
+        ),
+    )
+    import sys
+    monkeypatch.setitem(sys.modules, "ib_async", fake_ib_async)
+
+    broker = _make_submit_broker(ib)
+    result = await broker.submit_order(
+        OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="LIMIT",
+            limit_price=Decimal("50.00"),
+            tif="DAY",
+        )
+    )
+
+    assert result.broker_order_id == "4242"
+    assert result.status == "Submitted"
+    assert result.error_message is None
+    ib.placeOrder.assert_called_once()
+    # When submit is enabled, the socket connection must NOT be read-only.
+    ib.connect.assert_called_once_with(
+        "127.0.0.1", 4002, clientId=43, readonly=False, timeout=15.0
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_market_order_returns_rejected_without_submit() -> None:
+    ib = _make_ib([], [])
+    broker = _make_submit_broker(ib)
+    result = await broker.submit_order(
+        OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="MARKET",
+        )
+    )
+    assert result.status == "REJECTED"
+    assert "LIMIT" in (result.error_message or "")
+    ib.placeOrder.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_submit_stop_order_returns_rejected_without_submit() -> None:
+    ib = _make_ib([], [])
+    broker = _make_submit_broker(ib)
+    result = await broker.submit_order(
+        OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="STOP",
+            stop_price=Decimal("45.00"),
+        )
+    )
+    assert result.status == "REJECTED"
+    ib.placeOrder.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_submit_limit_without_price_returns_rejected() -> None:
+    ib = _make_ib([], [])
+    broker = _make_submit_broker(ib)
+    result = await broker.submit_order(
+        OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="LIMIT",
+        )
+    )
+    assert result.status == "REJECTED"
+    assert "limit_price" in (result.error_message or "")
+    ib.placeOrder.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_submit_limit_order_returns_rejected_on_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ib = _make_ib([], [])
+    ib.placeOrder.side_effect = RuntimeError("boom")
+    ib.qualifyContracts.return_value = None
+    ib.sleep = MagicMock(return_value=None)
+
+    fake_ib_async = SimpleNamespace(
+        LimitOrder=lambda **kwargs: SimpleNamespace(
+            account=None, tif=None, outsideRth=None, transmit=None, **kwargs
+        ),
+        Stock=lambda symbol, exch, ccy: SimpleNamespace(
+            symbol=symbol, exchange=exch, currency=ccy
+        ),
+    )
+    import sys
+    monkeypatch.setitem(sys.modules, "ib_async", fake_ib_async)
+
+    broker = _make_submit_broker(ib)
+    result = await broker.submit_order(
+        OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="LIMIT",
+            limit_price=Decimal("50"),
+        )
+    )
+    assert result.status == "REJECTED"
+    assert "boom" in (result.error_message or "")
 
 
 # ---------------------------------------------------------------------------

@@ -97,11 +97,32 @@ class BrokerService:
         if self._broker is None:
             settings = get_settings()
             factory = BrokerGatewayFactory()
-            self._broker = factory.create(
-                "ibkr",
-                base_url=settings.ibkr_gateway_url,
-                preferred_account_id=settings.ibkr_account_id or None,
-            )
+            provider = (settings.broker_provider or "ibkr").lower()
+            if provider in ("tws", "tws_socket"):
+                if not settings.tws_enabled:
+                    raise RuntimeError(
+                        "BROKER_PROVIDER=tws requires TWS_ENABLED=true"
+                    )
+                meta = get_broker_mode_metadata()
+                submit_ok = (
+                    str(meta.get("mode") or "").lower() == "paper"
+                    and bool(meta.get("paper_trading_enabled"))
+                    and not bool(meta.get("live_execution_enabled"))
+                )
+                self._broker = factory.create(
+                    "tws",
+                    tws_host=settings.tws_host,
+                    tws_port=settings.tws_port,
+                    tws_client_id=settings.tws_client_id,
+                    tws_submit_enabled=submit_ok,
+                    preferred_account_id=settings.ibkr_account_id or None,
+                )
+            else:
+                self._broker = factory.create(
+                    "ibkr",
+                    base_url=settings.ibkr_gateway_url,
+                    preferred_account_id=settings.ibkr_account_id or None,
+                )
         if hasattr(self._broker, "connect") and not getattr(self._broker, "is_connected", False):
             await self._broker.connect()
 

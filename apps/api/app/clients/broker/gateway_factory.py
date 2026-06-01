@@ -21,15 +21,19 @@ class BrokerGatewayFactory:
         tws_host: str | None = None,
         tws_port: int | None = None,
         tws_client_id: int | None = None,
+        tws_submit_enabled: bool = False,
     ) -> BrokerInterface:
         """Create a broker adapter.
 
         Args:
             broker_type:  "ibkr" (CP Gateway, default), "paper" (not yet
-                          implemented), or "tws"/"tws_socket" (read-only
-                          scaffold; must be explicitly selected).
+                          implemented), or "tws"/"tws_socket" (socket
+                          adapter; must be explicitly selected).
             base_url:     Gateway URL (IBKR only). Defaults to local paper gateway.
             timeout:      HTTP request timeout in seconds.
+            tws_submit_enabled: Defence-in-depth flag for the TWS adapter.
+                          When False (default), the adapter opens its IB
+                          socket as read-only and refuses every submit call.
 
         Returns:
             A concrete BrokerInterface implementation.
@@ -54,6 +58,7 @@ class BrokerGatewayFactory:
                 client_id=tws_client_id if tws_client_id is not None else 43,
                 account_id=preferred_account_id,
                 connect_timeout=timeout,
+                submit_enabled=bool(tws_submit_enabled),
             )
         if broker_type == "paper":
             # Placeholder for paper trading adapter (to be implemented)
