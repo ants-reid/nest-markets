@@ -111,6 +111,18 @@ class AutoPaperGateService:
             "order_type": s.auto_paper_order_type.upper(),
             "limit_price": float(s.auto_paper_limit_price),
             "require_tws": bool(s.auto_paper_require_tws),
+            "background_scheduler_enabled": bool(
+                getattr(s, "auto_paper_background_scheduler_enabled", False)
+            ),
+            "minutes_between_runs": int(
+                getattr(s, "auto_paper_minutes_between_runs", 30)
+            ),
+            "kill_on_error_count": int(
+                getattr(s, "auto_paper_kill_on_error_count", 3)
+            ),
+            "kill_on_reject_rate": float(
+                getattr(s, "auto_paper_kill_on_reject_rate", 0.5)
+            ),
         }
         if session is not None:
             snap["orders_today"] = self.count_orders_today(session)

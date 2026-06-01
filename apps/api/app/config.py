@@ -89,6 +89,15 @@ class Settings(BaseSettings):
     auto_paper_limit_price: float = Field(default=50.00)
     auto_paper_require_tws: bool = Field(default=True)
 
+    # Background auto-paper scheduler (default OFF; cron path stays the fallback).
+    # When enabled, the lifespan registers an IntervalTrigger every
+    # AUTO_PAPER_MINUTES_BETWEEN_RUNS minutes instead of the cron schedule.
+    # Live trading remains locked regardless of these flags.
+    auto_paper_background_scheduler_enabled: bool = Field(default=False)
+    auto_paper_minutes_between_runs: int = Field(default=30)
+    auto_paper_kill_on_error_count: int = Field(default=3)
+    auto_paper_kill_on_reject_rate: float = Field(default=0.5)
+
     @property
     def database_url(self) -> str:
         """Return the SQLAlchemy-compatible PostgreSQL connection URL."""

@@ -154,13 +154,46 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     _logger.info("Scheduled job registered: %s (every 30s)", job.name)
                 elif job.name == "auto_paper_trader":
                     worker = data_sync.get_worker(job.name)
-                    scheduler.add_job(
-                        lambda worker=worker, run_log=auto_paper_run_log: _run_scheduled_auto_paper_job(worker, run_log),
-                        CronTrigger.from_crontab(job.cron),
-                        id=job.name,
-                        replace_existing=True,
+                    background_enabled = bool(
+                        getattr(settings, "auto_paper_background_scheduler_enabled", False)
                     )
-                    _logger.info("Scheduled job registered: %s (%s)", job.name, job.cron)
+                    # Hard safety: never run the background interval scheduler
+                    # if live execution is enabled or broker mode is not paper.
+                    if background_enabled and (
+                        settings.live_execution_enabled
+                        or settings.broker_mode.lower() != "paper"
+                    ):
+                        _logger.error(
+                            "AUTO_PAPER_BACKGROUND_SCHEDULER_ENABLED ignored: "
+                            "live_execution_enabled=%s broker_mode=%s",
+                            settings.live_execution_enabled,
+                            settings.broker_mode,
+                        )
+                        background_enabled = False
+                    if background_enabled:
+                        interval_minutes = max(
+                            1,
+                            int(getattr(settings, "auto_paper_minutes_between_runs", 30)),
+                        )
+                        scheduler.add_job(
+                            lambda worker=worker, run_log=auto_paper_run_log: _run_scheduled_auto_paper_job(worker, run_log),
+                            IntervalTrigger(minutes=interval_minutes),
+                            id=job.name,
+                            replace_existing=True,
+                        )
+                        _logger.info(
+                            "Scheduled job registered: %s (background interval every %d min)",
+                            job.name,
+                            interval_minutes,
+                        )
+                    else:
+                        scheduler.add_job(
+                            lambda worker=worker, run_log=auto_paper_run_log: _run_scheduled_auto_paper_job(worker, run_log),
+                            CronTrigger.from_crontab(job.cron),
+                            id=job.name,
+                            replace_existing=True,
+                        )
+                        _logger.info("Scheduled job registered: %s (%s)", job.name, job.cron)
                 else:
                     scheduler.add_job(
                         data_sync.get_worker(job.name).run,

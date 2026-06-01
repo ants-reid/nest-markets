@@ -193,6 +193,31 @@ def test_snapshot_reflects_settings_and_session_state():
     assert snap["kill_switch_active"] is True
 
 
+def test_snapshot_exposes_background_scheduler_fields_defaults():
+    svc = AutoPaperGateService(_settings())
+    snap = svc.snapshot()
+    assert snap["background_scheduler_enabled"] is False
+    assert snap["minutes_between_runs"] == 30
+    assert snap["kill_on_error_count"] == 3
+    assert snap["kill_on_reject_rate"] == 0.5
+
+
+def test_snapshot_exposes_background_scheduler_fields_overridden():
+    svc = AutoPaperGateService(
+        _settings(
+            auto_paper_background_scheduler_enabled=True,
+            auto_paper_minutes_between_runs=15,
+            auto_paper_kill_on_error_count=5,
+            auto_paper_kill_on_reject_rate=0.25,
+        )
+    )
+    snap = svc.snapshot()
+    assert snap["background_scheduler_enabled"] is True
+    assert snap["minutes_between_runs"] == 15
+    assert snap["kill_on_error_count"] == 5
+    assert snap["kill_on_reject_rate"] == 0.25
+
+
 # ---------------------------------------------------------------------------
 # Dataclass shape
 # ---------------------------------------------------------------------------
