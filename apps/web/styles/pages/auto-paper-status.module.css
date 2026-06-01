@@ -342,6 +342,107 @@
   color: var(--text-muted);
 }
 
+.gateBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gateBadge {
+  display: inline-block;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gateBadgeAllowed {
+  color: #22c55e;
+}
+
+.gateBadgeBlocked {
+  color: #ef4444;
+}
+
+.opsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.primaryButton {
+  background: #2563eb;
+  color: #f9fafb;
+  border: 1px solid #1d4ed8;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.primaryButton:disabled {
+  background: #1f2937;
+  color: #6b7280;
+  border-color: #374151;
+  cursor: not-allowed;
+}
+
+.dangerButton {
+  background: #b91c1c;
+  color: #fef2f2;
+  border: 1px solid #7f1d1d;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dangerButton:disabled,
+.secondaryButton:disabled {
+  background: #1f2937;
+  color: #6b7280;
+  border-color: #374151;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: #1f2937;
+  color: #f9fafb;
+  border: 1px solid #374151;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.opsNote {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.opsResult {
+  font-size: 0.85rem;
+  color: var(--text-body);
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  word-break: break-word;
+}
+
+.timelineLink {
+  color: #60a5fa;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 @media (max-width: 700px) {
   .container {
     padding-inline: 1rem;

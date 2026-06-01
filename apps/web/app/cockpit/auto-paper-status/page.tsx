@@ -1,13 +1,20 @@
 "use client";
 
-// MH-COCKPIT-13-B — Auto-paper status card page (read-only).
-// Renders /cockpit/auto-paper-status. Surfaces drift-lock posture only;
-// no toggles, no enable buttons, no broker actions.
+// MH-COCKPIT-13-B / Auto Paper Cockpit + Operations Polish.
+// Surfaces drift-lock posture and a small set of safe operator controls:
+// run-one-paper-cycle, kill-switch activate/deactivate. No live controls,
+// no MARKET order button, no auto-retry. All actions hit paper-only routes.
 
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  activateAutoPaperKillSwitch,
+  deactivateAutoPaperKillSwitch,
+  getAutoPaperKillSwitch,
   getAutoPaperStatusCard,
+  runAutoPaperOnce,
+  type AutoPaperKillSwitchState,
+  type AutoPaperRunResult,
   type AutoPaperStatusCard,
   type AutoPaperStatusPosture,
   type AutoPaperStatusRiskGateItem,
@@ -30,6 +37,10 @@ function formatTimestamp(value: string | null | undefined): string {
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return Number.isInteger(value) ? `${value}` : value.toFixed(2);
+}
+
+function formatBool(value: boolean): string {
+  return value ? "yes" : "no";
 }
 
 interface ChipProps {
@@ -57,18 +68,53 @@ function GateItem({ item }: { item: AutoPaperStatusRiskGateItem }) {
   );
 }
 
+function deriveGuidance(card: AutoPaperStatusCard): string | null {
+  const gate = card.controlled_gate;
+  if (!gate) return null;
+  const snap = gate.snapshot;
+  if (snap.kill_switch_active) {
+    return "Kill switch is active — no orders will be submitted. Deactivate below when you want to resume.";
+  }
+  if (snap.orders_today >= snap.max_orders_per_day) {
+    return `Daily cap reached (${snap.orders_today}/${snap.max_orders_per_day}). No further paper orders today.`;
+  }
+  if (!gate.decision.allowed) {
+    return `Gate blocked${gate.decision.blocking_gate ? ` at ${gate.decision.blocking_gate}` : ""}: ${gate.decision.reason ?? "no reason supplied"}.`;
+  }
+  const latest = card.latest_paper_order;
+  if (latest && latest.ibkr_status && /presubmit|pending|api/i.test(latest.ibkr_status)) {
+    return `Latest paper order ${latest.broker_order_id ?? ""} is ${latest.ibkr_status} at IBKR — resting on the book.`;
+  }
+  if (!card.live_trading_locked) {
+    return "Live trading is not locked — running another paper cycle is disabled until it is.";
+  }
+  return "Gate is clear — one paper cycle can be submitted.";
+}
+
 export default function AutoPaperStatusPage() {
   const [card, setCard] = useState<AutoPaperStatusCard | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
+  const [runPending, setRunPending] = useState(false);
+  const [runResult, setRunResult] = useState<AutoPaperRunResult | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  const [killSwitch, setKillSwitch] = useState<AutoPaperKillSwitchState | null>(null);
+  const [killPending, setKillPending] = useState(false);
+  const [killError, setKillError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await getAutoPaperStatusCard();
+      const [resp, ks] = await Promise.all([
+        getAutoPaperStatusCard(),
+        getAutoPaperKillSwitch().catch(() => null),
+      ]);
       setCard(resp);
+      if (ks) setKillSwitch(ks);
       setLastRefreshed(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -81,8 +127,62 @@ export default function AutoPaperStatusPage() {
     void load();
   }, [load]);
 
+  const handleRunOnce = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Submit one auto-paper cycle to IBKR Paper Gateway? This will place at most one LIMIT order.",
+      );
+      if (!ok) return;
+    }
+    setRunPending(true);
+    setRunError(null);
+    setRunResult(null);
+    try {
+      const result = await runAutoPaperOnce();
+      setRunResult(result);
+      await load();
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunPending(false);
+    }
+  }, [load]);
+
+  const handleKillSwitchToggle = useCallback(
+    async (activate: boolean) => {
+      setKillPending(true);
+      setKillError(null);
+      try {
+        const result = activate
+          ? await activateAutoPaperKillSwitch()
+          : await deactivateAutoPaperKillSwitch();
+        setKillSwitch(result);
+        await load();
+      } catch (err) {
+        setKillError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setKillPending(false);
+      }
+    },
+    [load],
+  );
+
   const postureClass = card ? styles[card.posture] ?? "" : "";
   const posturePillClass = card ? POSTURE_CLASS[card.posture] : "";
+  const gate = card?.controlled_gate;
+  const snapshot = gate?.snapshot;
+  const decision = gate?.decision;
+  const ksActive = snapshot?.kill_switch_active ?? killSwitch?.kill_switch_active ?? false;
+
+  const runDisabled =
+    runPending ||
+    !card ||
+    !card.live_trading_locked ||
+    !decision?.allowed ||
+    snapshot?.broker_mode !== "paper" ||
+    ksActive;
+
+  const guidance = card ? deriveGuidance(card) : null;
 
   return (
     <main className={styles.page} data-testid="auto-paper-status-page">
@@ -91,9 +191,9 @@ export default function AutoPaperStatusPage() {
           <div>
             <h1 className={styles.title}>Auto-Paper Status</h1>
             <p className={styles.subtitle}>
-              Read-only posture for the Auto Paper subsystem. This page is for
-              operator visibility only and cannot enable, arm, or modify any
-              trading control.
+              Visibility and safe paper-only controls for the Auto Paper
+              subsystem. Live trading and live submission remain locked; this
+              page can only submit paper orders or toggle the kill switch.
             </p>
           </div>
           <div className={styles.refreshPanel}>
@@ -107,6 +207,7 @@ export default function AutoPaperStatusPage() {
               className={styles.refreshButton}
               onClick={() => void load()}
               disabled={loading}
+              data-testid="auto-paper-refresh"
             >
               {loading ? "Loading…" : "Refresh"}
             </button>
@@ -197,6 +298,150 @@ export default function AutoPaperStatusPage() {
                 </div>
               </div>
 
+              {gate && snapshot && decision && (
+                <div
+                  className={styles.section}
+                  data-testid="auto-paper-controlled-gate"
+                >
+                  <h3 className={styles.sectionTitle}>Controlled run gate</h3>
+                  <div className={styles.gateBadgeRow}>
+                    <span
+                      className={`${styles.gateBadge} ${
+                        decision.allowed ? styles.gateBadgeAllowed : styles.gateBadgeBlocked
+                      }`}
+                      data-testid="auto-paper-gate-decision"
+                    >
+                      GATE: {decision.allowed ? "ALLOWED" : "BLOCKED"}
+                    </span>
+                    {decision.blocking_gate && (
+                      <span className={styles.code}>blocking gate: {decision.blocking_gate}</span>
+                    )}
+                  </div>
+                  {decision.reason && (
+                    <p className={styles.sectionBody}>{decision.reason}</p>
+                  )}
+                  <div className={styles.metaGrid}>
+                    <div className={styles.metaItem} data-testid="auto-paper-daily-cap">
+                      <span className={styles.metaLabel}>Daily cap</span>
+                      <span className={styles.metaValue}>
+                        {snapshot.orders_today} / {snapshot.max_orders_per_day}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Per-run cap</span>
+                      <span className={styles.metaValue}>{snapshot.max_orders_per_run}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Max notional (USD)</span>
+                      <span className={styles.metaValue}>{formatNumber(snapshot.max_notional_usd)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Order type</span>
+                      <span className={styles.metaValue}>{snapshot.order_type}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Limit price</span>
+                      <span className={styles.metaValue}>{formatNumber(snapshot.limit_price)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Symbol allowlist</span>
+                      <span className={styles.metaValue}>
+                        {snapshot.symbol_allowlist.length > 0
+                          ? snapshot.symbol_allowlist.join(", ")
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Broker provider</span>
+                      <span className={styles.metaValue}>{snapshot.broker_provider}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Broker mode</span>
+                      <span className={styles.metaValue}>{snapshot.broker_mode}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>TWS enabled</span>
+                      <span className={styles.metaValue}>{formatBool(snapshot.tws_enabled)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Auto paper enabled</span>
+                      <span className={styles.metaValue}>{formatBool(snapshot.auto_paper_enabled)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Kill switch</span>
+                      <span className={styles.metaValue}>
+                        {snapshot.kill_switch_active ? "ACTIVE" : "inactive"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={styles.section}
+                data-testid="auto-paper-operations"
+              >
+                <h3 className={styles.sectionTitle}>Operations</h3>
+                {guidance && (
+                  <p className={styles.opsNote} data-testid="auto-paper-guidance">
+                    {guidance}
+                  </p>
+                )}
+                <div className={styles.opsActions}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={() => void handleRunOnce()}
+                    disabled={runDisabled}
+                    data-testid="auto-paper-run-button"
+                  >
+                    {runPending ? "Submitting…" : "Run one paper cycle"}
+                  </button>
+                  {ksActive ? (
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => void handleKillSwitchToggle(false)}
+                      disabled={killPending}
+                      data-testid="auto-paper-kill-switch-deactivate"
+                    >
+                      {killPending ? "Working…" : "Deactivate kill switch"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.dangerButton}
+                      onClick={() => void handleKillSwitchToggle(true)}
+                      disabled={killPending}
+                      data-testid="auto-paper-kill-switch-activate"
+                    >
+                      {killPending ? "Working…" : "Activate kill switch"}
+                    </button>
+                  )}
+                </div>
+                {runError && (
+                  <p className={styles.opsResult} data-testid="auto-paper-run-error">
+                    Run failed: {runError}
+                  </p>
+                )}
+                {runResult && (
+                  <p className={styles.opsResult} data-testid="auto-paper-run-result">
+                    {runResult.worker_name}: {runResult.status} — {runResult.message}
+                  </p>
+                )}
+                {killError && (
+                  <p className={styles.opsResult} data-testid="auto-paper-kill-error">
+                    Kill switch action failed: {killError}
+                  </p>
+                )}
+                {killSwitch && (
+                  <p className={styles.opsNote}>
+                    Kill switch: {killSwitch.kill_switch_active ? "ACTIVE" : "inactive"}
+                    {killSwitch.profile_name ? ` (profile: ${killSwitch.profile_name})` : ""}
+                  </p>
+                )}
+              </div>
+
               <div className={styles.section}>
                 <h3 className={styles.sectionTitle}>Operator next action</h3>
                 <p className={styles.sectionBody} data-testid="auto-paper-next-action">
@@ -253,6 +498,10 @@ export default function AutoPaperStatusPage() {
                       <span className={styles.metaValue}>{card.latest_paper_order.status ?? "—"}</span>
                     </div>
                     <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Order type</span>
+                      <span className={styles.metaValue}>{card.latest_paper_order.order_type ?? "—"}</span>
+                    </div>
+                    <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Side / direction</span>
                       <span className={styles.metaValue}>
                         {card.latest_paper_order.side ?? "—"} / {card.latest_paper_order.direction ?? "—"}
@@ -265,6 +514,24 @@ export default function AutoPaperStatusPage() {
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Simulated notional</span>
                       <span className={styles.metaValue}>{formatNumber(card.latest_paper_order.notional)}</span>
+                    </div>
+                    <div className={styles.metaItem} data-testid="auto-paper-broker-order-id">
+                      <span className={styles.metaLabel}>Broker order ID</span>
+                      <span className={styles.metaValue}>
+                        {card.latest_paper_order.broker_order_id ?? "—"}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem} data-testid="auto-paper-ibkr-status">
+                      <span className={styles.metaLabel}>IBKR status</span>
+                      <span className={styles.metaValue}>
+                        {card.latest_paper_order.ibkr_status ?? "—"}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Submitted</span>
+                      <span className={styles.metaValue}>
+                        {formatTimestamp(card.latest_paper_order.submitted_at)}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -307,14 +574,24 @@ export default function AutoPaperStatusPage() {
                     </li>
                   ))}
                 </ul>
+                <p className={styles.opsNote}>
+                  <a
+                    className={styles.timelineLink}
+                    href="/cockpit/audit/broker-submit-decisions"
+                    data-testid="auto-paper-timeline-link"
+                  >
+                    View broker submit timeline →
+                  </a>
+                </p>
               </div>
             </section>
           </>
         )}
 
         <div className={styles.driftLockNotice}>
-          Drift lock active: this view is read-only. Nothing on this page can
-          submit orders or change a gate.
+          Drift lock active: live trading and live submission are locked.
+          Controls on this page can only submit paper orders or toggle the
+          kill switch.
         </div>
       </div>
     </main>

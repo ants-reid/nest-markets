@@ -108,6 +108,7 @@ def _load_latest_paper_order(session: Session) -> Dict[str, Any] | None:
         "signal_id": str(order.signal_id) if order.signal_id is not None else None,
         "asset_id": str(order.asset_id) if order.asset_id is not None else None,
         "broker_order_id": order.broker_order_id,
+        "ibkr_status": getattr(order, "ibkr_status", None),
     }
 
 

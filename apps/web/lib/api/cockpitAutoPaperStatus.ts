@@ -64,7 +64,36 @@ export interface AutoPaperStatusLatestPaperOrder {
   submitted_at: string | null;
   signal_id: string | null;
   asset_id: string | null;
-  broker_order_id: number | null;
+  broker_order_id: number | string | null;
+  ibkr_status?: string | null;
+}
+
+export interface AutoPaperControlledGateDecision {
+  allowed: boolean;
+  blocking_gate: string | null;
+  reason: string | null;
+}
+
+export interface AutoPaperControlledGateSnapshot {
+  auto_paper_enabled: boolean;
+  broker_provider: string;
+  broker_mode: string;
+  tws_enabled: boolean;
+  live_execution_enabled: boolean;
+  max_orders_per_run: number;
+  max_orders_per_day: number;
+  max_notional_usd: number;
+  symbol_allowlist: string[];
+  order_type: string;
+  limit_price: number;
+  require_tws: boolean;
+  orders_today: number;
+  kill_switch_active: boolean;
+}
+
+export interface AutoPaperControlledGate {
+  decision: AutoPaperControlledGateDecision;
+  snapshot: AutoPaperControlledGateSnapshot;
 }
 
 export interface AutoPaperStatusCard {
@@ -93,10 +122,53 @@ export interface AutoPaperStatusCard {
   latest_paper_order: AutoPaperStatusLatestPaperOrder | null;
   run_log_summary: AutoPaperStatusRunLogSummary;
   links: Record<string, string>;
+  controlled_gate?: AutoPaperControlledGate;
 }
 
 export async function getAutoPaperStatusCard(): Promise<AutoPaperStatusCard> {
   return apiRequest<AutoPaperStatusCard>("/cockpit/auto-paper/status", {
     method: "GET",
   });
+}
+
+export interface AutoPaperRunResult {
+  worker_name: string;
+  status: string;
+  message: string;
+  started_at: string;
+  finished_at: string;
+}
+
+export async function runAutoPaperOnce(): Promise<AutoPaperRunResult> {
+  return apiRequest<AutoPaperRunResult>(
+    "/market-data/auto-paper/run?source=manual",
+    { method: "POST" },
+  );
+}
+
+export interface AutoPaperKillSwitchState {
+  kill_switch_active: boolean;
+  profile_name: string | null;
+  profile_is_active: string | null;
+}
+
+export async function getAutoPaperKillSwitch(): Promise<AutoPaperKillSwitchState> {
+  return apiRequest<AutoPaperKillSwitchState>(
+    "/market-data/auto-paper/kill-switch",
+    { method: "GET" },
+  );
+}
+
+export async function activateAutoPaperKillSwitch(): Promise<AutoPaperKillSwitchState> {
+  return apiRequest<AutoPaperKillSwitchState>(
+    "/market-data/auto-paper/kill-switch/activate",
+    { method: "POST" },
+  );
+}
+
+export async function deactivateAutoPaperKillSwitch(): Promise<AutoPaperKillSwitchState> {
+  return apiRequest<AutoPaperKillSwitchState>(
+    "/market-data/auto-paper/kill-switch/deactivate",
+    { method: "POST" },
+  );
 }

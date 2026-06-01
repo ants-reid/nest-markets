@@ -190,6 +190,7 @@ function buildAutoPaperStatus() {
       signal_id: null,
       asset_id: null,
       broker_order_id: null,
+      ibkr_status: null,
     },
     run_log_summary: {
       current_entry_count: 4,
@@ -205,6 +206,29 @@ function buildAutoPaperStatus() {
       worker_run_log: "/monitor/worker-run-log/overview",
       broker_control: "/broker/control",
       broker_health: "/broker/health",
+    },
+    controlled_gate: {
+      decision: {
+        allowed: false,
+        blocking_gate: "max_orders_per_day",
+        reason: "Daily cap reached (1/1)",
+      },
+      snapshot: {
+        auto_paper_enabled: true,
+        broker_provider: "tws",
+        broker_mode: "paper",
+        tws_enabled: true,
+        live_execution_enabled: false,
+        max_orders_per_run: 1,
+        max_orders_per_day: 1,
+        max_notional_usd: 100,
+        symbol_allowlist: ["AAPL"],
+        order_type: "LIMIT",
+        limit_price: 50,
+        require_tws: true,
+        orders_today: 1,
+        kill_switch_active: false,
+      },
     },
   };
 }
@@ -223,6 +247,18 @@ async function mockCockpitSurfaces(page: import("@playwright/test").Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(buildAutoPaperStatus()),
+    });
+  });
+
+  await page.route("**/market-data/auto-paper/kill-switch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        kill_switch_active: false,
+        profile_name: "default",
+        profile_is_active: "active",
+      }),
     });
   });
 }
@@ -269,4 +305,141 @@ test("auto paper status page has no horizontal overflow at 390px", async ({ page
     Math.max(overflow.bodyScrollWidth, overflow.docScrollWidth) <= overflow.innerWidth,
     `Horizontal overflow detected: body=${overflow.bodyScrollWidth}, doc=${overflow.docScrollWidth}, inner=${overflow.innerWidth}`,
   ).toBe(true);
+});
+
+test("auto paper status page surfaces controlled gate, broker order, and timeline link", async ({ page }) => {
+  await mockCockpitSurfaces(page);
+
+  await page.goto("/cockpit/auto-paper-status");
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page.getByTestId("auto-paper-controlled-gate")).toBeVisible();
+  await expect(page.getByTestId("auto-paper-gate-decision")).toContainText(/blocked/i);
+  await expect(page.getByTestId("auto-paper-daily-cap")).toContainText("1 / 1");
+  await expect(page.getByTestId("auto-paper-broker-order-id")).toBeVisible();
+  await expect(page.getByTestId("auto-paper-ibkr-status")).toBeVisible();
+  await expect(page.getByTestId("auto-paper-timeline-link")).toHaveAttribute(
+    "href",
+    "/cockpit/audit/broker-submit-decisions",
+  );
+});
+
+test("run-one-paper-cycle button is disabled when the controlled gate blocks", async ({ page }) => {
+  await mockCockpitSurfaces(page);
+
+  await page.goto("/cockpit/auto-paper-status");
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page.getByTestId("auto-paper-run-button")).toBeDisabled();
+  // Live controls must never appear on this page.
+  await expect(page.getByText(/market order/i)).toHaveCount(0);
+  await expect(page.getByText(/live submission/i).first()).toBeVisible();
+});
+
+test("run-one-paper-cycle posts exactly once when the gate allows", async ({ page }) => {
+  let runCalls = 0;
+  await page.route("**/cockpit/mode", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildModeState()),
+    });
+  });
+  await page.route("**/cockpit/auto-paper/status", async (route) => {
+    const body = buildAutoPaperStatus();
+    body.controlled_gate = {
+      decision: { allowed: true, blocking_gate: null as unknown as string, reason: null as unknown as string },
+      snapshot: { ...body.controlled_gate.snapshot, orders_today: 0 },
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+  await page.route("**/market-data/auto-paper/kill-switch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        kill_switch_active: false,
+        profile_name: "default",
+        profile_is_active: "active",
+      }),
+    });
+  });
+  await page.route("**/market-data/auto-paper/run**", async (route) => {
+    runCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        worker_name: "auto_paper_trader",
+        status: "ok",
+        message: "auto_paper_trader: 1 positions opened",
+        started_at: "2025-01-02T03:04:05Z",
+        finished_at: "2025-01-02T03:04:06Z",
+      }),
+    });
+  });
+
+  await page.goto("/cockpit/auto-paper-status");
+  await page.waitForLoadState("domcontentloaded");
+
+  page.on("dialog", async (dialog) => {
+    await dialog.accept();
+  });
+
+  const runButton = page.getByTestId("auto-paper-run-button");
+  await expect(runButton).toBeEnabled();
+  await runButton.click();
+  await expect(page.getByTestId("auto-paper-run-result")).toContainText(/1 positions opened/i);
+  expect(runCalls).toBe(1);
+});
+
+test("kill-switch activate hits the correct endpoint and is reflected in UI", async ({ page }) => {
+  let activateCalls = 0;
+  await page.route("**/cockpit/mode", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildModeState()),
+    });
+  });
+  await page.route("**/cockpit/auto-paper/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAutoPaperStatus()),
+    });
+  });
+  await page.route("**/market-data/auto-paper/kill-switch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        kill_switch_active: false,
+        profile_name: "default",
+        profile_is_active: "active",
+      }),
+    });
+  });
+  await page.route("**/market-data/auto-paper/kill-switch/activate", async (route) => {
+    activateCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        kill_switch_active: true,
+        profile_name: "default",
+        profile_is_active: "active",
+      }),
+    });
+  });
+
+  await page.goto("/cockpit/auto-paper-status");
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.getByTestId("auto-paper-kill-switch-activate").click();
+  await expect.poll(() => activateCalls).toBe(1);
 });

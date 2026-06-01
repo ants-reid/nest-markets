@@ -87,6 +87,7 @@ class _FakeOrder:
         qty: float = 1.5,
         notional: float = 2500.0,
         status: str = "accepted",
+        ibkr_status: str | None = None,
     ):
         self.order_type = "auto_paper"
         self.status = status
@@ -100,6 +101,7 @@ class _FakeOrder:
         self.signal_id = None
         self.asset_id = None
         self.broker_order_id = None
+        self.ibkr_status = ibkr_status
 
 
 @pytest.fixture(autouse=True)
@@ -149,6 +151,26 @@ def test_card_shape_with_no_runs(isolated_service):
         "links",
     ):
         assert key in card, f"missing key: {key}"
+    assert "controlled_gate" in card
+    assert "decision" in card["controlled_gate"]
+    assert "snapshot" in card["controlled_gate"]
+    for snap_key in (
+        "auto_paper_enabled",
+        "broker_provider",
+        "broker_mode",
+        "tws_enabled",
+        "live_execution_enabled",
+        "max_orders_per_run",
+        "max_orders_per_day",
+        "max_notional_usd",
+        "symbol_allowlist",
+        "order_type",
+        "limit_price",
+        "require_tws",
+        "orders_today",
+        "kill_switch_active",
+    ):
+        assert snap_key in card["controlled_gate"]["snapshot"], f"missing snapshot key: {snap_key}"
     assert card["mode"] == "learning"
     assert card["auto_paper_selectable"] is True
     assert card["auto_paper_active"] is False
@@ -288,3 +310,16 @@ def test_card_reports_cap_block_and_latest_order(isolated_service):
     assert card["last_action_at"] == submitted_at.isoformat()
     assert card["latest_paper_order"]["status"] == "queued"
     assert "position cap reached" in card["operator_next_action"].lower()
+
+
+def test_latest_paper_order_exposes_ibkr_status(isolated_service):
+    submitted_at = datetime(2025, 1, 2, 5, 6, tzinfo=timezone.utc)
+    card = get_auto_paper_status_card(
+        trading_control_state=_paper_armed_state(),
+        run_log_service=isolated_service,
+        session=_FakeSession(
+            latest_order=_FakeOrder(submitted_at=submitted_at, ibkr_status="PreSubmitted"),
+        ),
+    )
+    assert card["latest_paper_order"] is not None
+    assert card["latest_paper_order"]["ibkr_status"] == "PreSubmitted"
