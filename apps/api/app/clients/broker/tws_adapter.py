@@ -114,7 +114,7 @@ class TwsBroker:
     # ------------------------------------------------------------------
     # Read-only BrokerInterface surface
     # ------------------------------------------------------------------
-    async def get_account_info(self) -> AccountInfo:
+    def _get_account_info_blocking(self) -> AccountInfo:
         ib = self._ensure_connected()
         account = self._resolve_account(ib)
         rows = ib.accountSummary(account) or []
@@ -144,7 +144,12 @@ class TwsBroker:
             unrealized_pnl=_to_decimal(wanted["UnrealizedPnL"]),
         )
 
-    async def get_positions(self) -> list[PositionInfo]:
+    async def get_account_info(self) -> AccountInfo:
+        # ib_async sync wrappers drive their own event loop, so offload
+        # connect + accountSummary onto a worker thread.
+        return await asyncio.to_thread(self._get_account_info_blocking)
+
+    def _get_positions_blocking(self) -> list[PositionInfo]:
         ib = self._ensure_connected()
         account = self._resolve_account(ib)
         positions = ib.positions(account) or []
@@ -179,6 +184,9 @@ class TwsBroker:
                 )
             )
         return result
+
+    async def get_positions(self) -> list[PositionInfo]:
+        return await asyncio.to_thread(self._get_positions_blocking)
 
     # ------------------------------------------------------------------
     # Write surface — guarded by ``submit_enabled``; LIMIT only
