@@ -30,6 +30,7 @@ from app.db.models.position import Position
 from app.db.models.risk_profile import RiskProfile
 from app.db.models.signal import Signal
 from app.db.session import SessionLocal
+from app.services.auto_paper_gate_service import AutoPaperGateService
 from app.services.broker_service import BrokerService, PaperPreflightBlockedError
 from app.services.opportunity_ranker_service import OpportunityRankerService
 from app.services.risk_service import RiskInput, RiskService
@@ -101,22 +102,34 @@ class AutoPaperTraderWorker(BaseWorker):
         )
 
     def _build_broker_order_request(self, opportunity, signal: Signal) -> OrderRequest:
-        """Build the broker-facing order request for the shared auto submit gate."""
-        entry_price = signal.entry_min
-        if entry_price is not None:
+        """Build the broker-facing order request for the shared auto submit gate.
+
+        Auto-paper v1 enforces LIMIT-only with the operator-controlled price from
+        ``AUTO_PAPER_LIMIT_PRICE``; the signal's entry_min is only a fallback
+        when the override is not configured (kept for backward compatibility
+        with tests that don't set the env var).
+        """
+        settings = get_settings()
+        override = getattr(settings, "auto_paper_limit_price", None)
+        if override is not None and float(override) > 0:
+            limit_price = Decimal(str(override))
+        elif signal.entry_min is not None:
+            limit_price = Decimal(str(signal.entry_min))
+        else:
+            # No LIMIT price available — fall through to MARKET (gate rejects it).
             return OrderRequest(
                 ticker=opportunity.asset,
                 side="BUY" if opportunity.direction == "long" else "SELL",
                 quantity=Decimal("1.0"),
-                order_type="LIMIT",
-                limit_price=Decimal(str(entry_price)),
+                order_type="MARKET",
             )
 
         return OrderRequest(
             ticker=opportunity.asset,
             side="BUY" if opportunity.direction == "long" else "SELL",
             quantity=Decimal("1.0"),
-            order_type="MARKET",
+            order_type="LIMIT",
+            limit_price=limit_price,
         )
 
     def _submit_via_broker_gate(self, opportunity, signal: Signal) -> OrderResult:
@@ -214,6 +227,7 @@ class AutoPaperTraderWorker(BaseWorker):
     def execute(self) -> str:
         settings = get_settings()
         max_open = getattr(settings, "auto_paper_max_open_positions", _DEFAULT_MAX_OPEN)
+        max_per_run = max(0, int(getattr(settings, "auto_paper_max_orders_per_run", 1)))
 
         session = self._session or SessionLocal()
         close_session = self._session is None
@@ -225,8 +239,19 @@ class AutoPaperTraderWorker(BaseWorker):
         cancelled = 0
         unsupported = 0
         skipped_cap = 0
+        controlled_blocked = 0
+        submit_attempts = 0
 
         try:
+            # Auto-paper controlled-run gate (fails closed by default).
+            gate_service = AutoPaperGateService(settings)
+            run_decision = gate_service.evaluate_run(session)
+            if not run_decision.allowed:
+                return (
+                    f"auto_paper_trader: controlled-run gate blocked "
+                    f"[{run_decision.blocking_gate}] {run_decision.reason}"
+                )
+
             ranker = OpportunityRankerService(session)
             opportunities = ranker.rank(limit=max_open, recency_hours=_RECENCY_HOURS)
 
@@ -244,6 +269,14 @@ class AutoPaperTraderWorker(BaseWorker):
             risk_service = RiskService(session)
 
             for opportunity in opportunities:
+                if submit_attempts >= max_per_run:
+                    _logger.info(
+                        "auto_paper_trader: per-run cap reached (%d/%d), stopping",
+                        submit_attempts,
+                        max_per_run,
+                    )
+                    break
+
                 open_count = self._count_open_auto_paper_positions(session)
                 if open_count >= max_open:
                     skipped_cap += 1
@@ -260,6 +293,25 @@ class AutoPaperTraderWorker(BaseWorker):
                     _logger.warning("auto_paper_trader: signal %s not found", opportunity.signal_id)
                     continue
 
+                # Build the order request first so the per-order gate can inspect
+                # the exact ticker/order_type/price/qty that would hit the broker.
+                order_request = self._build_broker_order_request(opportunity, signal)
+                order_decision = gate_service.evaluate_order(
+                    symbol=order_request.ticker,
+                    order_type=order_request.order_type,
+                    limit_price=order_request.limit_price,
+                    quantity=order_request.quantity,
+                )
+                if not order_decision.allowed:
+                    controlled_blocked += 1
+                    _logger.info(
+                        "auto_paper_trader: controlled-order gate blocked %s [%s] — %s",
+                        opportunity.asset,
+                        order_decision.blocking_gate,
+                        order_decision.reason,
+                    )
+                    continue
+
                 risk_input = self._build_risk_input(opportunity, signal, risk_profile)
                 risk_output = risk_service.evaluate(risk_input)  # Gate 10 — always called
 
@@ -272,8 +324,11 @@ class AutoPaperTraderWorker(BaseWorker):
                     )
                     continue
 
+                submit_attempts += 1
                 try:
-                    broker_result = self._submit_via_broker_gate(opportunity, signal)
+                    broker_result = run_async(
+                        lambda req=order_request: self._get_broker_service().submit_auto_order(req)
+                    )
                 except (AutoTradingBlockedError, PaperPreflightBlockedError) as exc:
                     gate_blocked += 1
                     _logger.info(
@@ -325,6 +380,8 @@ class AutoPaperTraderWorker(BaseWorker):
             parts.append(f"{risk_blocked} risk-blocked")
         if gate_blocked:
             parts.append(f"{gate_blocked} gate-blocked")
+        if controlled_blocked:
+            parts.append(f"{controlled_blocked} controlled-blocked")
         if rejected:
             parts.append(f"{rejected} rejected")
         if cancelled:

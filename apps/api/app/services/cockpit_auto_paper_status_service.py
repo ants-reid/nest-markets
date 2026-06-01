@@ -24,6 +24,7 @@ from app.config import get_settings
 from app.db.models.paper_order import PaperOrder
 from app.db.models.position import Position
 from app.db.session import SessionLocal
+from app.services.auto_paper_gate_service import AutoPaperGateService
 from app.services.cockpit_mode_service import get_cockpit_mode_state
 from app.services.trading_control_service import TradingControlState, get_trading_mode
 from app.services.worker_run_log_service import WorkerRunEntry, WorkerRunLogService
@@ -378,6 +379,35 @@ def get_auto_paper_status_card(
         "live_order_submission_allowed": bool(state.live_order_submission_allowed),
     }
 
+    gate_service = AutoPaperGateService(settings)
+    controlled_gate_snapshot: dict[str, Any]
+    controlled_gate_decision: dict[str, Any]
+    if session is not None:
+        controlled_gate_snapshot = gate_service.snapshot(session)
+        decision = gate_service.evaluate_run(session)
+        controlled_gate_decision = {
+            "allowed": decision.allowed,
+            "blocking_gate": decision.blocking_gate,
+            "reason": decision.reason,
+        }
+    else:
+        try:
+            with SessionLocal() as owned:
+                controlled_gate_snapshot = gate_service.snapshot(owned)
+                decision = gate_service.evaluate_run(owned)
+                controlled_gate_decision = {
+                    "allowed": decision.allowed,
+                    "blocking_gate": decision.blocking_gate,
+                    "reason": decision.reason,
+                }
+        except Exception:
+            controlled_gate_snapshot = gate_service.snapshot(None)
+            controlled_gate_decision = {
+                "allowed": False,
+                "blocking_gate": "snapshot_unavailable",
+                "reason": "Unable to evaluate controlled-run gate without DB session.",
+            }
+
     posture, headline, subline = _derive_posture(
         trading_control=trading_control,
         near_capacity=bool(retention.get("near_capacity")),
@@ -428,6 +458,10 @@ def get_auto_paper_status_card(
         "safety_notes": safety_notes,
         "operator_next_action": operator_next_action,
         "enforcement": enforcement,
+        "controlled_gate": {
+            "decision": controlled_gate_decision,
+            "snapshot": controlled_gate_snapshot,
+        },
         "trading_control": trading_control,
         "latest_run": latest_run,
         "latest_paper_order": latest_paper_order,

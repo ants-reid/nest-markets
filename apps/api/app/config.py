@@ -79,6 +79,16 @@ class Settings(BaseSettings):
     pnl_snapshot_scheduler_enabled: bool = Field(default=False)
     pnl_snapshot_interval_seconds: int = Field(default=60)
 
+    # Auto-paper controlled-run gates (default OFF; only allow when all are satisfied)
+    auto_paper_enabled: bool = Field(default=False)
+    auto_paper_max_orders_per_run: int = Field(default=1)
+    auto_paper_max_orders_per_day: int = Field(default=1)
+    auto_paper_max_notional_usd: float = Field(default=100.0)
+    auto_paper_symbol_allowlist: str = Field(default="AAPL")
+    auto_paper_order_type: str = Field(default="LIMIT")
+    auto_paper_limit_price: float = Field(default=50.00)
+    auto_paper_require_tws: bool = Field(default=True)
+
     @property
     def database_url(self) -> str:
         """Return the SQLAlchemy-compatible PostgreSQL connection URL."""

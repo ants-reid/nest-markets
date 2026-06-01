@@ -6,15 +6,34 @@ import uuid
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from app.db.enums import AssetClass, SignalStatus
 from app.db.models.signal import Signal
 from app.schedules.data_sync_scheduler import DataSyncScheduler
 from app.clients.broker.broker_interface import OrderResult
+from app.services.auto_paper_gate_service import AutoPaperGateDecision
 from app.services.trading_control_service import AutoTradingBlockedError
 from app.services.opportunity_ranker_service import RankedOpportunity
 from app.services.risk_service import RiskOutput
 from app.workers.auto_paper_trader_worker import AutoPaperTraderWorker
 from app.workers.base_worker import BaseWorker
+
+
+@pytest.fixture(autouse=True)
+def _bypass_auto_paper_controlled_gate():
+    # These tests cover downstream worker behavior (risk, broker, position cap).
+    # The controlled-run gate has dedicated coverage in
+    # test_auto_paper_gate_service.py and test_auto_paper_worker_gate_integration.py.
+    allowed = AutoPaperGateDecision(allowed=True, blocking_gate=None, reason=None, snapshot={})
+    with patch(
+        "app.services.auto_paper_gate_service.AutoPaperGateService.evaluate_run",
+        return_value=allowed,
+    ), patch(
+        "app.services.auto_paper_gate_service.AutoPaperGateService.evaluate_order",
+        return_value=allowed,
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
