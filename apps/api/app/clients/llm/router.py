@@ -23,7 +23,11 @@ class LLMProviderRouter:
         if not api_key:
             raise LLMProviderError("API key not configured for OpenAI provider")
 
-        model = str(getattr(settings, "openai_model", "gpt-4-turbo") or "gpt-4-turbo")
+        model = str(
+            getattr(settings, "openai_model_name", None)
+            or getattr(settings, "openai_model", "gpt-4-turbo")
+            or "gpt-4-turbo"
+        )
         timeout = float(getattr(settings, "openai_timeout", 30.0) or 30.0)
 
         self._provider: BaseLLMProvider = OpenAIProvider(

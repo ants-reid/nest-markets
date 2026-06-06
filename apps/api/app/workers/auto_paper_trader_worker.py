@@ -232,6 +232,11 @@ class AutoPaperTraderWorker(BaseWorker):
         settings = get_settings()
         max_open = getattr(settings, "auto_paper_max_open_positions", _DEFAULT_MAX_OPEN)
         max_per_run = max(0, int(getattr(settings, "auto_paper_max_orders_per_run", 1)))
+        kill_on_error_count = max(
+            1,
+            int(getattr(settings, "auto_paper_kill_on_error_count", 3)),
+        )
+        kill_on_reject_rate = float(getattr(settings, "auto_paper_kill_on_reject_rate", 0.5))
 
         session = self._session or SessionLocal()
         close_session = self._session is None
@@ -245,6 +250,9 @@ class AutoPaperTraderWorker(BaseWorker):
         skipped_cap = 0
         controlled_blocked = 0
         submit_attempts = 0
+        watchdog_error_count = 0
+        watchdog_rejected_count = 0
+        watchdog_tripped_reason: str | None = None
 
         try:
             # Auto-paper controlled-run gate (fails closed by default).
@@ -341,6 +349,22 @@ class AutoPaperTraderWorker(BaseWorker):
                         exc,
                     )
                     continue
+                except Exception as exc:
+                    watchdog_error_count += 1
+                    _logger.error(
+                        "auto_paper_trader: broker submit error for %s — %s",
+                        opportunity.asset,
+                        exc,
+                    )
+                    if watchdog_error_count >= kill_on_error_count:
+                        watchdog_tripped_reason = (
+                            "watchdog blocked further submits: "
+                            f"error_count={watchdog_error_count} "
+                            f"threshold={kill_on_error_count}"
+                        )
+                        _logger.warning("auto_paper_trader: %s", watchdog_tripped_reason)
+                        break
+                    continue
 
                 normalized_status = broker_result.status.upper()
 
@@ -348,6 +372,7 @@ class AutoPaperTraderWorker(BaseWorker):
                     self._record_broker_outcome(session, opportunity, signal, broker_result)
                     if normalized_status == "REJECTED":
                         rejected += 1
+                        watchdog_rejected_count += 1
                     else:
                         cancelled += 1
                     _logger.info(
@@ -355,15 +380,36 @@ class AutoPaperTraderWorker(BaseWorker):
                         opportunity.asset,
                         broker_result.status,
                     )
+                    if (
+                        submit_attempts > 0
+                        and kill_on_reject_rate >= 0
+                        and (watchdog_rejected_count / submit_attempts) >= kill_on_reject_rate
+                    ):
+                        watchdog_tripped_reason = (
+                            "watchdog blocked further submits: "
+                            f"reject_rate={watchdog_rejected_count / submit_attempts:.3f} "
+                            f"threshold={kill_on_reject_rate:.3f}"
+                        )
+                        _logger.warning("auto_paper_trader: %s", watchdog_tripped_reason)
+                        break
                     continue
 
                 if normalized_status not in _ACCEPTED_BROKER_STATUSES:
                     unsupported += 1
+                    watchdog_error_count += 1
                     _logger.warning(
                         "auto_paper_trader: unsupported broker outcome %s for %s",
                         broker_result.status,
                         opportunity.asset,
                     )
+                    if watchdog_error_count >= kill_on_error_count:
+                        watchdog_tripped_reason = (
+                            "watchdog blocked further submits: "
+                            f"error_count={watchdog_error_count} "
+                            f"threshold={kill_on_error_count}"
+                        )
+                        _logger.warning("auto_paper_trader: %s", watchdog_tripped_reason)
+                        break
                     continue
 
                 self._open_position(session, opportunity, signal, broker_result)
@@ -394,4 +440,6 @@ class AutoPaperTraderWorker(BaseWorker):
             parts.append(f"{unsupported} unsupported")
         if skipped_cap:
             parts.append(f"{skipped_cap} skipped (cap)")
+        if watchdog_tripped_reason:
+            parts.append(watchdog_tripped_reason)
         return ", ".join(parts)

@@ -87,6 +87,10 @@ export interface AutoPaperControlledGateSnapshot {
   order_type: string;
   limit_price: number;
   require_tws: boolean;
+  background_scheduler_enabled: boolean;
+  minutes_between_runs: number;
+  kill_on_error_count: number;
+  kill_on_reject_rate: number;
   orders_today: number;
   kill_switch_active: boolean;
 }

@@ -44,9 +44,9 @@ def test_get_news_client_returns_placeholder():
 # ---------------------------------------------------------------------------
 
 
-def _make_asset(ticker: str):
+def _make_asset(symbol: str):
     a = MagicMock()
-    a.ticker = ticker
+    a.symbol = symbol
     a.is_active = True
     return a
 

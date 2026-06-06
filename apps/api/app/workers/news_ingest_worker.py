@@ -64,7 +64,7 @@ class NewsIngestWorker(BaseWorker):
 
         for asset in assets:
             items = await self._client.get_articles(
-                asset.ticker,
+                asset.symbol,
                 from_date=lookback,
                 limit=50,
             )

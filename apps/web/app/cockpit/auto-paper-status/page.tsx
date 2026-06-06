@@ -368,12 +368,35 @@ export default function AutoPaperStatusPage() {
                       <span className={styles.metaValue}>{formatBool(snapshot.auto_paper_enabled)}</span>
                     </div>
                     <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Background scheduler enabled</span>
+                      <span className={styles.metaValue}>
+                        {formatBool(snapshot.background_scheduler_enabled)}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Minutes between runs</span>
+                      <span className={styles.metaValue}>{snapshot.minutes_between_runs}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Kill on error count</span>
+                      <span className={styles.metaValue}>{snapshot.kill_on_error_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Kill on reject rate</span>
+                      <span className={styles.metaValue}>{formatNumber(snapshot.kill_on_reject_rate)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Kill switch</span>
                       <span className={styles.metaValue}>
                         {snapshot.kill_switch_active ? "ACTIVE" : "inactive"}
                       </span>
                     </div>
                   </div>
+                  {(snapshot.broker_mode !== "paper" || snapshot.live_execution_enabled) && (
+                    <p className={styles.opsNote}>
+                      Scheduler is effectively blocked until broker mode is paper and live execution remains disabled.
+                    </p>
+                  )}
                 </div>
               )}
 

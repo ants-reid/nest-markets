@@ -15,7 +15,7 @@ def valid_settings():
     settings = Settings(
         llm_provider="openai",
         openai_api_key="test-key-123",
-        openai_model="gpt-4-turbo",
+        openai_model_name="gpt-4-turbo",
         openai_timeout=30,
     )
     return settings

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -18,6 +19,13 @@ from app.workers.async_bridge import run_async
 from app.workers.base_worker import BaseWorker
 
 _logger = logging.getLogger(__name__)
+_SEEDED_SYMBOL_PATTERN = re.compile(r"^(DUP|TEST|TSTX)", re.IGNORECASE)
+
+
+def _is_seeded_test_symbol(symbol: str | None) -> bool:
+    if not symbol:
+        return False
+    return bool(_SEEDED_SYMBOL_PATTERN.match(symbol.strip()))
 
 
 class DataSyncWorker(BaseWorker):
@@ -52,6 +60,7 @@ class DataSyncWorker(BaseWorker):
         close_session = self._session is None
         total = 0
         errors: list[str] = []
+        skipped_seeded = 0
 
         try:
             service = MarketDataService(self._client, session)
@@ -60,6 +69,9 @@ class DataSyncWorker(BaseWorker):
             from_date = to_date - timedelta(days=self.lookback_days)
 
             for asset in assets:
+                if _is_seeded_test_symbol(asset.symbol):
+                    skipped_seeded += 1
+                    continue
                 try:
                     count = run_async(
                         lambda asset=asset: service.ingest_bars(
@@ -88,4 +100,7 @@ class DataSyncWorker(BaseWorker):
 
         if errors:
             return f"data_sync: {total} rows upserted; {len(errors)} asset errors: {'; '.join(errors)}"
-        return f"data_sync: {total} rows upserted across {len(list(assets))} assets"
+        return (
+            f"data_sync: {total} rows upserted across {len(list(assets))} assets "
+            f"(seeded/test skipped: {skipped_seeded})"
+        )
