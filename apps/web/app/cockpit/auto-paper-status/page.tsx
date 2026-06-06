@@ -21,6 +21,9 @@ import {
 } from "../../../lib/api/cockpitAutoPaperStatus";
 import styles from "../../../styles/pages/auto-paper-status.module.css";
 
+const STATUS_LOAD_TIMEOUT_MS = 8000;
+const KILL_SWITCH_LOAD_TIMEOUT_MS = 3000;
+
 const POSTURE_CLASS: Record<AutoPaperStatusPosture, string> = {
   ok: styles.postureOk,
   warning: styles.postureWarning,
@@ -41,6 +44,29 @@ function formatNumber(value: number | null | undefined): string {
 
 function formatBool(value: boolean): string {
   return value ? "yes" : "no";
+}
+
+function formatMaybeNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "\u2014";
+  return `${value}`;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
 }
 
 interface ChipProps {
@@ -109,13 +135,25 @@ export default function AutoPaperStatusPage() {
     setLoading(true);
     setError(null);
     try {
-      const [resp, ks] = await Promise.all([
+      const resp = await withTimeout(
         getAutoPaperStatusCard(),
-        getAutoPaperKillSwitch().catch(() => null),
-      ]);
+        STATUS_LOAD_TIMEOUT_MS,
+        "Auto Paper status request",
+      );
       setCard(resp);
-      if (ks) setKillSwitch(ks);
       setLastRefreshed(new Date());
+
+      void withTimeout(
+        getAutoPaperKillSwitch(),
+        KILL_SWITCH_LOAD_TIMEOUT_MS,
+        "Kill switch request",
+      )
+        .then((ks) => {
+          setKillSwitch(ks);
+        })
+        .catch(() => {
+          // Keep the primary status visible even if kill-switch state is temporarily unavailable.
+        });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -172,6 +210,9 @@ export default function AutoPaperStatusPage() {
   const gate = card?.controlled_gate;
   const snapshot = gate?.snapshot;
   const decision = gate?.decision;
+  const symbolAllowlist = Array.isArray(snapshot?.symbol_allowlist)
+    ? snapshot.symbol_allowlist
+    : [];
   const ksActive = snapshot?.kill_switch_active ?? killSwitch?.kill_switch_active ?? false;
 
   const runDisabled =
@@ -346,8 +387,8 @@ export default function AutoPaperStatusPage() {
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Symbol allowlist</span>
                       <span className={styles.metaValue}>
-                        {snapshot.symbol_allowlist.length > 0
-                          ? snapshot.symbol_allowlist.join(", ")
+                        {symbolAllowlist.length > 0
+                          ? symbolAllowlist.join(", ")
                           : "—"}
                       </span>
                     </div>
@@ -375,11 +416,15 @@ export default function AutoPaperStatusPage() {
                     </div>
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Minutes between runs</span>
-                      <span className={styles.metaValue}>{snapshot.minutes_between_runs}</span>
+                      <span className={styles.metaValue}>
+                        {formatMaybeNumber(snapshot.minutes_between_runs)}
+                      </span>
                     </div>
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Kill on error count</span>
-                      <span className={styles.metaValue}>{snapshot.kill_on_error_count}</span>
+                      <span className={styles.metaValue}>
+                        {formatMaybeNumber(snapshot.kill_on_error_count)}
+                      </span>
                     </div>
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Kill on reject rate</span>
