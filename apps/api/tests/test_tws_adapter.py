@@ -435,8 +435,25 @@ async def test_positions_peer_close_raises_tws_unavailable() -> None:
     ib.positions.side_effect = RuntimeError("Peer closed connection. clientId 43 already in use?")
 
     broker = _make_broker(ib)
-    with pytest.raises(TwsConnectionUnavailableError, match="client-id contention"):
+    with pytest.raises(TwsConnectionUnavailableError, match="client id in use"):
         await broker.get_positions()
+
+
+@pytest.mark.asyncio
+async def test_client_id_contention_sets_cooldown_and_avoids_reconnect_storm() -> None:
+    ib = _make_ib(summary_rows=[], positions=[])
+    ib.connect.side_effect = RuntimeError("Error 326: client id already in use")
+
+    broker = _make_broker(ib)
+
+    with pytest.raises(TwsConnectionUnavailableError, match="stop duplicate backend/probe"):
+        await broker.get_account_info()
+
+    # Second call should fail fast from cooldown without another connect attempt.
+    with pytest.raises(TwsConnectionUnavailableError, match="separate diagnostic client id"):
+        await broker.get_account_info()
+
+    assert ib.connect.call_count == 1
 
 
 def test_probe_tws_default_client_id_is_isolated() -> None:

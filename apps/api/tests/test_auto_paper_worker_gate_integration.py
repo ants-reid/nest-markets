@@ -76,6 +76,18 @@ def test_worker_build_order_uses_settings_limit_price():
     assert float(order.limit_price) == pytest.approx(50.0)
     assert order.ticker == "AAPL"
 
+    def test_worker_reuses_route_broker_service_singleton():
+        worker = AutoPaperTraderWorker()
+        shared = MagicMock()
+
+        with patch("app.api.routes.broker.get_broker_service", return_value=shared) as getter:
+            first = worker._get_broker_service()
+            second = worker._get_broker_service()
+
+        assert first is shared
+        assert second is shared
+        assert getter.call_count == 2
+
 
 def test_worker_watchdog_blocks_after_reject_rate_threshold(mock_session):
     worker = AutoPaperTraderWorker(session=mock_session)

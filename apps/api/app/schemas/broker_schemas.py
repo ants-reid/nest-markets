@@ -32,6 +32,10 @@ class BrokerHealthSchema(BaseModel):
     account_id: str
     account_is_paper: bool
     broker_mode: BrokerModeSchema
+    tws_runtime_client_id: Optional[int] = None
+    tws_connection_state: Optional[str] = None
+    tws_last_error_code: Optional[str] = None
+    tws_last_error_message: Optional[str] = None
 
 
 class SeriousPaperRouteCheckResponseSchema(BaseModel):

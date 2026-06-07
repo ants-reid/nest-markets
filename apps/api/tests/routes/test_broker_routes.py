@@ -118,8 +118,16 @@ async def test_get_positions_returns_empty_list_when_gateway_unreachable_in_pape
 async def test_get_account_returns_503_on_tws_client_id_contention(client, mock_service):
     with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
         mock_service.get_account_info = AsyncMock(
-            side_effect=RuntimeError("client id is already in use")
+            side_effect=RuntimeError(
+                "TWS client id in use; stop duplicate backend/probe or use separate diagnostic client id"
+            )
         )
+        mock_service.get_runtime_diagnostics = MagicMock(return_value={
+            "tws_runtime_client_id": 43,
+            "tws_connection_state": "unavailable",
+            "tws_last_error_code": "326",
+            "tws_last_error_message": "client id in use",
+        })
         mock_get_service.return_value = mock_service
 
         response = client.get("/broker/account")
@@ -127,7 +135,9 @@ async def test_get_account_returns_503_on_tws_client_id_contention(client, mock_
     assert response.status_code == 503
     detail = response.json()["detail"]
     assert detail["code"] == "tws_unavailable"
-    assert "client id" in detail["message"].lower()
+    assert "client id in use" in detail["message"].lower()
+    assert detail["diagnostics"]["tws_runtime_client_id"] == 43
+    assert detail["diagnostics"]["tws_last_error_code"] == "326"
 
 
 @pytest.mark.asyncio
@@ -136,6 +146,12 @@ async def test_get_positions_returns_503_on_tws_timeout(client, mock_service):
         mock_service.get_positions = AsyncMock(
             side_effect=RuntimeError("API connection failed: TimeoutError()")
         )
+        mock_service.get_runtime_diagnostics = MagicMock(return_value={
+            "tws_runtime_client_id": 43,
+            "tws_connection_state": "unavailable",
+            "tws_last_error_code": "timeout",
+            "tws_last_error_message": "timeout",
+        })
         mock_get_service.return_value = mock_service
 
         response = client.get("/broker/positions")
@@ -144,6 +160,7 @@ async def test_get_positions_returns_503_on_tws_timeout(client, mock_service):
     detail = response.json()["detail"]
     assert detail["code"] == "tws_unavailable"
     assert "timeout" in detail["message"].lower()
+    assert detail["diagnostics"]["tws_last_error_code"] == "timeout"
 
 
 @pytest.mark.asyncio

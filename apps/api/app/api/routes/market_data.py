@@ -675,6 +675,7 @@ async def _build_auto_paper_broker_health() -> BrokerHealthSchema:
     else:
         health_status = "paper_ready" if gateway_reachable else "paper_config_only"
 
+    diagnostics = BrokerService().get_runtime_diagnostics()
     return BrokerHealthSchema(
         status=health_status,
         mode_guard_ok=mode_guard_ok,
@@ -683,6 +684,10 @@ async def _build_auto_paper_broker_health() -> BrokerHealthSchema:
         account_id=account_id,
         account_is_paper=is_paper_account_id(account_id),
         broker_mode=BrokerModeSchema(**get_broker_mode_metadata()),
+        tws_runtime_client_id=diagnostics.get("tws_runtime_client_id"),
+        tws_connection_state=diagnostics.get("tws_connection_state"),
+        tws_last_error_code=diagnostics.get("tws_last_error_code"),
+        tws_last_error_message=diagnostics.get("tws_last_error_message"),
     )
 
 

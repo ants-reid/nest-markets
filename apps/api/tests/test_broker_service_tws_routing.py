@@ -210,3 +210,44 @@ async def test_multiple_services_reuse_same_tws_broker_instance(
     await service_b.ensure_connected()
 
     assert service_a._broker is service_b._broker
+
+
+@pytest.mark.asyncio
+async def test_single_service_reuses_same_broker_on_repeated_connect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.services.broker_service.get_settings",
+        lambda: _patched_settings(broker_provider="tws", tws_enabled=True),
+    )
+    monkeypatch.setattr(
+        "app.services.broker_service.get_broker_mode_metadata",
+        lambda: {
+            "broker": "tws",
+            "mode": "paper",
+            "paper_trading_enabled": True,
+            "live_execution_enabled": False,
+        },
+    )
+
+    svc = BrokerService()
+    await svc.ensure_connected()
+    broker_before = svc._broker
+    await svc.ensure_connected()
+
+    assert svc._broker is broker_before
+
+
+def test_runtime_diagnostics_expose_not_initialized_tws_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.services.broker_service.get_settings",
+        lambda: _patched_settings(broker_provider="tws", tws_enabled=True),
+    )
+    svc = BrokerService()
+
+    diagnostics = svc.get_runtime_diagnostics()
+
+    assert diagnostics["tws_runtime_client_id"] == 43
+    assert diagnostics["tws_connection_state"] == "not_initialized"

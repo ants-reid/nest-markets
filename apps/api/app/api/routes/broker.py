@@ -254,6 +254,7 @@ async def get_broker_health():
         status = "paper_ready" if gateway_reachable else "paper_config_only"
 
     meta = get_broker_mode_metadata()
+    diagnostics = get_broker_service().get_runtime_diagnostics()
     return BrokerHealthSchema(
         status=status,
         mode_guard_ok=mode_guard_ok,
@@ -262,6 +263,10 @@ async def get_broker_health():
         account_id=account_id,
         account_is_paper=account_is_paper,
         broker_mode=BrokerModeSchema(**meta),
+        tws_runtime_client_id=diagnostics.get("tws_runtime_client_id"),
+        tws_connection_state=diagnostics.get("tws_connection_state"),
+        tws_last_error_code=diagnostics.get("tws_last_error_code"),
+        tws_last_error_message=diagnostics.get("tws_last_error_message"),
     )
 
 
@@ -289,11 +294,13 @@ async def get_account():
             _logger.info("Broker account unavailable in paper mode; returning empty snapshot: %s", exc)
             return _paper_fallback_account_info()
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
+            diagnostics = service.get_runtime_diagnostics()
             raise HTTPException(
                 status_code=503,
                 detail={
                     "code": "tws_unavailable",
                     "message": str(exc),
+                    "diagnostics": diagnostics,
                 },
             ) from exc
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -330,11 +337,13 @@ async def get_positions():
             _logger.info("Broker positions unavailable in paper mode; returning empty list: %s", exc)
             return []
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
+            diagnostics = service.get_runtime_diagnostics()
             raise HTTPException(
                 status_code=503,
                 detail={
                     "code": "tws_unavailable",
                     "message": str(exc),
+                    "diagnostics": diagnostics,
                 },
             ) from exc
         raise HTTPException(status_code=500, detail=str(exc)) from exc

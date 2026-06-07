@@ -128,6 +128,33 @@ class BrokerService:
         if hasattr(self._broker, "connect") and not getattr(self._broker, "is_connected", False):
             await self._broker.connect()
 
+    def get_runtime_diagnostics(self) -> dict[str, Any]:
+        """Return lightweight broker runtime diagnostics for status surfaces."""
+        settings = get_settings()
+        provider = (settings.broker_provider or "ibkr").lower()
+
+        diagnostics: dict[str, Any] = {
+            "tws_runtime_client_id": None,
+            "tws_connection_state": None,
+            "tws_last_error_code": None,
+            "tws_last_error_message": None,
+        }
+        if provider not in ("tws", "tws_socket"):
+            return diagnostics
+
+        diagnostics["tws_runtime_client_id"] = settings.tws_client_id
+        diagnostics["tws_connection_state"] = "not_initialized" if self._broker is None else "unknown"
+
+        broker = self._broker
+        if broker is not None:
+            get_diag = getattr(broker, "get_connection_diagnostics", None)
+            if callable(get_diag):
+                adapter_diagnostics = get_diag()
+                if isinstance(adapter_diagnostics, dict):
+                    diagnostics.update(adapter_diagnostics)
+
+        return diagnostics
+
     async def get_account_info(self, use_cache: bool = False) -> AccountInfo:
         """Get account information.
 
