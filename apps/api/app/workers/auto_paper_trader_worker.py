@@ -31,6 +31,7 @@ from app.db.models.risk_profile import RiskProfile
 from app.db.models.signal import Signal
 from app.db.session import SessionLocal
 from app.services.auto_paper_gate_service import AutoPaperGateService
+from app.services.auto_paper_audit_reconciliation_service import AutoPaperAuditReconciliationService
 from app.services.broker_service import BrokerService, PaperPreflightBlockedError
 from app.services.opportunity_ranker_service import OpportunityRankerService
 from app.services.risk_service import RiskInput, RiskService
@@ -199,9 +200,9 @@ class AutoPaperTraderWorker(BaseWorker):
         opportunity,
         signal: Signal,
         broker_result: OrderResult,
-    ) -> None:
+    ) -> PaperOrder:
         """Persist accepted broker outcome and open a matching local position."""
-        self._record_broker_outcome(session, opportunity, signal, broker_result)
+        paper_order = self._record_broker_outcome(session, opportunity, signal, broker_result)
 
         entry_price = Decimal(str(broker_result.filled_price or signal.entry_min or 0.0))
 
@@ -223,6 +224,7 @@ class AutoPaperTraderWorker(BaseWorker):
 
         # Update signal status to paper_submitted
         signal.signal_status = SignalStatus.PAPER_SUBMITTED
+        return paper_order
 
     # ------------------------------------------------------------------
     # BaseWorker contract
@@ -253,6 +255,7 @@ class AutoPaperTraderWorker(BaseWorker):
         watchdog_error_count = 0
         watchdog_rejected_count = 0
         watchdog_tripped_reason: str | None = None
+        reconciled_orders: list[PaperOrder] = []
 
         try:
             # Auto-paper controlled-run gate (fails closed by default).
@@ -369,7 +372,8 @@ class AutoPaperTraderWorker(BaseWorker):
                 normalized_status = broker_result.status.upper()
 
                 if normalized_status in _REJECTED_BROKER_STATUSES:
-                    self._record_broker_outcome(session, opportunity, signal, broker_result)
+                    paper_order = self._record_broker_outcome(session, opportunity, signal, broker_result)
+                    reconciled_orders.append(paper_order)
                     if normalized_status == "REJECTED":
                         rejected += 1
                         watchdog_rejected_count += 1
@@ -412,11 +416,26 @@ class AutoPaperTraderWorker(BaseWorker):
                         break
                     continue
 
-                self._open_position(session, opportunity, signal, broker_result)
+                paper_order = self._open_position(session, opportunity, signal, broker_result)
+                reconciled_orders.append(paper_order)
                 opened += 1
                 _logger.info("auto_paper_trader: opened position for %s", opportunity.asset)
 
             session.commit()
+            if reconciled_orders and isinstance(session, Session):
+                reconciliation_service = AutoPaperAuditReconciliationService()
+                for persisted_order in reconciled_orders:
+                    audit_result = reconciliation_service.reconcile_for_paper_order(
+                        session=session,
+                        paper_order=persisted_order,
+                    )
+                    if audit_result.warnings:
+                        _logger.warning(
+                            "auto_paper_trader: audit reconciliation warnings for order %s: %s",
+                            persisted_order.id,
+                            ", ".join(audit_result.warnings),
+                        )
+                session.commit()
         except Exception as exc:
             session.rollback()
             _logger.error("auto_paper_trader fatal error: %s", exc)
