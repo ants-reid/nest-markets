@@ -500,6 +500,12 @@ def _derive_last_block_reason(
     if not latest_run:
         return None
 
+    watchdog_summary = latest_run.get("watchdog_summary") or {}
+    if isinstance(watchdog_summary, dict):
+        watchdog_reason = watchdog_summary.get("reason")
+        if watchdog_reason:
+            return str(watchdog_reason)
+
     message = str(latest_run.get("message") or "")
     outcome_counts = latest_run.get("outcome_counts") or {}
 
@@ -757,6 +763,9 @@ def get_auto_paper_status_card(
     recent = svc.recent(limit=1)
     latest = recent[0] if recent else None
     latest_run = _serialize_run_entry(latest)
+    latest_watchdog = None
+    if latest_run and isinstance(latest_run.get("watchdog_summary"), dict):
+        latest_watchdog = dict(latest_run["watchdog_summary"])
     paper_snapshot = _load_paper_snapshot(session)
     open_paper_positions_count = int(paper_snapshot["open_paper_positions_count"])
     latest_paper_order = paper_snapshot["latest_paper_order"]
@@ -960,6 +969,7 @@ def get_auto_paper_status_card(
         "next_run_guidance": next_run_guidance,
         "trading_control": trading_control,
         "latest_run": latest_run,
+        "latest_watchdog": latest_watchdog,
         "latest_paper_order": latest_paper_order,
         "audit_alignment": {
             "status": status,

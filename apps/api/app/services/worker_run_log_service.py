@@ -14,6 +14,7 @@ import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from app.workers.base_worker import WorkerResult
 
@@ -23,6 +24,7 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_LOG_PATH = Path(__file__).resolve().parent.parent / "data" / "worker_run_log.jsonl"
 _MAX_ENTRIES = 200
 _RETENTION_WARNING_THRESHOLD_PCT = 80.0
+_AUTO_DIAG_MARKER = " || auto_diag="
 
 
 @dataclass
@@ -36,13 +38,53 @@ class WorkerRunEntry:
     finished_at: str
     source: str = "manual"  # "manual" | "scheduled"
     outcome_counts: dict[str, int] | None = None
+    watchdog_summary: dict[str, Any] | None = None
+    attempt_outcomes: list[dict[str, Any]] | None = None
+
+
+def _split_summary_and_diag(message: str) -> tuple[str, dict[str, Any] | None]:
+    if _AUTO_DIAG_MARKER not in message:
+        return message, None
+
+    summary, raw_diag = message.split(_AUTO_DIAG_MARKER, 1)
+    summary = summary.strip()
+    try:
+        parsed = json.loads(raw_diag)
+    except json.JSONDecodeError:
+        return summary, None
+
+    if not isinstance(parsed, dict):
+        return summary, None
+    return summary, parsed
+
+
+def extract_auto_paper_watchdog_summary(message: str) -> dict[str, Any] | None:
+    _, diag = _split_summary_and_diag(message)
+    if not isinstance(diag, dict):
+        return None
+    watchdog_summary = diag.get("watchdog_summary")
+    if not isinstance(watchdog_summary, dict):
+        return None
+    return watchdog_summary
+
+
+def extract_auto_paper_attempt_outcomes(message: str) -> list[dict[str, Any]]:
+    _, diag = _split_summary_and_diag(message)
+    if not isinstance(diag, dict):
+        return []
+    outcomes = diag.get("attempt_outcomes")
+    if not isinstance(outcomes, list):
+        return []
+    return [item for item in outcomes if isinstance(item, dict)]
 
 
 def extract_auto_paper_outcome_counts(message: str) -> dict[str, int]:
     """Parse structured outcome counts from an auto-paper worker summary message."""
 
+    summary_message, _ = _split_summary_and_diag(message)
+
     def _count(pattern: str) -> int:
-        match = re.search(pattern, message)
+        match = re.search(pattern, summary_message)
         return int(match.group(1)) if match else 0
 
     accepted_count = _count(r"(\d+) positions opened")
@@ -52,7 +94,6 @@ def extract_auto_paper_outcome_counts(message: str) -> dict[str, int]:
     cancelled_count = _count(r"(\d+) cancelled")
     skipped_cap_count = _count(r"(\d+) skipped \(cap\)")
     legacy_broker_rejected_count = _count(r"(\d+) broker-rejected")
-
     if legacy_broker_rejected_count and rejected_count == 0:
         rejected_count = legacy_broker_rejected_count
 
@@ -79,6 +120,8 @@ def build_auto_paper_run_entry(result: WorkerResult, *, source: str) -> WorkerRu
         finished_at=result.finished_at.isoformat(),
         source=normalized_source,
         outcome_counts=extract_auto_paper_outcome_counts(result.message),
+        watchdog_summary=extract_auto_paper_watchdog_summary(result.message),
+        attempt_outcomes=extract_auto_paper_attempt_outcomes(result.message),
     )
 
 

@@ -139,6 +139,32 @@ class AutoPaperOutcomeCounts(BaseModel):
     legacy_broker_rejected_count: int = 0
 
 
+class AutoPaperWatchdogSummary(BaseModel):
+    """Structured watchdog posture for one auto-paper worker run."""
+
+    tripped: bool = False
+    tripped_by: str = "none"
+    reason: str | None = None
+    error_count: int = 0
+    rejected_count: int = 0
+    submit_attempts: int = 0
+    kill_on_error_count: int = 0
+    kill_on_reject_rate: float = 0.0
+
+
+class AutoPaperAttemptOutcome(BaseModel):
+    """One structured per-symbol attempt outcome emitted by the worker."""
+
+    symbol: str
+    signal_id: str
+    outcome: str
+    reason_category: str
+    reason: str | None = None
+    blocking_gate: str | None = None
+    broker_status: str | None = None
+    broker_order_id: str | None = None
+
+
 class NewsArticleResponse(BaseModel):
     """News feed item returned by the market data route."""
 
@@ -383,6 +409,8 @@ class RunHistoryEntry(BaseModel):
     finished_at: str
     source: str
     outcome_counts: AutoPaperOutcomeCounts
+    watchdog_summary: AutoPaperWatchdogSummary | None = None
+    attempt_outcomes: list[AutoPaperAttemptOutcome] = Field(default_factory=list)
 
 
 class AutoPaperHistorySummary(BaseModel):
@@ -730,6 +758,16 @@ def _get_filtered_auto_paper_history_entries(
                 finished_at=e.finished_at,
                 source=e.source,
                 outcome_counts=outcome_counts,
+                watchdog_summary=(
+                    AutoPaperWatchdogSummary(**e.watchdog_summary)
+                    if isinstance(e.watchdog_summary, dict)
+                    else None
+                ),
+                attempt_outcomes=[
+                    AutoPaperAttemptOutcome(**item)
+                    for item in (e.attempt_outcomes or [])
+                    if isinstance(item, dict)
+                ],
             )
         )
 
@@ -826,7 +864,9 @@ async def _build_auto_paper_broker_health() -> BrokerHealthSchema:
     else:
         health_status = "paper_ready" if gateway_reachable else "paper_config_only"
 
-    diagnostics = BrokerService().get_runtime_diagnostics()
+    broker_service = BrokerService()
+    diagnostics_fn = getattr(broker_service, "get_runtime_diagnostics", None)
+    diagnostics = diagnostics_fn() if callable(diagnostics_fn) else {}
     return BrokerHealthSchema(
         status=health_status,
         mode_guard_ok=mode_guard_ok,

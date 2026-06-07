@@ -16,6 +16,7 @@ PaperOrder row is created.  No position is opened with status other than "approv
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -267,6 +268,8 @@ class AutoPaperTraderWorker(BaseWorker):
         watchdog_error_count = 0
         watchdog_rejected_count = 0
         watchdog_tripped_reason: str | None = None
+        watchdog_tripped_by: str = "none"
+        attempt_outcomes: list[dict[str, object]] = []
         reconciled_orders: list[PaperOrder] = []
 
         try:
@@ -331,6 +334,16 @@ class AutoPaperTraderWorker(BaseWorker):
                 )
                 if not order_decision.allowed:
                     controlled_blocked += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "controlled_gate_blocked",
+                            "reason_category": "controlled_gate",
+                            "blocking_gate": order_decision.blocking_gate,
+                            "reason": order_decision.reason,
+                        }
+                    )
                     _logger.info(
                         "auto_paper_trader: controlled-order gate blocked %s [%s] — %s",
                         opportunity.asset,
@@ -344,6 +357,15 @@ class AutoPaperTraderWorker(BaseWorker):
 
                 if not risk_output.approved:
                     risk_blocked += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "risk_blocked",
+                            "reason_category": "risk",
+                            "reason": risk_output.blocking_rule,
+                        }
+                    )
                     _logger.info(
                         "auto_paper_trader: risk blocked %s — %s",
                         opportunity.asset,
@@ -364,6 +386,15 @@ class AutoPaperTraderWorker(BaseWorker):
                     )
                 except (AutoTradingBlockedError, PaperPreflightBlockedError) as exc:
                     gate_blocked += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "gate_blocked",
+                            "reason_category": "submit_gate",
+                            "reason": str(exc),
+                        }
+                    )
                     _logger.info(
                         "auto_paper_trader: broker gate blocked %s — %s",
                         opportunity.asset,
@@ -372,12 +403,22 @@ class AutoPaperTraderWorker(BaseWorker):
                     continue
                 except Exception as exc:
                     watchdog_error_count += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "submit_error",
+                            "reason_category": "submit_exception",
+                            "reason": str(exc),
+                        }
+                    )
                     _logger.error(
                         "auto_paper_trader: broker submit error for %s — %s",
                         opportunity.asset,
                         exc,
                     )
                     if watchdog_error_count >= kill_on_error_count:
+                        watchdog_tripped_by = "error_count"
                         watchdog_tripped_reason = (
                             "watchdog blocked further submits: "
                             f"error_count={watchdog_error_count} "
@@ -397,6 +438,16 @@ class AutoPaperTraderWorker(BaseWorker):
                         watchdog_rejected_count += 1
                     else:
                         cancelled += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "rejected" if normalized_status == "REJECTED" else "cancelled",
+                            "reason_category": "broker_status",
+                            "broker_status": normalized_status,
+                            "broker_order_id": broker_result.broker_order_id,
+                        }
+                    )
                     _logger.info(
                         "auto_paper_trader: broker rejected %s — %s",
                         opportunity.asset,
@@ -407,6 +458,7 @@ class AutoPaperTraderWorker(BaseWorker):
                         and kill_on_reject_rate >= 0
                         and (watchdog_rejected_count / submit_attempts) >= kill_on_reject_rate
                     ):
+                        watchdog_tripped_by = "reject_rate"
                         watchdog_tripped_reason = (
                             "watchdog blocked further submits: "
                             f"reject_rate={watchdog_rejected_count / submit_attempts:.3f} "
@@ -419,12 +471,23 @@ class AutoPaperTraderWorker(BaseWorker):
                 if normalized_status not in _ACCEPTED_BROKER_STATUSES:
                     unsupported += 1
                     watchdog_error_count += 1
+                    attempt_outcomes.append(
+                        {
+                            "symbol": opportunity.asset,
+                            "signal_id": str(opportunity.signal_id),
+                            "outcome": "submit_error",
+                            "reason_category": "unsupported_broker_status",
+                            "broker_status": normalized_status,
+                            "reason": f"Unsupported broker outcome: {broker_result.status}",
+                        }
+                    )
                     _logger.warning(
                         "auto_paper_trader: unsupported broker outcome %s for %s",
                         broker_result.status,
                         opportunity.asset,
                     )
                     if watchdog_error_count >= kill_on_error_count:
+                        watchdog_tripped_by = "error_count"
                         watchdog_tripped_reason = (
                             "watchdog blocked further submits: "
                             f"error_count={watchdog_error_count} "
@@ -437,6 +500,16 @@ class AutoPaperTraderWorker(BaseWorker):
                 paper_order = self._open_position(session, opportunity, signal, broker_result)
                 reconciled_orders.append(paper_order)
                 opened += 1
+                attempt_outcomes.append(
+                    {
+                        "symbol": opportunity.asset,
+                        "signal_id": str(opportunity.signal_id),
+                        "outcome": "accepted",
+                        "reason_category": "broker_status",
+                        "broker_status": normalized_status,
+                        "broker_order_id": broker_result.broker_order_id,
+                    }
+                )
                 _logger.info("auto_paper_trader: opened position for %s", opportunity.asset)
 
             session.commit()
@@ -474,9 +547,24 @@ class AutoPaperTraderWorker(BaseWorker):
         if cancelled:
             parts.append(f"{cancelled} cancelled")
         if unsupported:
-            parts.append(f"{unsupported} unsupported")
+            parts.append(f"{unsupported} submit-errors")
         if skipped_cap:
             parts.append(f"{skipped_cap} skipped (cap)")
         if watchdog_tripped_reason:
             parts.append(watchdog_tripped_reason)
-        return ", ".join(parts)
+        summary_message = ", ".join(parts)
+
+        diagnostics_payload = {
+            "watchdog_summary": {
+                "tripped": bool(watchdog_tripped_reason),
+                "tripped_by": watchdog_tripped_by,
+                "reason": watchdog_tripped_reason,
+                "error_count": watchdog_error_count,
+                "rejected_count": watchdog_rejected_count,
+                "submit_attempts": submit_attempts,
+                "kill_on_error_count": kill_on_error_count,
+                "kill_on_reject_rate": kill_on_reject_rate,
+            },
+            "attempt_outcomes": attempt_outcomes,
+        }
+        return f"{summary_message} || auto_diag={json.dumps(diagnostics_payload, separators=(',', ':'))}"

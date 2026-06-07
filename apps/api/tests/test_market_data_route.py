@@ -609,6 +609,8 @@ def test_get_auto_paper_history_contract_snapshots_key_fields(client, monkeypatc
                 "skipped_cap_count": 0,
                 "legacy_broker_rejected_count": 0,
             },
+            "watchdog_summary": None,
+            "attempt_outcomes": [],
         }
     ]
 
@@ -967,6 +969,8 @@ def test_export_auto_paper_history_contract_snapshots_key_fields(client, monkeyp
                     "skipped_cap_count": 0,
                     "legacy_broker_rejected_count": 0,
                 },
+                "watchdog_summary": None,
+                "attempt_outcomes": [],
             }
         ],
     }
@@ -1314,6 +1318,10 @@ def test_get_auto_paper_readiness_contract_snapshots_key_fields(client, monkeypa
                 "live_execution_enabled": False,
                 "paper_trading_enabled": True,
             },
+            "tws_runtime_client_id": None,
+            "tws_connection_state": None,
+            "tws_last_error_code": None,
+            "tws_last_error_message": None,
         },
         "scheduler": {
             "job_id": "auto_paper_trader",
@@ -1361,6 +1369,8 @@ def test_get_auto_paper_readiness_contract_snapshots_key_fields(client, monkeypa
                     "skipped_cap_count": 0,
                     "legacy_broker_rejected_count": 0,
                 },
+                "watchdog_summary": None,
+                "attempt_outcomes": [],
             },
             "summary": {
                 "total_runs": 1,
@@ -1925,6 +1935,10 @@ def test_get_auto_paper_enablement_preconditions_contract_snapshots_key_fields(c
                 "live_execution_enabled": False,
                 "paper_trading_enabled": True,
             },
+            "tws_runtime_client_id": None,
+            "tws_connection_state": None,
+            "tws_last_error_code": None,
+            "tws_last_error_message": None,
         },
         "trading_halt": {
             "emergency_stop_active": False,
@@ -1998,6 +2012,8 @@ def test_get_auto_paper_enablement_preconditions_contract_snapshots_key_fields(c
                     "skipped_cap_count": 0,
                     "legacy_broker_rejected_count": 0,
                 },
+                "watchdog_summary": None,
+                "attempt_outcomes": [],
             },
             "summary": {
                 "total_runs": 1,
