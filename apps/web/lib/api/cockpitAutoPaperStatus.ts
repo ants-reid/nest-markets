@@ -68,6 +68,40 @@ export interface AutoPaperStatusLatestPaperOrder {
   ibkr_status?: string | null;
 }
 
+export interface AutoPaperCandidateQueueItem {
+  signal_id: string;
+  asset: string;
+  provider_name: string;
+  signal_status: string;
+  signal_score: number | null;
+  confidence: number | null;
+  composite_score: number | null;
+  scan_ts: string | null;
+  age_minutes: number | null;
+  age_bucket: string;
+  stale_manual_seed: boolean;
+  duplicate_symbol_candidate: boolean;
+}
+
+export interface AutoPaperCandidateQueue {
+  recency_hours: number;
+  min_signal_score: number;
+  eligible_count: number;
+  top_candidates: AutoPaperCandidateQueueItem[];
+  selection_explanation: string;
+}
+
+export interface AutoPaperQueueHygiene {
+  stale_manual_seed_count: number;
+  duplicate_symbol_candidate_count: number;
+  already_submitted_count: number;
+  allowlist_blocked_count: number;
+  cap_blocked: boolean;
+  controlled_gate_blocked: boolean;
+  age_bucket_counts: Record<string, number>;
+  cleanup_recommendations: string[];
+}
+
 export interface AutoPaperControlledGateDecision {
   allowed: boolean;
   blocking_gate: string | null;
@@ -124,6 +158,8 @@ export interface AutoPaperStatusCard {
   trading_control: AutoPaperStatusTradingControl;
   latest_run: AutoPaperStatusLatestRun | null;
   latest_paper_order: AutoPaperStatusLatestPaperOrder | null;
+  candidate_queue?: AutoPaperCandidateQueue;
+  queue_hygiene?: AutoPaperQueueHygiene;
   run_log_summary: AutoPaperStatusRunLogSummary;
   links: Record<string, string>;
   controlled_gate?: AutoPaperControlledGate;

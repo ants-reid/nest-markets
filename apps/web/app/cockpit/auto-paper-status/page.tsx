@@ -224,6 +224,8 @@ export default function AutoPaperStatusPage() {
     ksActive;
 
   const guidance = card ? deriveGuidance(card) : null;
+  const candidateQueue = card?.candidate_queue;
+  const queueHygiene = card?.queue_hygiene;
 
   return (
     <main className={styles.page} data-testid="auto-paper-status-page">
@@ -545,6 +547,84 @@ export default function AutoPaperStatusPage() {
                   ))}
                 </div>
               </div>
+
+              {candidateQueue && (
+                <div className={styles.section} data-testid="auto-paper-candidate-queue">
+                  <h3 className={styles.sectionTitle}>Top candidate queue</h3>
+                  <p className={styles.sectionBody}>{candidateQueue.selection_explanation}</p>
+                  <div className={styles.metaGrid}>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Eligible candidates</span>
+                      <span className={styles.metaValue}>{candidateQueue.eligible_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Recency window</span>
+                      <span className={styles.metaValue}>{candidateQueue.recency_hours}h</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Min signal score</span>
+                      <span className={styles.metaValue}>{formatNumber(candidateQueue.min_signal_score)}</span>
+                    </div>
+                  </div>
+                  {candidateQueue.top_candidates.length > 0 ? (
+                    <div className={styles.metaGrid}>
+                      {candidateQueue.top_candidates.map((item) => (
+                        <div className={styles.metaItem} key={item.signal_id}>
+                          <span className={styles.metaLabel}>
+                            {item.asset} ({item.provider_name})
+                          </span>
+                          <span className={styles.metaValue}>
+                            score {formatNumber(item.signal_score)} / composite {formatNumber(item.composite_score)} / age {formatMaybeNumber(item.age_minutes)}m
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={styles.sectionBody}>No eligible candidates in the current queue window.</p>
+                  )}
+                </div>
+              )}
+
+              {queueHygiene && (
+                <div className={styles.section} data-testid="auto-paper-queue-hygiene">
+                  <h3 className={styles.sectionTitle}>Queue hygiene</h3>
+                  <div className={styles.metaGrid}>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Stale manual seeds</span>
+                      <span className={styles.metaValue}>{queueHygiene.stale_manual_seed_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Duplicate-symbol candidates</span>
+                      <span className={styles.metaValue}>{queueHygiene.duplicate_symbol_candidate_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Already submitted overlap</span>
+                      <span className={styles.metaValue}>{queueHygiene.already_submitted_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Allowlist-blocked candidates</span>
+                      <span className={styles.metaValue}>{queueHygiene.allowlist_blocked_count}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Cap blocked</span>
+                      <span className={styles.metaValue}>{queueHygiene.cap_blocked ? "yes" : "no"}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Controlled gate blocked</span>
+                      <span className={styles.metaValue}>{queueHygiene.controlled_gate_blocked ? "yes" : "no"}</span>
+                    </div>
+                  </div>
+                  {queueHygiene.cleanup_recommendations.length > 0 && (
+                    <ul className={styles.list}>
+                      {queueHygiene.cleanup_recommendations.map((item) => (
+                        <li key={item} className={styles.listItem}>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               <div className={styles.section}>
                 <h3 className={styles.sectionTitle}>Safety notes</h3>

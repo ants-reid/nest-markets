@@ -14,20 +14,27 @@ Drift-lock guarantees:
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.db.enums import SignalStatus
+from app.db.models.asset import Asset
 from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.models.paper_order import PaperOrder
 from app.db.models.position import Position
+from app.db.models.signal import Signal
 from app.db.session import SessionLocal
 from app.services.auto_paper_gate_service import AutoPaperGateService
 from app.services.cockpit_mode_service import get_cockpit_mode_state
+from app.services.opportunity_ranker_service import OpportunityRankerService
 from app.services.trading_control_service import TradingControlState, get_trading_mode
+from app.services.visual_seed import provider_filter
 from app.services.worker_run_log_service import WorkerRunEntry, WorkerRunLogService
 
 
@@ -45,6 +52,9 @@ _ADVISORY = (
     "trading control."
 )
 _DEFAULT_MAX_OPEN_POSITIONS = 5
+_QUEUE_RECENCY_HOURS = 8
+_QUEUE_MIN_SIGNAL_SCORE = 50.0
+_MANUAL_SEED_PROVIDER = "manual_scheduler_seed"
 
 
 def _safe_float(value: Any) -> float | None:
@@ -66,6 +76,199 @@ def _serialize_trading_control(state: TradingControlState) -> Dict[str, Any]:
         "live_order_submission_allowed": state.live_order_submission_allowed,
         "emergency_stop_active": state.emergency_stop_active,
         "reasons": list(state.reasons),
+    }
+
+
+def _to_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
+def _age_minutes(scan_ts: datetime | None, now_utc: datetime) -> int | None:
+    utc_scan = _to_utc(scan_ts)
+    if utc_scan is None:
+        return None
+    return max(0, int((now_utc - utc_scan).total_seconds() // 60))
+
+
+def _age_bucket(minutes: int | None) -> str:
+    if minutes is None:
+        return "unknown"
+    if minutes <= 30:
+        return "fresh_le_30m"
+    if minutes <= 120:
+        return "recent_30m_2h"
+    if minutes <= (_QUEUE_RECENCY_HOURS * 60):
+        return "aging_2h_8h"
+    return "stale_gt_8h"
+
+
+def _load_candidate_queue_snapshot(
+    *,
+    session: Session,
+    max_items: int = 5,
+) -> Dict[str, Any]:
+    now_utc = datetime.now(UTC)
+    cutoff = now_utc - timedelta(hours=_QUEUE_RECENCY_HOURS)
+
+    # Eligible candidates use the same base filters as OpportunityRankerService.
+    eligible_rows = (
+        session.execute(
+            select(Signal, Asset)
+            .join(Asset, Signal.asset_id == Asset.id)
+            .where(Signal.signal_status == SignalStatus.CANDIDATE)
+            .where(Signal.scan_ts >= cutoff)
+            .where(Signal.signal_score >= _QUEUE_MIN_SIGNAL_SCORE)
+            .where(provider_filter(Signal.provider_name, include_visual_seed=False))
+            .order_by(Signal.signal_score.desc())
+        )
+        .all()
+    )
+
+    ranked = OpportunityRankerService(session).rank(
+        limit=max_items,
+        recency_hours=_QUEUE_RECENCY_HOURS,
+    )
+    ranked_by_id = {op.signal_id: op for op in ranked}
+
+    by_symbol = Counter(asset.symbol for _, asset in eligible_rows)
+    top_candidates: list[Dict[str, Any]] = []
+
+    for signal, asset in eligible_rows[:max_items]:
+        age_mins = _age_minutes(signal.scan_ts, now_utc)
+        provider = signal.provider_name or "unknown"
+        rank = ranked_by_id.get(signal.id)
+        top_candidates.append(
+            {
+                "signal_id": str(signal.id),
+                "asset": asset.symbol,
+                "provider_name": provider,
+                "signal_status": signal.signal_status.value,
+                "signal_score": _safe_float(signal.signal_score),
+                "confidence": _safe_float(signal.confidence),
+                "composite_score": rank.score if rank is not None else None,
+                "scan_ts": signal.scan_ts.isoformat() if signal.scan_ts is not None else None,
+                "age_minutes": age_mins,
+                "age_bucket": _age_bucket(age_mins),
+                "stale_manual_seed": (
+                    provider == _MANUAL_SEED_PROVIDER and (age_mins or 0) > (_QUEUE_RECENCY_HOURS * 60)
+                ),
+                "duplicate_symbol_candidate": by_symbol.get(asset.symbol, 0) > 1,
+            }
+        )
+
+    selection_explanation = (
+        "Eligible candidates must be CANDIDATE, scan_ts within recency window, "
+        "signal_score >= 50, and pass provider filters; worker traversal starts from highest signal_score."
+    )
+    if top_candidates:
+        first = top_candidates[0]
+        if first["provider_name"] == _MANUAL_SEED_PROVIDER:
+            selection_explanation += " Top candidate is a manual scheduler seed based on score ordering."
+
+    return {
+        "recency_hours": _QUEUE_RECENCY_HOURS,
+        "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
+        "eligible_count": len(eligible_rows),
+        "top_candidates": top_candidates,
+        "selection_explanation": selection_explanation,
+    }
+
+
+def _load_candidate_queue_hygiene(
+    *,
+    session: Session,
+    max_open_paper_positions: int,
+    open_paper_positions_count: int,
+    controlled_gate_decision: Dict[str, Any],
+    controlled_gate_snapshot: Dict[str, Any],
+) -> Dict[str, Any]:
+    now_utc = datetime.now(UTC)
+    candidate_rows = (
+        session.execute(
+            select(Signal, Asset)
+            .join(Asset, Signal.asset_id == Asset.id)
+            .where(Signal.signal_status == SignalStatus.CANDIDATE)
+            .where(provider_filter(Signal.provider_name, include_visual_seed=False))
+        )
+        .all()
+    )
+
+    age_buckets: Dict[str, int] = {
+        "fresh_le_30m": 0,
+        "recent_30m_2h": 0,
+        "aging_2h_8h": 0,
+        "stale_gt_8h": 0,
+        "unknown": 0,
+    }
+    symbols: list[str] = []
+    stale_manual_seed_count = 0
+
+    for signal, asset in candidate_rows:
+        age_mins = _age_minutes(signal.scan_ts, now_utc)
+        bucket = _age_bucket(age_mins)
+        age_buckets[bucket] = age_buckets.get(bucket, 0) + 1
+        provider = signal.provider_name or "unknown"
+        if provider == _MANUAL_SEED_PROVIDER and bucket == "stale_gt_8h":
+            stale_manual_seed_count += 1
+        symbols.append(asset.symbol)
+
+    symbol_counts = Counter(symbols)
+    duplicate_symbol_candidate_count = sum(count - 1 for count in symbol_counts.values() if count > 1)
+
+    already_submitted_rows = (
+        session.execute(
+            select(Signal, Asset)
+            .join(Asset, Signal.asset_id == Asset.id)
+            .where(Signal.signal_status == SignalStatus.PAPER_SUBMITTED)
+            .where(provider_filter(Signal.provider_name, include_visual_seed=False))
+        )
+        .all()
+    )
+    submitted_symbols = {asset.symbol for _, asset in already_submitted_rows}
+    already_submitted_count = sum(1 for symbol in symbols if symbol in submitted_symbols)
+
+    allowlist = set(controlled_gate_snapshot.get("symbol_allowlist") or [])
+    allowlist_blocked_count = 0
+    if allowlist:
+        allowlist_blocked_count = sum(1 for symbol in symbols if symbol.upper() not in allowlist)
+
+    cap_blocked = open_paper_positions_count >= max_open_paper_positions
+    decision_blocked = not bool(controlled_gate_decision.get("allowed", False))
+    recommendations: list[str] = []
+    if stale_manual_seed_count > 0:
+        recommendations.append(
+            f"Review/expire {stale_manual_seed_count} stale manual seed candidate(s) older than {_QUEUE_RECENCY_HOURS}h."
+        )
+    if duplicate_symbol_candidate_count > 0:
+        recommendations.append(
+            f"Deduplicate {duplicate_symbol_candidate_count} same-symbol candidate(s) before the next cycle."
+        )
+    if allowlist_blocked_count > 0:
+        recommendations.append(
+            f"{allowlist_blocked_count} candidate(s) are outside the current symbol allowlist."
+        )
+    if cap_blocked:
+        recommendations.append(
+            "Open-position cap is currently reached; no new auto-paper entries will open until slots free up."
+        )
+    if decision_blocked:
+        gate_name = controlled_gate_decision.get("blocking_gate") or "unknown_gate"
+        reason = controlled_gate_decision.get("reason") or "no reason supplied"
+        recommendations.append(f"Controlled gate is blocked at {gate_name}: {reason}")
+
+    return {
+        "stale_manual_seed_count": stale_manual_seed_count,
+        "duplicate_symbol_candidate_count": duplicate_symbol_candidate_count,
+        "already_submitted_count": already_submitted_count,
+        "allowlist_blocked_count": allowlist_blocked_count,
+        "cap_blocked": cap_blocked,
+        "controlled_gate_blocked": decision_blocked,
+        "age_bucket_counts": age_buckets,
+        "cleanup_recommendations": recommendations,
     }
 
 
@@ -402,6 +605,8 @@ def get_auto_paper_status_card(
     gate_service = AutoPaperGateService(settings)
     controlled_gate_snapshot: dict[str, Any]
     controlled_gate_decision: dict[str, Any]
+    owned_for_queue: Session | None = None
+    active_session = session
     if session is not None:
         controlled_gate_snapshot = gate_service.snapshot(session)
         decision = gate_service.evaluate_run(session)
@@ -412,21 +617,92 @@ def get_auto_paper_status_card(
         }
     else:
         try:
-            with SessionLocal() as owned:
-                controlled_gate_snapshot = gate_service.snapshot(owned)
-                decision = gate_service.evaluate_run(owned)
-                controlled_gate_decision = {
-                    "allowed": decision.allowed,
-                    "blocking_gate": decision.blocking_gate,
-                    "reason": decision.reason,
-                }
+            owned_for_queue = SessionLocal()
+            active_session = owned_for_queue
+            controlled_gate_snapshot = gate_service.snapshot(owned_for_queue)
+            decision = gate_service.evaluate_run(owned_for_queue)
+            controlled_gate_decision = {
+                "allowed": decision.allowed,
+                "blocking_gate": decision.blocking_gate,
+                "reason": decision.reason,
+            }
         except Exception:
+            if owned_for_queue is not None:
+                owned_for_queue.close()
+                owned_for_queue = None
+            active_session = None
             controlled_gate_snapshot = gate_service.snapshot(None)
             controlled_gate_decision = {
                 "allowed": False,
                 "blocking_gate": "snapshot_unavailable",
                 "reason": "Unable to evaluate controlled-run gate without DB session.",
             }
+
+    if active_session is not None:
+        try:
+            candidate_queue = _load_candidate_queue_snapshot(session=active_session)
+            queue_hygiene = _load_candidate_queue_hygiene(
+                session=active_session,
+                max_open_paper_positions=max_open_paper_positions,
+                open_paper_positions_count=open_paper_positions_count,
+                controlled_gate_decision=controlled_gate_decision,
+                controlled_gate_snapshot=controlled_gate_snapshot,
+            )
+        except Exception:
+            candidate_queue = {
+                "recency_hours": _QUEUE_RECENCY_HOURS,
+                "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
+                "eligible_count": 0,
+                "top_candidates": [],
+                "selection_explanation": "Candidate queue snapshot unavailable.",
+            }
+            queue_hygiene = {
+                "stale_manual_seed_count": 0,
+                "duplicate_symbol_candidate_count": 0,
+                "already_submitted_count": 0,
+                "allowlist_blocked_count": 0,
+                "cap_blocked": open_paper_positions_count >= max_open_paper_positions,
+                "controlled_gate_blocked": not bool(controlled_gate_decision.get("allowed", False)),
+                "age_bucket_counts": {
+                    "fresh_le_30m": 0,
+                    "recent_30m_2h": 0,
+                    "aging_2h_8h": 0,
+                    "stale_gt_8h": 0,
+                    "unknown": 0,
+                },
+                "cleanup_recommendations": [
+                    "Queue hygiene snapshot unavailable; verify DB connectivity and retry.",
+                ],
+            }
+    else:
+        candidate_queue = {
+            "recency_hours": _QUEUE_RECENCY_HOURS,
+            "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
+            "eligible_count": 0,
+            "top_candidates": [],
+            "selection_explanation": "Candidate queue snapshot unavailable.",
+        }
+        queue_hygiene = {
+            "stale_manual_seed_count": 0,
+            "duplicate_symbol_candidate_count": 0,
+            "already_submitted_count": 0,
+            "allowlist_blocked_count": 0,
+            "cap_blocked": open_paper_positions_count >= max_open_paper_positions,
+            "controlled_gate_blocked": not bool(controlled_gate_decision.get("allowed", False)),
+            "age_bucket_counts": {
+                "fresh_le_30m": 0,
+                "recent_30m_2h": 0,
+                "aging_2h_8h": 0,
+                "stale_gt_8h": 0,
+                "unknown": 0,
+            },
+            "cleanup_recommendations": [
+                "Queue hygiene snapshot unavailable; verify DB connectivity and retry.",
+            ],
+        }
+
+    if owned_for_queue is not None:
+        owned_for_queue.close()
 
     posture, headline, subline = _derive_posture(
         trading_control=trading_control,
@@ -500,6 +776,8 @@ def get_auto_paper_status_card(
             "submit_decision_count": submit_decision_count,
             "latest_paper_order_present": bool(latest_paper_order),
         },
+        "candidate_queue": candidate_queue,
+        "queue_hygiene": queue_hygiene,
         "run_log_summary": {
             "current_entry_count": run_log_entry_count,
             "max_entries": retention.get("max_entries", 0),

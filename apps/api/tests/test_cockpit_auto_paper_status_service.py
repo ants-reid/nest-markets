@@ -147,6 +147,8 @@ def test_card_shape_with_no_runs(isolated_service):
         "trading_control",
         "latest_run",
         "latest_paper_order",
+        "candidate_queue",
+        "queue_hygiene",
         "run_log_summary",
         "links",
     ):
@@ -185,6 +187,12 @@ def test_card_shape_with_no_runs(isolated_service):
     assert card["trading_control"]["paper_order_submission_allowed"] is True
     assert card["safety_notes"]
     assert "simulate trades only" in " ".join(card["safety_notes"]).lower()
+    assert "eligible_count" in card["candidate_queue"]
+    assert "top_candidates" in card["candidate_queue"]
+    assert "selection_explanation" in card["candidate_queue"]
+    assert "stale_manual_seed_count" in card["queue_hygiene"]
+    assert "duplicate_symbol_candidate_count" in card["queue_hygiene"]
+    assert "cleanup_recommendations" in card["queue_hygiene"]
 
 
 def test_card_posture_ok_when_paper_clean(isolated_service):

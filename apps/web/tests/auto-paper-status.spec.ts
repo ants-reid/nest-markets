@@ -192,6 +192,45 @@ function buildAutoPaperStatus() {
       broker_order_id: null,
       ibkr_status: null,
     },
+    candidate_queue: {
+      recency_hours: 8,
+      min_signal_score: 50,
+      eligible_count: 3,
+      selection_explanation:
+        "Eligible candidates must be CANDIDATE, recent, score >= 50, and pass provider filters.",
+      top_candidates: [
+        {
+          signal_id: "sig-1",
+          asset: "AAPL",
+          provider_name: "manual_scheduler_seed",
+          signal_status: "candidate",
+          signal_score: 92,
+          confidence: 0.81,
+          composite_score: 88,
+          scan_ts: "2025-01-02T03:03:05Z",
+          age_minutes: 11,
+          age_bucket: "fresh_le_30m",
+          stale_manual_seed: false,
+          duplicate_symbol_candidate: false,
+        },
+      ],
+    },
+    queue_hygiene: {
+      stale_manual_seed_count: 1,
+      duplicate_symbol_candidate_count: 1,
+      already_submitted_count: 0,
+      allowlist_blocked_count: 0,
+      cap_blocked: false,
+      controlled_gate_blocked: true,
+      age_bucket_counts: {
+        fresh_le_30m: 1,
+        recent_30m_2h: 1,
+        aging_2h_8h: 1,
+        stale_gt_8h: 0,
+        unknown: 0,
+      },
+      cleanup_recommendations: ["Review stale manual seeds."],
+    },
     run_log_summary: {
       current_entry_count: 4,
       max_entries: 200,
@@ -274,6 +313,8 @@ test("auto paper status page shows simulation-only safety and operator guidance"
   await expect(page.getByTestId("auto-paper-lock-notice")).toContainText(/live trading remains locked/i);
   await expect(page.getByTestId("auto-paper-state-summary")).toContainText(/blocked/i);
   await expect(page.getByTestId("auto-paper-next-action")).toContainText(/review the latest block reason/i);
+  await expect(page.getByTestId("auto-paper-candidate-queue")).toContainText(/eligible candidates/i);
+  await expect(page.getByTestId("auto-paper-queue-hygiene")).toContainText(/stale manual seeds/i);
   await expect(page.getByText(/simulated size/i)).toBeVisible();
 });
 
