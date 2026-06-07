@@ -169,10 +169,17 @@ def _load_candidate_queue_snapshot(
         if first["provider_name"] == _MANUAL_SEED_PROVIDER:
             selection_explanation += " Top candidate is a manual scheduler seed based on score ordering."
 
+    refresh_available = len(eligible_rows) <= 0
+    empty_reason = None
+    if refresh_available:
+        empty_reason = "no_recent_eligible_candidates"
+
     return {
         "recency_hours": _QUEUE_RECENCY_HOURS,
         "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
         "eligible_count": len(eligible_rows),
+        "empty_reason": empty_reason,
+        "refresh_available": refresh_available,
         "top_candidates": top_candidates,
         "selection_explanation": selection_explanation,
     }
@@ -647,7 +654,7 @@ def _build_next_run_guidance(
         )
     elif blocked_by_no_candidates:
         suggested_operator_action = (
-            "No eligible candidates currently. Wait for fresh candidates or widen universe/score filters."
+            "No eligible candidates currently. Refresh paper candidates or widen universe/score filters."
         )
     elif background_scheduler_enabled and can_run_now and paper_normal_mode_active:
         suggested_operator_action = "Paper Normal Mode active. Background scheduler is running in paper-only mode."
@@ -780,6 +787,8 @@ def get_auto_paper_status_card(
                 "recency_hours": _QUEUE_RECENCY_HOURS,
                 "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
                 "eligible_count": 0,
+                "empty_reason": "snapshot_unavailable",
+                "refresh_available": False,
                 "top_candidates": [],
                 "selection_explanation": "Candidate queue snapshot unavailable.",
             }
@@ -806,6 +815,8 @@ def get_auto_paper_status_card(
             "recency_hours": _QUEUE_RECENCY_HOURS,
             "min_signal_score": _QUEUE_MIN_SIGNAL_SCORE,
             "eligible_count": 0,
+            "empty_reason": "snapshot_unavailable",
+            "refresh_available": False,
             "top_candidates": [],
             "selection_explanation": "Candidate queue snapshot unavailable.",
         }

@@ -192,6 +192,132 @@ def test_trigger_auto_paper_run_persists_structured_outcome_counts(client, monke
     }
 
 
+def test_refresh_candidates_uses_allowlist_and_commits(client, monkeypatch):
+    c, session = client
+    captured: dict[str, object] = {}
+
+    class StubRefreshService:
+        def __init__(self, session):
+            captured["session"] = session
+
+        def refresh(self, *, symbols, dry_run):
+            captured["symbols"] = symbols
+            captured["dry_run"] = dry_run
+            return {
+                "created_count": 2,
+                "skipped_count": 0,
+                "candidates": [
+                    {"symbol": "AAPL", "action": "created", "reason": "created_fresh_candidate", "signal_id": "sig-a"},
+                    {"symbol": "MSFT", "action": "created", "reason": "created_fresh_candidate", "signal_id": "sig-b"},
+                ],
+            }
+
+    monkeypatch.setattr(market_data_route, "PaperCandidateRefreshService", StubRefreshService)
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL,MSFT,NVDA,TSLA,AMZN",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/refresh")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["created_count"] == 2
+    assert payload["skipped_count"] == 0
+    assert captured["symbols"] == ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"]
+    assert captured["dry_run"] is False
+    session.commit.assert_called_once()
+
+
+def test_refresh_candidates_blocks_when_live_enabled(client, monkeypatch):
+    c, _session = client
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=True,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/refresh")
+
+    assert response.status_code == 409
+    assert "LIVE_EXECUTION_ENABLED" in response.json()["detail"]
+
+
+def test_refresh_candidates_blocks_when_not_paper_mode(client, monkeypatch):
+    c, _session = client
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="live",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/refresh")
+
+    assert response.status_code == 409
+    assert "BROKER_MODE" in response.json()["detail"]
+
+
+def test_refresh_candidates_does_not_submit_orders(client, monkeypatch):
+    c, _session = client
+
+    class FailingBrokerService:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("BrokerService should not be used by candidate refresh")
+
+    class StubRefreshService:
+        def __init__(self, session):
+            self._session = session
+
+        def refresh(self, *, symbols, dry_run):
+            return {
+                "created_count": 0,
+                "skipped_count": len(symbols),
+                "candidates": [
+                    {
+                        "symbol": symbols[0],
+                        "action": "skipped",
+                        "reason": "dry_run_or_existing",
+                        "signal_id": None,
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(market_data_route, "BrokerService", FailingBrokerService)
+    monkeypatch.setattr(market_data_route, "PaperCandidateRefreshService", StubRefreshService)
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/refresh?dry_run=true")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dry_run"] is True
+
+
 def test_get_auto_paper_history_filters_by_source_and_outcome(client, monkeypatch):
     c, _session = client
 

@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from app.services.cockpit_auto_paper_status_service import (
-    get_auto_paper_status_card,
-)
+from app.services import cockpit_auto_paper_status_service
+from app.services.cockpit_auto_paper_status_service import get_auto_paper_status_card
 from app.services.cockpit_mode_service import (
     reset_cockpit_mode_for_tests,
     set_cockpit_mode,
@@ -206,6 +205,8 @@ def test_card_shape_with_no_runs(isolated_service):
     assert card["safety_notes"]
     assert "simulate trades only" in " ".join(card["safety_notes"]).lower()
     assert "eligible_count" in card["candidate_queue"]
+    assert "empty_reason" in card["candidate_queue"]
+    assert "refresh_available" in card["candidate_queue"]
     assert "top_candidates" in card["candidate_queue"]
     assert "selection_explanation" in card["candidate_queue"]
     assert "stale_manual_seed_count" in card["queue_hygiene"]
@@ -368,3 +369,50 @@ def test_audit_alignment_warns_when_order_exists_but_history_missing(isolated_se
     assert card["audit_alignment"]["status"] == "warning"
     assert "latest_paper_order_without_run_log" in card["audit_alignment"]["warning_codes"]
     assert card["audit_alignment"]["latest_paper_order_present"] is True
+
+
+def test_status_card_recommends_refresh_when_no_candidates(isolated_service, monkeypatch):
+    monkeypatch.setattr(
+        cockpit_auto_paper_status_service,
+        "_load_candidate_queue_snapshot",
+        lambda **_: {
+            "recency_hours": 8,
+            "min_signal_score": 50.0,
+            "eligible_count": 0,
+            "empty_reason": "no_recent_eligible_candidates",
+            "refresh_available": True,
+            "top_candidates": [],
+            "selection_explanation": "snapshot",
+        },
+    )
+    monkeypatch.setattr(
+        cockpit_auto_paper_status_service,
+        "_load_candidate_queue_hygiene",
+        lambda **_: {
+            "stale_manual_seed_count": 1,
+            "duplicate_symbol_candidate_count": 2,
+            "already_submitted_count": 0,
+            "allowlist_blocked_count": 0,
+            "cap_blocked": False,
+            "controlled_gate_blocked": False,
+            "age_bucket_counts": {
+                "fresh_le_30m": 0,
+                "recent_30m_2h": 0,
+                "aging_2h_8h": 0,
+                "stale_gt_8h": 0,
+                "unknown": 0,
+            },
+            "cleanup_recommendations": [],
+        },
+    )
+
+    card = get_auto_paper_status_card(
+        trading_control_state=_paper_armed_state(),
+        run_log_service=isolated_service,
+        session=_FakeSession(),
+    )
+
+    assert card["candidate_queue"]["eligible_count"] == 0
+    assert card["candidate_queue"]["refresh_available"] is True
+    assert card["candidate_queue"]["empty_reason"] == "no_recent_eligible_candidates"
+    assert "refresh paper candidates" in card["next_run_guidance"]["suggested_operator_action"].lower()

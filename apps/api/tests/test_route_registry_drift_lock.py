@@ -208,6 +208,7 @@ EXPECTED_ROUTES: set[tuple[str, str]] = {
     ("POST", "/market-data/auto-paper/arming/disarm"),
     ("POST", "/market-data/auto-paper/kill-switch/activate"),
     ("POST", "/market-data/auto-paper/kill-switch/deactivate"),
+    ("POST", "/market-data/auto-paper/candidates/refresh"),
     ("POST", "/market-data/auto-paper/run"),
     ("POST", "/market-data/auto-paper/scheduler/pause"),
     ("POST", "/market-data/auto-paper/scheduler/resume"),
@@ -333,7 +334,7 @@ def test_route_registry_no_unexpected_post_to_orders() -> None:
 def test_route_registry_total_count_floor() -> None:
     """Sanity floor: the app must register at least the cycle-58 baseline."""
     actual = _collect_method_path_pairs()
-    assert len(actual) >= 191, (
-        f"Route count fell below cycle-58 baseline of 191 (now {len(actual)}). "
+    assert len(actual) >= 192, (
+        f"Route count fell below cycle-58 baseline of 192 (now {len(actual)}). "
         "A drop usually means a router was unintentionally unregistered."
     )

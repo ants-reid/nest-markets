@@ -35,6 +35,7 @@ from app.services.broker_mode_guard import (
 )
 from app.services.broker_service import BrokerService
 from app.services.risk_limit_service import RiskLimitService
+from app.services.paper_candidate_refresh_service import PaperCandidateRefreshService
 from app.services.trading_control_arming_state_service import TradingControlArmingStateService
 from app.services.trading_control_service import (
     TradingControlMisconfiguredError,
@@ -78,6 +79,24 @@ class WorkerResultResponse(BaseModel):
     message: str
     started_at: datetime
     finished_at: datetime
+
+
+class CandidateRefreshItemResponse(BaseModel):
+    """One candidate refresh action record."""
+
+    symbol: str
+    action: str
+    reason: str
+    signal_id: str | None = None
+
+
+class CandidateRefreshResponse(BaseModel):
+    """Response payload for paper candidate refresh endpoint."""
+
+    created_count: int
+    skipped_count: int
+    dry_run: bool
+    candidates: list[CandidateRefreshItemResponse]
 
 
 class AutoPaperOutcomeCounts(BaseModel):
@@ -214,6 +233,49 @@ def trigger_auto_paper_trader(source: str = "manual") -> WorkerResultResponse:
         message=result.message,
         started_at=result.started_at,
         finished_at=result.finished_at,
+    )
+
+
+@router.post("/auto-paper/candidates/refresh", response_model=CandidateRefreshResponse)
+def refresh_auto_paper_candidates(
+    session: Annotated[Session, Depends(get_db_session)],
+    dry_run: bool = False,
+) -> CandidateRefreshResponse:
+    """Refresh paper-only candidates for allowlisted symbols when queue is empty."""
+    settings = get_settings()
+    if settings.broker_mode.lower() != "paper":
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate refresh is allowed only when BROKER_MODE is paper.",
+        )
+    if settings.live_execution_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate refresh is blocked while LIVE_EXECUTION_ENABLED is true.",
+        )
+    if not settings.auto_paper_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate refresh requires AUTO_PAPER_ENABLED=true.",
+        )
+
+    symbols = [
+        symbol.strip().upper()
+        for symbol in settings.auto_paper_symbol_allowlist.split(",")
+        if symbol and symbol.strip()
+    ]
+
+    service = PaperCandidateRefreshService(session=session)
+    result = service.refresh(symbols=symbols, dry_run=dry_run)
+
+    if not dry_run and result["created_count"] > 0:
+        session.commit()
+
+    return CandidateRefreshResponse(
+        created_count=int(result["created_count"]),
+        skipped_count=int(result["skipped_count"]),
+        dry_run=bool(dry_run),
+        candidates=[CandidateRefreshItemResponse(**item) for item in result["candidates"]],
     )
 
 
