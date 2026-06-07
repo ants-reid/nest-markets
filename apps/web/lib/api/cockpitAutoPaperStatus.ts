@@ -141,8 +141,18 @@ export interface AutoPaperNextRunGuidance {
   orders_today: number;
   max_orders_per_day: number;
   max_orders_per_run: number;
+  max_notional_usd: number;
   background_scheduler_enabled: boolean;
   live_execution_enabled: boolean;
+  paper_normal_mode_active: boolean;
+  blocked_reason_category: string;
+  blocked_by: {
+    cap: boolean;
+    kill_switch: boolean;
+    no_candidates: boolean;
+    position_cap: boolean;
+    tws: boolean;
+  };
   suggested_operator_action: string;
   safe_for_supervised_session: boolean;
 }

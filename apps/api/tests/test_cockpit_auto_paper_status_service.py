@@ -164,8 +164,12 @@ def test_card_shape_with_no_runs(isolated_service):
         "orders_today",
         "max_orders_per_day",
         "max_orders_per_run",
+        "max_notional_usd",
         "background_scheduler_enabled",
         "live_execution_enabled",
+        "paper_normal_mode_active",
+        "blocked_reason_category",
+        "blocked_by",
         "suggested_operator_action",
         "safe_for_supervised_session",
     ):
@@ -209,6 +213,8 @@ def test_card_shape_with_no_runs(isolated_service):
     assert "cleanup_recommendations" in card["queue_hygiene"]
     assert isinstance(card["next_run_guidance"]["can_run_now"], bool)
     assert isinstance(card["next_run_guidance"]["safe_for_supervised_session"], bool)
+    assert isinstance(card["next_run_guidance"]["paper_normal_mode_active"], bool)
+    assert isinstance(card["next_run_guidance"]["blocked_by"], dict)
 
 
 def test_card_posture_ok_when_paper_clean(isolated_service):

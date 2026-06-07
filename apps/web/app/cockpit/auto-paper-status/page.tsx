@@ -464,6 +464,9 @@ export default function AutoPaperStatusPage() {
                         primary gate: {nextRunGuidance.primary_blocking_gate}
                       </span>
                     )}
+                    <span className={styles.code} data-testid="auto-paper-normal-mode">
+                      Paper Normal Mode: {nextRunGuidance.paper_normal_mode_active ? "active" : "out-of-profile"}
+                    </span>
                   </div>
                   {nextRunGuidance.primary_reason && (
                     <p className={styles.sectionBody}>{nextRunGuidance.primary_reason}</p>
@@ -478,6 +481,10 @@ export default function AutoPaperStatusPage() {
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Per-run cap</span>
                       <span className={styles.metaValue}>{nextRunGuidance.max_orders_per_run}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Max notional (USD)</span>
+                      <span className={styles.metaValue}>{formatNumber(nextRunGuidance.max_notional_usd)}</span>
                     </div>
                     <div className={styles.metaItem}>
                       <span className={styles.metaLabel}>Background scheduler enabled</span>
@@ -496,6 +503,30 @@ export default function AutoPaperStatusPage() {
                       <span className={styles.metaValue}>
                         {formatBool(nextRunGuidance.safe_for_supervised_session)}
                       </span>
+                    </div>
+                    <div className={styles.metaItem} data-testid="auto-paper-block-category">
+                      <span className={styles.metaLabel}>Primary block category</span>
+                      <span className={styles.metaValue}>{nextRunGuidance.blocked_reason_category}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Blocked by cap</span>
+                      <span className={styles.metaValue}>{formatBool(nextRunGuidance.blocked_by.cap)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Blocked by kill switch</span>
+                      <span className={styles.metaValue}>{formatBool(nextRunGuidance.blocked_by.kill_switch)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Blocked by no candidates</span>
+                      <span className={styles.metaValue}>{formatBool(nextRunGuidance.blocked_by.no_candidates)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Blocked by position cap</span>
+                      <span className={styles.metaValue}>{formatBool(nextRunGuidance.blocked_by.position_cap)}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Blocked by TWS</span>
+                      <span className={styles.metaValue}>{formatBool(nextRunGuidance.blocked_by.tws)}</span>
                     </div>
                   </div>
                   <p className={styles.opsNote}>{nextRunGuidance.suggested_operator_action}</p>

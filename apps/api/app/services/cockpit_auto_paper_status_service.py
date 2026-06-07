@@ -562,6 +562,8 @@ def _build_next_run_guidance(
     *,
     controlled_gate_decision: Dict[str, Any],
     controlled_gate_snapshot: Dict[str, Any],
+    candidate_eligible_count: int,
+    position_cap_reached: bool,
 ) -> Dict[str, Any]:
     can_run_now = bool(controlled_gate_decision.get("allowed", False))
     primary_blocking_gate = controlled_gate_decision.get("blocking_gate")
@@ -570,11 +572,55 @@ def _build_next_run_guidance(
     orders_today = int(controlled_gate_snapshot.get("orders_today") or 0)
     max_orders_per_day = int(controlled_gate_snapshot.get("max_orders_per_day") or 0)
     max_orders_per_run = int(controlled_gate_snapshot.get("max_orders_per_run") or 0)
+    max_notional_usd = float(controlled_gate_snapshot.get("max_notional_usd") or 0.0)
     background_scheduler_enabled = bool(
         controlled_gate_snapshot.get("background_scheduler_enabled", False)
     )
     live_execution_enabled = bool(controlled_gate_snapshot.get("live_execution_enabled", False))
     broker_mode = str(controlled_gate_snapshot.get("broker_mode") or "").lower()
+    broker_provider = str(controlled_gate_snapshot.get("broker_provider") or "").lower()
+    tws_enabled = bool(controlled_gate_snapshot.get("tws_enabled", False))
+    require_tws = bool(controlled_gate_snapshot.get("require_tws", False))
+    order_type = str(controlled_gate_snapshot.get("order_type") or "").upper()
+    allowlist = list(controlled_gate_snapshot.get("symbol_allowlist") or [])
+
+    paper_normal_mode_active = (
+        broker_mode == "paper"
+        and broker_provider == "tws"
+        and not live_execution_enabled
+        and tws_enabled
+        and require_tws
+        and order_type == "LIMIT"
+        and bool(allowlist)
+        and 0 < max_orders_per_run <= 3
+        and 0 < max_orders_per_day <= 25
+        and 0 < max_notional_usd <= 1000
+    )
+
+    blocked_by_cap = primary_blocking_gate in {
+        "max_orders_per_day",
+        "max_orders_per_run",
+        "max_notional_usd",
+    }
+    blocked_by_kill_switch = primary_blocking_gate == "kill_switch"
+    blocked_by_tws = (
+        primary_blocking_gate in {"tws_enabled", "broker_provider"}
+        or (require_tws and (broker_provider != "tws" or not tws_enabled))
+    )
+    blocked_by_no_candidates = candidate_eligible_count <= 0
+    blocked_by_position_cap = position_cap_reached
+
+    blocked_reason_category = "none"
+    if blocked_by_kill_switch:
+        blocked_reason_category = "kill_switch"
+    elif blocked_by_cap:
+        blocked_reason_category = "cap"
+    elif blocked_by_tws:
+        blocked_reason_category = "tws"
+    elif blocked_by_position_cap:
+        blocked_reason_category = "position_cap"
+    elif blocked_by_no_candidates:
+        blocked_reason_category = "no_candidates"
 
     safe_for_supervised_session = (
         broker_mode == "paper" and not live_execution_enabled and not background_scheduler_enabled
@@ -587,16 +633,24 @@ def _build_next_run_guidance(
         )
     elif broker_mode != "paper":
         suggested_operator_action = "Set broker mode to paper before the next supervised run."
-    elif background_scheduler_enabled:
-        suggested_operator_action = (
-            "Background scheduler is enabled. Disable it for a supervised one-run session."
-        )
+    elif blocked_by_tws:
+        suggested_operator_action = "TWS gate blocked. Verify TWS is enabled and broker provider is tws."
     elif primary_blocking_gate == "max_orders_per_day":
         suggested_operator_action = (
             "Daily cap reached. Wait for UTC day rollover or raise the daily cap after risk review."
         )
     elif primary_blocking_gate == "kill_switch":
         suggested_operator_action = "Kill switch is active. Deactivate it before the next supervised run."
+    elif blocked_by_position_cap:
+        suggested_operator_action = (
+            "Open position cap reached. Let existing auto-paper positions close before the next cycle."
+        )
+    elif blocked_by_no_candidates:
+        suggested_operator_action = (
+            "No eligible candidates currently. Wait for fresh candidates or widen universe/score filters."
+        )
+    elif background_scheduler_enabled and can_run_now and paper_normal_mode_active:
+        suggested_operator_action = "Paper Normal Mode active. Background scheduler is running in paper-only mode."
     elif can_run_now:
         suggested_operator_action = "Gate is clear. You can run one supervised paper cycle now."
     elif primary_blocking_gate:
@@ -614,8 +668,18 @@ def _build_next_run_guidance(
         "orders_today": orders_today,
         "max_orders_per_day": max_orders_per_day,
         "max_orders_per_run": max_orders_per_run,
+        "max_notional_usd": max_notional_usd,
         "background_scheduler_enabled": background_scheduler_enabled,
         "live_execution_enabled": live_execution_enabled,
+        "paper_normal_mode_active": paper_normal_mode_active,
+        "blocked_reason_category": blocked_reason_category,
+        "blocked_by": {
+            "cap": blocked_by_cap,
+            "kill_switch": blocked_by_kill_switch,
+            "no_candidates": blocked_by_no_candidates,
+            "position_cap": blocked_by_position_cap,
+            "tws": blocked_by_tws,
+        },
         "suggested_operator_action": suggested_operator_action,
         "safe_for_supervised_session": safe_for_supervised_session,
     }
@@ -798,6 +862,8 @@ def get_auto_paper_status_card(
     next_run_guidance = _build_next_run_guidance(
         controlled_gate_decision=controlled_gate_decision,
         controlled_gate_snapshot=controlled_gate_snapshot,
+        candidate_eligible_count=int(candidate_queue.get("eligible_count", 0)),
+        position_cap_reached=open_paper_positions_count >= max_open_paper_positions,
     )
 
     run_log_entry_count = int(retention.get("current_entry_count", 0))

@@ -153,8 +153,18 @@ function buildAutoPaperStatus() {
       orders_today: 1,
       max_orders_per_day: 1,
       max_orders_per_run: 1,
+      max_notional_usd: 100,
       background_scheduler_enabled: false,
       live_execution_enabled: false,
+      paper_normal_mode_active: true,
+      blocked_reason_category: "cap",
+      blocked_by: {
+        cap: true,
+        kill_switch: false,
+        no_candidates: false,
+        position_cap: false,
+        tws: false,
+      },
       suggested_operator_action:
         "Daily cap reached. Wait for UTC day rollover or raise the daily cap after risk review.",
       safe_for_supervised_session: true,
@@ -370,6 +380,8 @@ test("auto paper status page surfaces controlled gate, broker order, and timelin
   await expect(page.getByTestId("auto-paper-controlled-gate")).toBeVisible();
   await expect(page.getByTestId("auto-paper-next-run-guidance")).toBeVisible();
   await expect(page.getByTestId("auto-paper-next-run-daily-cap")).toContainText("1 / 1");
+  await expect(page.getByTestId("auto-paper-normal-mode")).toContainText(/active/i);
+  await expect(page.getByTestId("auto-paper-block-category")).toContainText(/cap/i);
   await expect(page.getByTestId("auto-paper-gate-decision")).toContainText(/blocked/i);
   await expect(page.getByTestId("auto-paper-daily-cap")).toContainText("1 / 1");
   await expect(page.getByTestId("auto-paper-broker-order-id")).toBeVisible();

@@ -536,9 +536,9 @@ class TestBrokerService:
 
         controlled_env = {
             "AUTO_PAPER_ENABLED": "true",
-            "AUTO_PAPER_MAX_ORDERS_PER_RUN": "1",
-            "AUTO_PAPER_MAX_ORDERS_PER_DAY": "2",
-            "AUTO_PAPER_MAX_NOTIONAL_USD": "250",
+            "AUTO_PAPER_MAX_ORDERS_PER_RUN": "3",
+            "AUTO_PAPER_MAX_ORDERS_PER_DAY": "25",
+            "AUTO_PAPER_MAX_NOTIONAL_USD": "1000",
             "AUTO_PAPER_SYMBOL_ALLOWLIST": "AAPL",
             "AUTO_PAPER_ORDER_TYPE": "LIMIT",
             "AUTO_PAPER_LIMIT_PRICE": "50.00",
