@@ -16,7 +16,14 @@ Implementation notes for this phase:
 """
 from __future__ import annotations
 
+import inspect
+import os
+import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Any
 
 from app.config import get_settings
 
@@ -192,8 +199,91 @@ def assert_auto_trading_allowed() -> None:
 
 
 _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN = 1
-_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY = 1
-_CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD = 100.0
+_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY = 2
+_CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD = 250.0
+_EQUITY_SYMBOL_RE = re.compile(r"^[A-Z]{1,5}$")
+_AUTO_SUBMIT_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
+    "auto_submit_context",
+    default=None,
+)
+
+
+def _is_true_like(value: str | None, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_scheduled_worker_stack() -> bool:
+    """Return True only for scheduler-driven auto-paper trader execution."""
+    has_worker_frame = False
+    has_scheduler_frame = False
+    for frame in inspect.stack(context=0):
+        filename = (frame.filename or "").replace("\\", "/")
+        if filename.endswith("/auto_paper_trader_worker.py") and frame.function == "execute":
+            has_worker_frame = True
+        if "/apscheduler/" in filename:
+            has_scheduler_frame = True
+        if has_worker_frame and has_scheduler_frame:
+            return True
+    return False
+
+
+def _is_kill_switch_inactive_if_available() -> bool:
+    """Return False only when an active risk profile exists with kill-switch on."""
+    try:
+        from app.db.models.risk_profile import RiskProfile
+        from app.db.session import SessionLocal
+    except Exception:
+        return True
+
+    try:
+        with SessionLocal() as session:
+            profile = (
+                session.query(RiskProfile)
+                .filter(RiskProfile.is_active == "active")
+                .first()
+            )
+    except Exception:
+        return True
+
+    if profile is None:
+        return True
+    return not bool(profile.kill_switch_enabled)
+
+
+@contextmanager
+def _controlled_auto_paper_submission_context(
+    *,
+    intent: str,
+    ticker: str | None = None,
+    order_type: str | None = None,
+    quantity: Decimal | float | int | None = None,
+    limit_price: Decimal | float | int | None = None,
+    source: str | None = None,
+    scheduled: bool | None = None,
+):
+    """Scope request metadata used by the controlled auto-paper gate.
+
+    This keeps assert_order_submission_allowed(...) signature unchanged while
+    allowing strict, contextual checks for scheduled auto-paper submits.
+    """
+    normalized_ticker = (ticker or "").strip().upper() or None
+    normalized_order_type = (order_type or "").strip().upper() or None
+    context = {
+        "intent": (intent or "").strip().lower(),
+        "ticker": normalized_ticker,
+        "order_type": normalized_order_type,
+        "quantity": float(quantity) if quantity is not None else None,
+        "limit_price": float(limit_price) if limit_price is not None else None,
+        "source": source,
+        "scheduled": _is_scheduled_worker_stack() if scheduled is None else bool(scheduled),
+    }
+    token = _AUTO_SUBMIT_CONTEXT.set(context)
+    try:
+        yield
+    finally:
+        _AUTO_SUBMIT_CONTEXT.reset(token)
 
 
 def is_controlled_auto_paper_allowed() -> bool:
@@ -204,15 +294,22 @@ def is_controlled_auto_paper_allowed() -> bool:
     The inner ``assert_auto_trading_allowed()`` remains unchanged and is still
     invoked on the non-controlled branch.
     """
-    import os
-
     settings = get_settings()
+    context = _AUTO_SUBMIT_CONTEXT.get()
+    if not context:
+        return False
+    if context.get("intent") != "auto":
+        return False
+    if not bool(context.get("scheduled")):
+        return False
 
     if not settings.auto_paper_enabled:
         return False
     if settings.live_execution_enabled:
         return False
     if settings.broker_mode.lower() != "paper":
+        return False
+    if settings.ibkr_account_type.lower() != "paper":
         return False
     if settings.broker_provider.lower() != "tws":
         return False
@@ -234,14 +331,30 @@ def is_controlled_auto_paper_allowed() -> bool:
         return False
     if settings.auto_paper_max_notional_usd > _CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD:
         return False
-    allowlist_raw = settings.auto_paper_symbol_allowlist or ""
-    if not [s for s in (sym.strip() for sym in allowlist_raw.split(",")) if s]:
+
+    ticker = str(context.get("ticker") or "").upper()
+    if not _EQUITY_SYMBOL_RE.fullmatch(ticker):
         return False
+
+    allowlist_raw = settings.auto_paper_symbol_allowlist or ""
+    allowlist = [s.strip().upper() for s in allowlist_raw.split(",") if s.strip()]
+    if not allowlist:
+        return False
+    if ticker not in allowlist:
+        return False
+
+    request_order_type = str(context.get("order_type") or "").upper()
+    if request_order_type != "LIMIT":
+        return False
+
+    if not _is_kill_switch_inactive_if_available():
+        return False
+
     # PAPER_TRADING_ENABLED is not a Settings field; check env directly,
     # defaulting to True when the broker is already in paper mode.
-    paper_env = os.getenv("PAPER_TRADING_ENABLED", "true").strip().lower()
-    if paper_env not in {"true", "1", "yes"}:
+    if not _is_true_like(os.getenv("PAPER_TRADING_ENABLED"), default=True):
         return False
+
     return True
 
 

@@ -56,7 +56,7 @@ EXPECTED_HASHES: dict[str, str] = {
     "BrokerService.submit_auto_order":
         "73bdc642b5b738614d4ab9523b6837964d6ce33198fb4b0af554378d5294b48a",
     "BrokerService._submit_order_for_intent":
-        "d5398fdbf2656cea76b89813e731ef6bbb51206cb86cead2751549d54dcedb8d",
+        "dfea75f694814267fed00bbbc44314d23e858bc0c45fd8466eee44ec0606f9f0",
 }
 
 # (label, callable) pairs. Order does not matter; the assertion is per-key.

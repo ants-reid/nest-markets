@@ -507,6 +507,71 @@ class TestBrokerService:
         mock_broker.submit_order.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_submit_auto_order_allowed_only_for_controlled_scheduled_auto_paper(
+        self,
+        service,
+        mock_broker,
+        monkeypatch,
+    ):
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="LIMIT",
+            limit_price=Decimal("50"),
+        )
+        expected_result = OrderResult(
+            broker_order_id="AUTO-OK-1",
+            status="SUBMITTED",
+        )
+        mock_broker.get_account_info = AsyncMock(
+            return_value=AccountInfo(
+                net_liquidation=Decimal("100000"),
+                cash_balance=Decimal("50000"),
+                buying_power=Decimal("100000"),
+            )
+        )
+        mock_broker.get_positions = AsyncMock(return_value=[])
+        mock_broker.submit_order = AsyncMock(return_value=expected_result)
+
+        controlled_env = {
+            "AUTO_PAPER_ENABLED": "true",
+            "AUTO_PAPER_MAX_ORDERS_PER_RUN": "1",
+            "AUTO_PAPER_MAX_ORDERS_PER_DAY": "2",
+            "AUTO_PAPER_MAX_NOTIONAL_USD": "250",
+            "AUTO_PAPER_SYMBOL_ALLOWLIST": "AAPL",
+            "AUTO_PAPER_ORDER_TYPE": "LIMIT",
+            "AUTO_PAPER_LIMIT_PRICE": "50.00",
+            "AUTO_PAPER_REQUIRE_TWS": "true",
+            "BROKER_PROVIDER": "tws",
+            "TWS_ENABLED": "true",
+            "BROKER_MODE": "paper",
+            "LIVE_EXECUTION_ENABLED": "false",
+            "PAPER_TRADING_ENABLED": "true",
+            "IBKR_ACCOUNT_TYPE": "paper",
+        }
+        for key, value in controlled_env.items():
+            monkeypatch.setenv(key, value)
+
+        from app.config import get_settings
+
+        get_settings.cache_clear()
+
+        with patch("app.services.trading_control_service._is_scheduled_worker_stack", return_value=True), patch.object(
+            service,
+            "get_daily_pnl",
+            return_value={"daily_pnl": 0.0, "daily_loss": 0.0},
+        ), patch.object(
+            service,
+            "_collect_preflight_warnings",
+            return_value=([], {}),
+        ):
+            result = await service.submit_auto_order(order_request)
+
+        assert result == expected_result
+        mock_broker.submit_order.assert_called_once_with(order_request)
+
+    @pytest.mark.asyncio
     async def test_dry_run_order_ready_does_not_submit(self, service, mock_broker):
         """Dry-run should validate a good request and never submit to broker."""
         order_request = OrderRequest(

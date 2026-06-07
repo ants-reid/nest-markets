@@ -28,6 +28,7 @@ from app.services.broker_mode_guard import (
     get_broker_mode_metadata,
 )
 from app.services.trading_control_service import (
+    _controlled_auto_paper_submission_context,
     AutoTradingBlockedError,
     LiveTradingNotArmedError,
     TradingControlError,
@@ -403,7 +404,15 @@ class BrokerService:
         self._raise_for_invalid_order_request(request)
 
         try:
-            assert_order_submission_allowed(intent=intent)
+            with _controlled_auto_paper_submission_context(
+                intent=intent,
+                ticker=request.ticker,
+                order_type=request.order_type,
+                quantity=request.quantity,
+                limit_price=request.limit_price,
+                source=(decision_metadata or {}).get("source"),
+            ):
+                assert_order_submission_allowed(intent=intent)
         except (
             AutoTradingBlockedError,
             LiveExecutionBlockedError,

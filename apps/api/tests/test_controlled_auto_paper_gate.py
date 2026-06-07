@@ -12,6 +12,7 @@ import pytest
 
 from app.config import get_settings
 from app.services.trading_control_service import (
+    _controlled_auto_paper_submission_context,
     AutoTradingBlockedError,
     LiveTradingNotArmedError,
     assert_order_submission_allowed,
@@ -22,8 +23,8 @@ from app.services.trading_control_service import (
 _CONTROLLED_ENV: dict[str, str] = {
     "AUTO_PAPER_ENABLED": "true",
     "AUTO_PAPER_MAX_ORDERS_PER_RUN": "1",
-    "AUTO_PAPER_MAX_ORDERS_PER_DAY": "1",
-    "AUTO_PAPER_MAX_NOTIONAL_USD": "100",
+    "AUTO_PAPER_MAX_ORDERS_PER_DAY": "2",
+    "AUTO_PAPER_MAX_NOTIONAL_USD": "250",
     "AUTO_PAPER_SYMBOL_ALLOWLIST": "AAPL",
     "AUTO_PAPER_ORDER_TYPE": "LIMIT",
     "AUTO_PAPER_LIMIT_PRICE": "50.00",
@@ -58,8 +59,16 @@ def _apply_controlled(monkeypatch, **overrides: str) -> None:
 
 def test_default_posture_blocks_auto_submit():
     assert is_controlled_auto_paper_allowed() is False
-    with pytest.raises(AutoTradingBlockedError):
-        assert_order_submission_allowed(intent="auto")
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=True,
+    ):
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
 
 
 def test_default_posture_allows_manual_paper():
@@ -74,9 +83,17 @@ def test_default_posture_allows_manual_paper():
 
 def test_controlled_config_allows_auto_submit(monkeypatch):
     _apply_controlled(monkeypatch)
-    assert is_controlled_auto_paper_allowed() is True
-    # Must NOT raise — the auto path is allowed to reach the broker submit path.
-    assert_order_submission_allowed(intent="auto")
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=True,
+    ):
+        assert is_controlled_auto_paper_allowed() is True
+        # Must NOT raise — the auto path is allowed to reach the broker submit path.
+        assert_order_submission_allowed(intent="auto")
 
 
 # ---------------------------------------------------------------------------
@@ -95,10 +112,10 @@ def test_controlled_config_allows_auto_submit(monkeypatch):
         {"AUTO_PAPER_REQUIRE_TWS": "false"},
         {"AUTO_PAPER_ORDER_TYPE": "MARKET"},
         {"AUTO_PAPER_MAX_ORDERS_PER_RUN": "2"},
-        {"AUTO_PAPER_MAX_ORDERS_PER_DAY": "5"},
+        {"AUTO_PAPER_MAX_ORDERS_PER_DAY": "3"},
         {"AUTO_PAPER_MAX_ORDERS_PER_RUN": "0"},
         {"AUTO_PAPER_MAX_ORDERS_PER_DAY": "0"},
-        {"AUTO_PAPER_MAX_NOTIONAL_USD": "1000"},
+        {"AUTO_PAPER_MAX_NOTIONAL_USD": "251"},
         {"AUTO_PAPER_MAX_NOTIONAL_USD": "0"},
         {"AUTO_PAPER_SYMBOL_ALLOWLIST": ""},
         {"PAPER_TRADING_ENABLED": "false"},
@@ -112,7 +129,7 @@ def test_controlled_config_allows_auto_submit(monkeypatch):
         "AUTO_PAPER_REQUIRE_TWS_false",
         "AUTO_PAPER_ORDER_TYPE_MARKET",
         "MAX_ORDERS_PER_RUN_above_one",
-        "MAX_ORDERS_PER_DAY_above_one",
+        "MAX_ORDERS_PER_DAY_above_two",
         "MAX_ORDERS_PER_RUN_zero",
         "MAX_ORDERS_PER_DAY_zero",
         "MAX_NOTIONAL_above_cap",
@@ -123,13 +140,66 @@ def test_controlled_config_allows_auto_submit(monkeypatch):
 )
 def test_controlled_config_disablers_block(monkeypatch, override):
     _apply_controlled(monkeypatch, **override)
-    assert is_controlled_auto_paper_allowed() is False
-    # Live override goes through the manual-live path; everything else falls
-    # back to the unconditional auto block.
-    if override.get("BROKER_MODE") == "live":
-        return
-    with pytest.raises(AutoTradingBlockedError):
-        assert_order_submission_allowed(intent="auto")
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=True,
+    ):
+        assert is_controlled_auto_paper_allowed() is False
+        # Live override goes through the manual-live path; everything else falls
+        # back to the unconditional auto block.
+        if override.get("BROKER_MODE") == "live":
+            return
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
+
+
+def test_controlled_config_blocks_when_symbol_not_allowlisted(monkeypatch):
+    _apply_controlled(monkeypatch, AUTO_PAPER_SYMBOL_ALLOWLIST="MSFT")
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=True,
+    ):
+        assert is_controlled_auto_paper_allowed() is False
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
+
+
+def test_controlled_config_blocks_when_request_order_type_market(monkeypatch):
+    _apply_controlled(monkeypatch)
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="MARKET",
+        quantity=1,
+        limit_price=None,
+        scheduled=True,
+    ):
+        assert is_controlled_auto_paper_allowed() is False
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
+
+
+def test_controlled_config_blocks_when_not_scheduled_context(monkeypatch):
+    _apply_controlled(monkeypatch)
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=False,
+    ):
+        assert is_controlled_auto_paper_allowed() is False
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
 
 
 # ---------------------------------------------------------------------------
@@ -150,8 +220,16 @@ def test_live_submit_still_blocked_when_auto_paper_enabled(monkeypatch):
     with pytest.raises(LiveTradingNotArmedError):
         assert_order_submission_allowed(intent="manual")
     # Auto under live config must still hit the unconditional block.
-    with pytest.raises(AutoTradingBlockedError):
-        assert_order_submission_allowed(intent="auto")
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        scheduled=True,
+    ):
+        with pytest.raises(AutoTradingBlockedError):
+            assert_order_submission_allowed(intent="auto")
 
 
 # ---------------------------------------------------------------------------
