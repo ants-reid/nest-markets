@@ -150,7 +150,10 @@ class AutoPaperTraderWorker(BaseWorker):
         """Route worker-driven auto paper submission through the broker auto-submit seam."""
         order_request = self._build_broker_order_request(opportunity, signal)
         return run_async(
-            lambda: self._get_broker_service().submit_auto_order(order_request)
+            lambda: self._get_broker_service().submit_auto_order(
+                order_request,
+                decision_metadata={"source": "auto_paper_trader"},
+            )
         )
 
     def _normalize_paper_order_status(self, broker_status: str) -> str:
@@ -352,7 +355,10 @@ class AutoPaperTraderWorker(BaseWorker):
                 try:
                     broker_result = run_async(
                         lambda req=order_request: asyncio.wait_for(
-                            self._get_broker_service().submit_auto_order(req),
+                            self._get_broker_service().submit_auto_order(
+                                req,
+                                decision_metadata={"source": "auto_paper_trader"},
+                            ),
                             timeout=_AUTO_SUBMIT_TIMEOUT_SECONDS,
                         )
                     )

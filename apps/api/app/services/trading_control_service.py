@@ -202,6 +202,7 @@ _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN = 3
 _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY = 25
 _CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD = 1000.0
 _EQUITY_SYMBOL_RE = re.compile(r"^[A-Z]{1,5}$")
+_CONTROLLED_AUTO_PAPER_SOURCE = "auto_paper_trader"
 _AUTO_SUBMIT_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "auto_submit_context",
     default=None,
@@ -300,7 +301,8 @@ def is_controlled_auto_paper_allowed() -> bool:
         return False
     if context.get("intent") != "auto":
         return False
-    if not bool(context.get("scheduled")):
+    source = str(context.get("source") or "").strip().lower()
+    if source != _CONTROLLED_AUTO_PAPER_SOURCE:
         return False
 
     if not settings.auto_paper_enabled:

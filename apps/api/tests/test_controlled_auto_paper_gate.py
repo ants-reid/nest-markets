@@ -65,6 +65,7 @@ def test_default_posture_blocks_auto_submit():
         order_type="LIMIT",
         quantity=1,
         limit_price=50,
+        source="auto_paper_trader",
         scheduled=True,
     ):
         with pytest.raises(AutoTradingBlockedError):
@@ -89,6 +90,7 @@ def test_controlled_config_allows_auto_submit(monkeypatch):
         order_type="LIMIT",
         quantity=1,
         limit_price=50,
+        source="auto_paper_trader",
         scheduled=True,
     ):
         assert is_controlled_auto_paper_allowed() is True
@@ -146,6 +148,7 @@ def test_controlled_config_disablers_block(monkeypatch, override):
         order_type="LIMIT",
         quantity=1,
         limit_price=50,
+        source="auto_paper_trader",
         scheduled=True,
     ):
         assert is_controlled_auto_paper_allowed() is False
@@ -180,6 +183,7 @@ def test_controlled_config_blocks_when_request_order_type_market(monkeypatch):
         order_type="MARKET",
         quantity=1,
         limit_price=None,
+        source="auto_paper_trader",
         scheduled=True,
     ):
         assert is_controlled_auto_paper_allowed() is False
@@ -187,7 +191,7 @@ def test_controlled_config_blocks_when_request_order_type_market(monkeypatch):
             assert_order_submission_allowed(intent="auto")
 
 
-def test_controlled_config_blocks_when_not_scheduled_context(monkeypatch):
+def test_controlled_config_blocks_when_source_not_worker(monkeypatch):
     _apply_controlled(monkeypatch)
     with _controlled_auto_paper_submission_context(
         intent="auto",
@@ -195,11 +199,27 @@ def test_controlled_config_blocks_when_not_scheduled_context(monkeypatch):
         order_type="LIMIT",
         quantity=1,
         limit_price=50,
-        scheduled=False,
+        source="unknown",
+        scheduled=True,
     ):
         assert is_controlled_auto_paper_allowed() is False
         with pytest.raises(AutoTradingBlockedError):
             assert_order_submission_allowed(intent="auto")
+
+
+def test_controlled_config_allows_manual_run_when_worker_source_present(monkeypatch):
+    _apply_controlled(monkeypatch)
+    with _controlled_auto_paper_submission_context(
+        intent="auto",
+        ticker="AAPL",
+        order_type="LIMIT",
+        quantity=1,
+        limit_price=50,
+        source="auto_paper_trader",
+        scheduled=False,
+    ):
+        assert is_controlled_auto_paper_allowed() is True
+        assert_order_submission_allowed(intent="auto")
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +246,7 @@ def test_live_submit_still_blocked_when_auto_paper_enabled(monkeypatch):
         order_type="LIMIT",
         quantity=1,
         limit_price=50,
+        source="auto_paper_trader",
         scheduled=True,
     ):
         with pytest.raises(AutoTradingBlockedError):

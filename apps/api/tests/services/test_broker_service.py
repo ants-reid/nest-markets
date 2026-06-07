@@ -557,7 +557,7 @@ class TestBrokerService:
 
         get_settings.cache_clear()
 
-        with patch("app.services.trading_control_service._is_scheduled_worker_stack", return_value=True), patch.object(
+        with patch.object(
             service,
             "get_daily_pnl",
             return_value={"daily_pnl": 0.0, "daily_loss": 0.0},
@@ -566,7 +566,10 @@ class TestBrokerService:
             "_collect_preflight_warnings",
             return_value=([], {}),
         ):
-            result = await service.submit_auto_order(order_request)
+            result = await service.submit_auto_order(
+                order_request,
+                decision_metadata={"source": "auto_paper_trader"},
+            )
 
         assert result == expected_result
         mock_broker.submit_order.assert_called_once_with(order_request)
