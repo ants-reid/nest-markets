@@ -20,7 +20,7 @@ except Exception as exc:  # pragma: no cover - import guard
 
 HOST = os.environ.get("IBKR_TWS_HOST", "127.0.0.1")
 PORT = int(os.environ.get("IBKR_TWS_PORT", "4002"))
-CLIENT_ID = int(os.environ.get("IBKR_TWS_CLIENT_ID", "42"))
+CLIENT_ID = int(os.environ.get("IBKR_TWS_CLIENT_ID", "181"))
 EXPECTED_ACCOUNT = os.environ.get("IBKR_ACCOUNT_ID", "DUP153837")
 
 SUMMARY_TAGS = ["NetLiquidation", "AvailableFunds", "BuyingPower"]

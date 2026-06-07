@@ -35,6 +35,10 @@ _UNSUPPORTED_ORDER_TYPE_MSG = (
 )
 
 
+class TwsConnectionUnavailableError(RuntimeError):
+    """Raised when TWS connection is unavailable or client-id contention occurs."""
+
+
 def _default_ib_factory() -> Any:
     """Lazy import ib_async only when an instance is actually needed."""
     from ib_async import IB  # type: ignore[import-not-found]
@@ -77,19 +81,50 @@ class TwsBroker:
     # ------------------------------------------------------------------
     # Connection lifecycle (lazy, read-only)
     # ------------------------------------------------------------------
+    def _normalize_connection_error(self, exc: Exception, operation: str) -> TwsConnectionUnavailableError:
+        """Return a stable unavailability error for connection/account/position calls."""
+        if isinstance(exc, TwsConnectionUnavailableError):
+            return exc
+        message = str(exc)
+        lowered = message.lower()
+        if "already in use" in lowered or "client id" in lowered:
+            return TwsConnectionUnavailableError(
+                f"TWS client-id contention for client_id={self._client_id}: {message}"
+            )
+        if "timeout" in lowered or "disconnected" in lowered or "peer closed connection" in lowered:
+            return TwsConnectionUnavailableError(
+                f"TWS unavailable during {operation} for client_id={self._client_id}: {message}"
+            )
+        if "api connection failed" in lowered or "connection failed" in lowered:
+            return TwsConnectionUnavailableError(
+                f"TWS connection failed during {operation} for client_id={self._client_id}: {message}"
+            )
+        return TwsConnectionUnavailableError(
+            f"TWS error during {operation} for client_id={self._client_id}: {message}"
+        )
+
     def _ensure_connected(self) -> Any:
         with self._lock:
             ib = self._ib
             if ib is not None and getattr(ib, "isConnected", lambda: False)():
                 return ib
+            if ib is not None:
+                try:
+                    getattr(ib, "disconnect", lambda: None)()
+                except Exception:
+                    pass
             ib = self._ib_factory()
-            ib.connect(
-                self._host,
-                self._port,
-                clientId=self._client_id,
-                readonly=not self._submit_enabled,
-                timeout=self._connect_timeout,
-            )
+            try:
+                ib.connect(
+                    self._host,
+                    self._port,
+                    clientId=self._client_id,
+                    readonly=not self._submit_enabled,
+                    timeout=self._connect_timeout,
+                )
+            except Exception as exc:
+                self._ib = None
+                raise self._normalize_connection_error(exc, "connect") from exc
             self._ib = ib
             return ib
 
@@ -116,9 +151,13 @@ class TwsBroker:
     # ------------------------------------------------------------------
     def _get_account_info_blocking(self) -> AccountInfo:
         with self._lock:
-            ib = self._ensure_connected()
-            account = self._resolve_account(ib)
-            rows = ib.accountSummary(account) or []
+            try:
+                ib = self._ensure_connected()
+                account = self._resolve_account(ib)
+                rows = ib.accountSummary(account) or []
+            except Exception as exc:
+                self.disconnect()
+                raise self._normalize_connection_error(exc, "account_summary") from exc
 
             wanted: dict[str, Any] = {
                 "NetLiquidation": None,
@@ -152,9 +191,13 @@ class TwsBroker:
 
     def _get_positions_blocking(self) -> list[PositionInfo]:
         with self._lock:
-            ib = self._ensure_connected()
-            account = self._resolve_account(ib)
-            positions = ib.positions(account) or []
+            try:
+                ib = self._ensure_connected()
+                account = self._resolve_account(ib)
+                positions = ib.positions(account) or []
+            except Exception as exc:
+                self.disconnect()
+                raise self._normalize_connection_error(exc, "positions") from exc
 
             result: list[PositionInfo] = []
             for pos in positions:

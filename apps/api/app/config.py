@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     tws_host: str = Field(default="127.0.0.1")
     tws_port: int = Field(default=4002)
     tws_client_id: int = Field(default=43)
+    tws_connect_timeout_seconds: float = Field(default=8.0)
     tws_enabled: bool = Field(default=False)
 
     # MH-46B-1: scheduled P&L snapshot cadence (ingestion-only)

@@ -115,6 +115,38 @@ async def test_get_positions_returns_empty_list_when_gateway_unreachable_in_pape
 
 
 @pytest.mark.asyncio
+async def test_get_account_returns_503_on_tws_client_id_contention(client, mock_service):
+    with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
+        mock_service.get_account_info = AsyncMock(
+            side_effect=RuntimeError("client id is already in use")
+        )
+        mock_get_service.return_value = mock_service
+
+        response = client.get("/broker/account")
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["code"] == "tws_unavailable"
+    assert "client id" in detail["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_positions_returns_503_on_tws_timeout(client, mock_service):
+    with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
+        mock_service.get_positions = AsyncMock(
+            side_effect=RuntimeError("API connection failed: TimeoutError()")
+        )
+        mock_get_service.return_value = mock_service
+
+        response = client.get("/broker/positions")
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["code"] == "tws_unavailable"
+    assert "timeout" in detail["message"].lower()
+
+
+@pytest.mark.asyncio
 async def test_submit_order(client, mock_service):
     """Test POST /broker/orders endpoint."""
     order_result = OrderResult(

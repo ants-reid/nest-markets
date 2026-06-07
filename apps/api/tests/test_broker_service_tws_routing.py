@@ -23,6 +23,7 @@ def _patched_settings(**overrides):
         "tws_host": "127.0.0.1",
         "tws_port": 4002,
         "tws_client_id": 43,
+        "tws_connect_timeout_seconds": 8.0,
         "ibkr_gateway_url": "https://localhost:5000/v1/api",
         "ibkr_account_id": "DUP1",
     }
@@ -105,6 +106,7 @@ async def test_tws_provider_selects_tws_adapter_with_submit_enabled(
     assert captured["kwargs"]["tws_host"] == "127.0.0.1"
     assert captured["kwargs"]["tws_port"] == 4002
     assert captured["kwargs"]["tws_client_id"] == 43
+    assert captured["kwargs"]["timeout"] == 8.0
     assert captured["kwargs"]["preferred_account_id"] == "DUP1"
 
 
@@ -177,3 +179,34 @@ async def test_tws_submit_disabled_when_paper_mode_not_clean(
     await svc.ensure_connected()
 
     assert captured["kwargs"]["tws_submit_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_multiple_services_reuse_same_tws_broker_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.services.broker_service.get_settings",
+        lambda: _patched_settings(broker_provider="tws", tws_enabled=True),
+    )
+    monkeypatch.setattr(
+        "app.services.broker_service.get_broker_mode_metadata",
+        lambda: {
+            "broker": "tws",
+            "mode": "paper",
+            "paper_trading_enabled": True,
+            "live_execution_enabled": False,
+        },
+    )
+
+    from app.clients.broker.gateway_factory import _tws_shared_brokers
+
+    _tws_shared_brokers.clear()
+
+    service_a = BrokerService()
+    service_b = BrokerService()
+
+    await service_a.ensure_connected()
+    await service_b.ensure_connected()
+
+    assert service_a._broker is service_b._broker

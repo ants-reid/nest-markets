@@ -7,6 +7,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.clients.broker.broker_interface import OrderRequest
+from app.clients.broker.tws_adapter import TwsConnectionUnavailableError
 from app.config import get_settings
 from app.schemas.broker_schemas import (
     BrokerDailyPnlSchema,
@@ -129,6 +130,19 @@ def _dry_run_source_meta(meta: dict[str, object]) -> dict[str, object]:
 
 def _is_broker_transport_error(exc: Exception) -> bool:
     return isinstance(exc, httpx.TransportError)
+
+
+def _is_tws_unavailable_error(exc: Exception) -> bool:
+    if isinstance(exc, TwsConnectionUnavailableError):
+        return True
+    message = str(exc).lower()
+    return (
+        "client id" in message
+        or "already in use" in message
+        or "peer closed connection" in message
+        or "api connection failed" in message
+        or "timeouterror" in message
+    )
 
 
 def _paper_fallback_account_info() -> AccountInfoSchema:
@@ -274,6 +288,14 @@ async def get_account():
         if not is_live_mode_enabled() and _is_broker_transport_error(exc):
             _logger.info("Broker account unavailable in paper mode; returning empty snapshot: %s", exc)
             return _paper_fallback_account_info()
+        if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "tws_unavailable",
+                    "message": str(exc),
+                },
+            ) from exc
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise
@@ -307,6 +329,14 @@ async def get_positions():
         if not is_live_mode_enabled() and _is_broker_transport_error(exc):
             _logger.info("Broker positions unavailable in paper mode; returning empty list: %s", exc)
             return []
+        if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "tws_unavailable",
+                    "message": str(exc),
+                },
+            ) from exc
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise

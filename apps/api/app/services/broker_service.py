@@ -112,6 +112,7 @@ class BrokerService:
                 )
                 self._broker = factory.create(
                     "tws",
+                    timeout=settings.tws_connect_timeout_seconds,
                     tws_host=settings.tws_host,
                     tws_port=settings.tws_port,
                     tws_client_id=settings.tws_client_id,

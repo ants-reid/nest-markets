@@ -1,12 +1,17 @@
 """Broker gateway factory — instantiates appropriate broker adapter."""
 from __future__ import annotations
 
+from threading import Lock
 from typing import Literal
 
 from app.clients.broker.broker_interface import BrokerInterface
 from app.clients.broker.ibkr_adapter import IBKRAdapter
 
 BrokerType = Literal["ibkr", "paper", "tws", "tws_socket"]
+
+
+_tws_cache_lock = Lock()
+_tws_shared_brokers: dict[tuple[str, int, int, str | None, bool], BrokerInterface] = {}
 
 
 class BrokerGatewayFactory:
@@ -51,15 +56,27 @@ class BrokerGatewayFactory:
         if broker_type in ("tws", "tws_socket"):
             # Lazy import keeps ib_async optional at app/test collection time.
             from app.clients.broker.tws_adapter import TwsBroker
+            host = tws_host or "127.0.0.1"
+            port = tws_port if tws_port is not None else 4002
+            client_id = tws_client_id if tws_client_id is not None else 43
+            submit_enabled = bool(tws_submit_enabled)
+            cache_key = (host, int(port), int(client_id), preferred_account_id, submit_enabled)
 
-            return TwsBroker(
-                host=tws_host or "127.0.0.1",
-                port=tws_port if tws_port is not None else 4002,
-                client_id=tws_client_id if tws_client_id is not None else 43,
-                account_id=preferred_account_id,
-                connect_timeout=timeout,
-                submit_enabled=bool(tws_submit_enabled),
-            )
+            with _tws_cache_lock:
+                cached = _tws_shared_brokers.get(cache_key)
+                if cached is not None:
+                    return cached
+
+                broker = TwsBroker(
+                    host=host,
+                    port=port,
+                    client_id=client_id,
+                    account_id=preferred_account_id,
+                    connect_timeout=timeout,
+                    submit_enabled=submit_enabled,
+                )
+                _tws_shared_brokers[cache_key] = broker
+                return broker
         if broker_type == "paper":
             # Placeholder for paper trading adapter (to be implemented)
             raise NotImplementedError("Paper trading adapter not yet implemented")

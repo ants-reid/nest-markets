@@ -4,7 +4,9 @@ ib_async is stubbed via a factory injection; no socket I/O is performed.
 """
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -17,7 +19,7 @@ from app.clients.broker.broker_interface import (
 )
 from app.clients.broker.gateway_factory import BrokerGatewayFactory
 from app.clients.broker.ibkr_adapter import IBKRAdapter
-from app.clients.broker.tws_adapter import TwsBroker
+from app.clients.broker.tws_adapter import TwsBroker, TwsConnectionUnavailableError
 
 
 # ---------------------------------------------------------------------------
@@ -364,4 +366,80 @@ def test_tws_settings_defaults() -> None:
     assert Settings.model_fields["tws_host"].default == "127.0.0.1"
     assert Settings.model_fields["tws_port"].default == 4002
     assert Settings.model_fields["tws_client_id"].default == 43
+    assert Settings.model_fields["tws_connect_timeout_seconds"].default == 8.0
     assert Settings.model_fields["tws_enabled"].default is False
+
+
+def test_factory_reuses_tws_adapter_for_same_key() -> None:
+    first = BrokerGatewayFactory.create(
+        "tws",
+        tws_host="127.0.0.1",
+        tws_port=4002,
+        tws_client_id=43,
+        preferred_account_id="DUP1",
+        tws_submit_enabled=True,
+    )
+    second = BrokerGatewayFactory.create(
+        "tws",
+        tws_host="127.0.0.1",
+        tws_port=4002,
+        tws_client_id=43,
+        preferred_account_id="DUP1",
+        tws_submit_enabled=True,
+    )
+    assert first is second
+
+
+@pytest.mark.asyncio
+async def test_concurrent_account_calls_share_single_connect() -> None:
+    ib = _make_ib(
+        summary_rows=[
+            _make_summary_row("NetLiquidation", "100588.73"),
+            _make_summary_row("AvailableFunds", "100000.00"),
+            _make_summary_row("BuyingPower", "400000.00"),
+            _make_summary_row("ExcessLiquidity", "99500.00"),
+            _make_summary_row("MaintMarginReq", "1000.00"),
+            _make_summary_row("UnrealizedPnL", "12.34"),
+        ],
+        positions=[],
+    )
+    connected = {"value": False}
+
+    def _is_connected() -> bool:
+        return connected["value"]
+
+    def _connect(*args, **kwargs) -> None:
+        connected["value"] = True
+
+    ib.isConnected.side_effect = _is_connected
+    ib.connect.side_effect = _connect
+
+    broker = _make_broker(ib)
+    await asyncio.gather(broker.get_account_info(), broker.get_account_info())
+    assert ib.connect.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_account_summary_timeout_raises_tws_unavailable() -> None:
+    ib = _make_ib(summary_rows=[], positions=[])
+    ib.accountSummary.side_effect = RuntimeError("API connection failed: TimeoutError()")
+
+    broker = _make_broker(ib)
+    with pytest.raises(TwsConnectionUnavailableError, match="account_summary"):
+        await broker.get_account_info()
+
+
+@pytest.mark.asyncio
+async def test_positions_peer_close_raises_tws_unavailable() -> None:
+    ib = _make_ib(summary_rows=[], positions=[])
+    ib.positions.side_effect = RuntimeError("Peer closed connection. clientId 43 already in use?")
+
+    broker = _make_broker(ib)
+    with pytest.raises(TwsConnectionUnavailableError, match="client-id contention"):
+        await broker.get_positions()
+
+
+def test_probe_tws_default_client_id_is_isolated() -> None:
+    probe_path = Path(__file__).resolve().parents[1] / "scripts" / "probe_tws.py"
+    content = probe_path.read_text(encoding="utf-8")
+    assert 'IBKR_TWS_CLIENT_ID", "181"' in content
