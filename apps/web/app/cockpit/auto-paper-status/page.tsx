@@ -226,6 +226,7 @@ export default function AutoPaperStatusPage() {
   const guidance = card ? deriveGuidance(card) : null;
   const candidateQueue = card?.candidate_queue;
   const queueHygiene = card?.queue_hygiene;
+  const nextRunGuidance = card?.next_run_guidance;
 
   return (
     <main className={styles.page} data-testid="auto-paper-status-page">
@@ -444,6 +445,60 @@ export default function AutoPaperStatusPage() {
                       Scheduler is effectively blocked until broker mode is paper and live execution remains disabled.
                     </p>
                   )}
+                </div>
+              )}
+
+              {nextRunGuidance && (
+                <div className={styles.section} data-testid="auto-paper-next-run-guidance">
+                  <h3 className={styles.sectionTitle}>Next run guidance</h3>
+                  <div className={styles.gateBadgeRow}>
+                    <span
+                      className={`${styles.gateBadge} ${
+                        nextRunGuidance.can_run_now ? styles.gateBadgeAllowed : styles.gateBadgeBlocked
+                      }`}
+                    >
+                      {nextRunGuidance.can_run_now ? "RUN NOW: YES" : "RUN NOW: NO"}
+                    </span>
+                    {nextRunGuidance.primary_blocking_gate && (
+                      <span className={styles.code}>
+                        primary gate: {nextRunGuidance.primary_blocking_gate}
+                      </span>
+                    )}
+                  </div>
+                  {nextRunGuidance.primary_reason && (
+                    <p className={styles.sectionBody}>{nextRunGuidance.primary_reason}</p>
+                  )}
+                  <div className={styles.metaGrid}>
+                    <div className={styles.metaItem} data-testid="auto-paper-next-run-daily-cap">
+                      <span className={styles.metaLabel}>Daily cap state</span>
+                      <span className={styles.metaValue}>
+                        {nextRunGuidance.orders_today} / {nextRunGuidance.max_orders_per_day}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Per-run cap</span>
+                      <span className={styles.metaValue}>{nextRunGuidance.max_orders_per_run}</span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Background scheduler enabled</span>
+                      <span className={styles.metaValue}>
+                        {formatBool(nextRunGuidance.background_scheduler_enabled)}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Live execution enabled</span>
+                      <span className={styles.metaValue}>
+                        {formatBool(nextRunGuidance.live_execution_enabled)}
+                      </span>
+                    </div>
+                    <div className={styles.metaItem}>
+                      <span className={styles.metaLabel}>Safe for supervised session</span>
+                      <span className={styles.metaValue}>
+                        {formatBool(nextRunGuidance.safe_for_supervised_session)}
+                      </span>
+                    </div>
+                  </div>
+                  <p className={styles.opsNote}>{nextRunGuidance.suggested_operator_action}</p>
                 </div>
               )}
 

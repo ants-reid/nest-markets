@@ -558,6 +558,69 @@ def _derive_operator_next_action(
     return "Continue monitoring Auto Paper from Cockpit. Simulation-only safeguards remain in force."
 
 
+def _build_next_run_guidance(
+    *,
+    controlled_gate_decision: Dict[str, Any],
+    controlled_gate_snapshot: Dict[str, Any],
+) -> Dict[str, Any]:
+    can_run_now = bool(controlled_gate_decision.get("allowed", False))
+    primary_blocking_gate = controlled_gate_decision.get("blocking_gate")
+    primary_reason = controlled_gate_decision.get("reason")
+
+    orders_today = int(controlled_gate_snapshot.get("orders_today") or 0)
+    max_orders_per_day = int(controlled_gate_snapshot.get("max_orders_per_day") or 0)
+    max_orders_per_run = int(controlled_gate_snapshot.get("max_orders_per_run") or 0)
+    background_scheduler_enabled = bool(
+        controlled_gate_snapshot.get("background_scheduler_enabled", False)
+    )
+    live_execution_enabled = bool(controlled_gate_snapshot.get("live_execution_enabled", False))
+    broker_mode = str(controlled_gate_snapshot.get("broker_mode") or "").lower()
+
+    safe_for_supervised_session = (
+        broker_mode == "paper" and not live_execution_enabled and not background_scheduler_enabled
+    )
+
+    suggested_operator_action: str
+    if live_execution_enabled:
+        suggested_operator_action = (
+            "LIVE_EXECUTION_ENABLED is true. Keep live disabled before any supervised paper run."
+        )
+    elif broker_mode != "paper":
+        suggested_operator_action = "Set broker mode to paper before the next supervised run."
+    elif background_scheduler_enabled:
+        suggested_operator_action = (
+            "Background scheduler is enabled. Disable it for a supervised one-run session."
+        )
+    elif primary_blocking_gate == "max_orders_per_day":
+        suggested_operator_action = (
+            "Daily cap reached. Wait for UTC day rollover or raise the daily cap after risk review."
+        )
+    elif primary_blocking_gate == "kill_switch":
+        suggested_operator_action = "Kill switch is active. Deactivate it before the next supervised run."
+    elif can_run_now:
+        suggested_operator_action = "Gate is clear. You can run one supervised paper cycle now."
+    elif primary_blocking_gate:
+        reason = primary_reason or "no reason supplied"
+        suggested_operator_action = (
+            f"Resolve blocking gate {primary_blocking_gate}: {reason}"
+        )
+    else:
+        suggested_operator_action = "Review gate status before the next supervised paper cycle."
+
+    return {
+        "can_run_now": can_run_now,
+        "primary_blocking_gate": primary_blocking_gate,
+        "primary_reason": primary_reason,
+        "orders_today": orders_today,
+        "max_orders_per_day": max_orders_per_day,
+        "max_orders_per_run": max_orders_per_run,
+        "background_scheduler_enabled": background_scheduler_enabled,
+        "live_execution_enabled": live_execution_enabled,
+        "suggested_operator_action": suggested_operator_action,
+        "safe_for_supervised_session": safe_for_supervised_session,
+    }
+
+
 def get_auto_paper_status_card(
     *,
     trading_control_state: TradingControlState | None = None,
@@ -732,6 +795,10 @@ def get_auto_paper_status_card(
         last_decision=last_decision,
         last_block_reason=last_block_reason,
     )
+    next_run_guidance = _build_next_run_guidance(
+        controlled_gate_decision=controlled_gate_decision,
+        controlled_gate_snapshot=controlled_gate_snapshot,
+    )
 
     run_log_entry_count = int(retention.get("current_entry_count", 0))
     warning_codes: list[str] = []
@@ -766,6 +833,7 @@ def get_auto_paper_status_card(
             "decision": controlled_gate_decision,
             "snapshot": controlled_gate_snapshot,
         },
+        "next_run_guidance": next_run_guidance,
         "trading_control": trading_control,
         "latest_run": latest_run,
         "latest_paper_order": latest_paper_order,

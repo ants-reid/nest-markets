@@ -144,6 +144,7 @@ def test_card_shape_with_no_runs(isolated_service):
         "safety_notes",
         "operator_next_action",
         "enforcement",
+        "next_run_guidance",
         "trading_control",
         "latest_run",
         "latest_paper_order",
@@ -156,6 +157,19 @@ def test_card_shape_with_no_runs(isolated_service):
     assert "controlled_gate" in card
     assert "decision" in card["controlled_gate"]
     assert "snapshot" in card["controlled_gate"]
+    for guidance_key in (
+        "can_run_now",
+        "primary_blocking_gate",
+        "primary_reason",
+        "orders_today",
+        "max_orders_per_day",
+        "max_orders_per_run",
+        "background_scheduler_enabled",
+        "live_execution_enabled",
+        "suggested_operator_action",
+        "safe_for_supervised_session",
+    ):
+        assert guidance_key in card["next_run_guidance"], f"missing guidance key: {guidance_key}"
     for snap_key in (
         "auto_paper_enabled",
         "broker_provider",
@@ -193,6 +207,8 @@ def test_card_shape_with_no_runs(isolated_service):
     assert "stale_manual_seed_count" in card["queue_hygiene"]
     assert "duplicate_symbol_candidate_count" in card["queue_hygiene"]
     assert "cleanup_recommendations" in card["queue_hygiene"]
+    assert isinstance(card["next_run_guidance"]["can_run_now"], bool)
+    assert isinstance(card["next_run_guidance"]["safe_for_supervised_session"], bool)
 
 
 def test_card_posture_ok_when_paper_clean(isolated_service):

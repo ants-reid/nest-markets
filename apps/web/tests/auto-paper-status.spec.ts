@@ -146,6 +146,19 @@ function buildAutoPaperStatus() {
     ],
     operator_next_action:
       "Review the latest block reason: Risk gates blocked the latest Auto Paper run.",
+    next_run_guidance: {
+      can_run_now: false,
+      primary_blocking_gate: "max_orders_per_day",
+      primary_reason: "Daily cap reached (1/1)",
+      orders_today: 1,
+      max_orders_per_day: 1,
+      max_orders_per_run: 1,
+      background_scheduler_enabled: false,
+      live_execution_enabled: false,
+      suggested_operator_action:
+        "Daily cap reached. Wait for UTC day rollover or raise the daily cap after risk review.",
+      safe_for_supervised_session: true,
+    },
     enforcement: {
       auto_paper_enforcement_enabled: false,
       auto_trading_enabled: false,
@@ -355,6 +368,8 @@ test("auto paper status page surfaces controlled gate, broker order, and timelin
   await page.waitForLoadState("domcontentloaded");
 
   await expect(page.getByTestId("auto-paper-controlled-gate")).toBeVisible();
+  await expect(page.getByTestId("auto-paper-next-run-guidance")).toBeVisible();
+  await expect(page.getByTestId("auto-paper-next-run-daily-cap")).toContainText("1 / 1");
   await expect(page.getByTestId("auto-paper-gate-decision")).toContainText(/blocked/i);
   await expect(page.getByTestId("auto-paper-daily-cap")).toContainText("1 / 1");
   await expect(page.getByTestId("auto-paper-broker-order-id")).toBeVisible();

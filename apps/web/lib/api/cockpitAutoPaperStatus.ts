@@ -134,6 +134,19 @@ export interface AutoPaperControlledGate {
   snapshot: AutoPaperControlledGateSnapshot;
 }
 
+export interface AutoPaperNextRunGuidance {
+  can_run_now: boolean;
+  primary_blocking_gate: string | null;
+  primary_reason: string | null;
+  orders_today: number;
+  max_orders_per_day: number;
+  max_orders_per_run: number;
+  background_scheduler_enabled: boolean;
+  live_execution_enabled: boolean;
+  suggested_operator_action: string;
+  safe_for_supervised_session: boolean;
+}
+
 export interface AutoPaperStatusCard {
   advisory: string;
   mode: string;
@@ -155,6 +168,7 @@ export interface AutoPaperStatusCard {
   safety_notes: string[];
   operator_next_action: string;
   enforcement: AutoPaperStatusEnforcement;
+  next_run_guidance: AutoPaperNextRunGuidance;
   trading_control: AutoPaperStatusTradingControl;
   latest_run: AutoPaperStatusLatestRun | null;
   latest_paper_order: AutoPaperStatusLatestPaperOrder | null;
