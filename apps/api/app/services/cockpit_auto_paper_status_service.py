@@ -17,10 +17,11 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Dict
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.models.paper_order import PaperOrder
 from app.db.models.position import Position
 from app.db.session import SessionLocal
@@ -130,6 +131,23 @@ def _load_paper_snapshot(session: Session | None) -> Dict[str, Any]:
             "open_paper_positions_count": 0,
             "latest_paper_order": None,
         }
+
+
+def _load_submit_decision_count(session: Session | None) -> int | None:
+    """Return persisted broker submit-decision row count when available."""
+    statement = select(func.count()).select_from(BrokerSubmitDecision)
+
+    if session is not None:
+        try:
+            return int(session.execute(statement).scalar_one())
+        except Exception:
+            return None
+
+    try:
+        with SessionLocal() as owned_session:
+            return int(owned_session.execute(statement).scalar_one())
+    except Exception:
+        return None
 
 
 def _derive_posture(
@@ -372,6 +390,7 @@ def get_auto_paper_status_card(
     paper_snapshot = _load_paper_snapshot(session)
     open_paper_positions_count = int(paper_snapshot["open_paper_positions_count"])
     latest_paper_order = paper_snapshot["latest_paper_order"]
+    submit_decision_count = _load_submit_decision_count(session)
 
     enforcement = {
         "auto_paper_enforcement_enabled": False,
@@ -438,6 +457,14 @@ def get_auto_paper_status_card(
         last_block_reason=last_block_reason,
     )
 
+    run_log_entry_count = int(retention.get("current_entry_count", 0))
+    warning_codes: list[str] = []
+    if latest_paper_order and run_log_entry_count == 0:
+        warning_codes.append("latest_paper_order_without_run_log")
+    if latest_paper_order and submit_decision_count == 0:
+        warning_codes.append("latest_paper_order_without_submit_decision")
+    status = "warning" if warning_codes else "ok"
+
     return {
         "advisory": _ADVISORY,
         "mode": selected_mode,
@@ -466,8 +493,15 @@ def get_auto_paper_status_card(
         "trading_control": trading_control,
         "latest_run": latest_run,
         "latest_paper_order": latest_paper_order,
+        "audit_alignment": {
+            "status": status,
+            "warning_codes": warning_codes,
+            "run_log_entry_count": run_log_entry_count,
+            "submit_decision_count": submit_decision_count,
+            "latest_paper_order_present": bool(latest_paper_order),
+        },
         "run_log_summary": {
-            "current_entry_count": retention.get("current_entry_count", 0),
+            "current_entry_count": run_log_entry_count,
             "max_entries": retention.get("max_entries", 0),
             "utilization_pct": retention.get("utilization_pct", 0.0),
             "near_capacity": bool(retention.get("near_capacity", False)),

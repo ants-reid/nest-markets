@@ -323,3 +323,18 @@ def test_latest_paper_order_exposes_ibkr_status(isolated_service):
     )
     assert card["latest_paper_order"] is not None
     assert card["latest_paper_order"]["ibkr_status"] == "PreSubmitted"
+
+
+def test_audit_alignment_warns_when_order_exists_but_history_missing(isolated_service):
+    submitted_at = datetime(2025, 1, 2, 5, 6, tzinfo=timezone.utc)
+    card = get_auto_paper_status_card(
+        trading_control_state=_paper_armed_state(),
+        run_log_service=isolated_service,
+        session=_FakeSession(
+            latest_order=_FakeOrder(submitted_at=submitted_at, ibkr_status="PreSubmitted"),
+        ),
+    )
+
+    assert card["audit_alignment"]["status"] == "warning"
+    assert "latest_paper_order_without_run_log" in card["audit_alignment"]["warning_codes"]
+    assert card["audit_alignment"]["latest_paper_order_present"] is True
