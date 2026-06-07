@@ -15,6 +15,7 @@ PaperOrder row is created.  No position is opened with status other than "approv
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -52,6 +53,7 @@ _RECENCY_HOURS = 8
 _WORKING_BROKER_STATUSES = {"PRESUBMITTED", "PENDINGSUBMIT", "APIPENDING"}
 _ACCEPTED_BROKER_STATUSES = {"SUBMITTED", "FILLED"} | _WORKING_BROKER_STATUSES
 _REJECTED_BROKER_STATUSES = {"REJECTED", "CANCELLED"}
+_AUTO_SUBMIT_TIMEOUT_SECONDS = 20
 
 
 class AutoPaperTraderWorker(BaseWorker):
@@ -63,7 +65,14 @@ class AutoPaperTraderWorker(BaseWorker):
         self._session = session
 
     def _get_broker_service(self) -> BrokerService:
-        return BrokerService()
+        # Reuse the process-level broker service to avoid duplicate TWS client-id
+        # sessions during concurrent scheduler + API activity.
+        try:
+            from app.api.routes.broker import get_broker_service
+
+            return get_broker_service()
+        except Exception:
+            return BrokerService()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -342,7 +351,10 @@ class AutoPaperTraderWorker(BaseWorker):
                 submit_attempts += 1
                 try:
                     broker_result = run_async(
-                        lambda req=order_request: self._get_broker_service().submit_auto_order(req)
+                        lambda req=order_request: asyncio.wait_for(
+                            self._get_broker_service().submit_auto_order(req),
+                            timeout=_AUTO_SUBMIT_TIMEOUT_SECONDS,
+                        )
                     )
                 except (AutoTradingBlockedError, PaperPreflightBlockedError) as exc:
                     gate_blocked += 1

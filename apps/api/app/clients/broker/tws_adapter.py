@@ -71,7 +71,7 @@ class TwsBroker:
         self._connect_timeout = float(connect_timeout)
         self._ib_factory = ib_factory or _default_ib_factory
         self._ib: Any | None = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._submit_enabled = bool(submit_enabled)
 
     # ------------------------------------------------------------------
@@ -115,34 +115,35 @@ class TwsBroker:
     # Read-only BrokerInterface surface
     # ------------------------------------------------------------------
     def _get_account_info_blocking(self) -> AccountInfo:
-        ib = self._ensure_connected()
-        account = self._resolve_account(ib)
-        rows = ib.accountSummary(account) or []
+        with self._lock:
+            ib = self._ensure_connected()
+            account = self._resolve_account(ib)
+            rows = ib.accountSummary(account) or []
 
-        wanted: dict[str, Any] = {
-            "NetLiquidation": None,
-            "AvailableFunds": None,
-            "BuyingPower": None,
-            "ExcessLiquidity": None,
-            "MaintMarginReq": None,
-            "UnrealizedPnL": None,
-        }
-        currency: str | None = None
-        for row in rows:
-            tag = getattr(row, "tag", None)
-            if tag in wanted and wanted[tag] is None:
-                wanted[tag] = getattr(row, "value", None)
-                currency = currency or getattr(row, "currency", None)
+            wanted: dict[str, Any] = {
+                "NetLiquidation": None,
+                "AvailableFunds": None,
+                "BuyingPower": None,
+                "ExcessLiquidity": None,
+                "MaintMarginReq": None,
+                "UnrealizedPnL": None,
+            }
+            currency: str | None = None
+            for row in rows:
+                tag = getattr(row, "tag", None)
+                if tag in wanted and wanted[tag] is None:
+                    wanted[tag] = getattr(row, "value", None)
+                    currency = currency or getattr(row, "currency", None)
 
-        return AccountInfo(
-            net_liquidation=_to_decimal(wanted["NetLiquidation"]),
-            cash_balance=_to_decimal(wanted["AvailableFunds"]),
-            buying_power=_to_decimal(wanted["BuyingPower"]),
-            currency=currency or "USD",
-            excess_liquidity=_to_decimal(wanted["ExcessLiquidity"]),
-            margin=_to_decimal(wanted["MaintMarginReq"]),
-            unrealized_pnl=_to_decimal(wanted["UnrealizedPnL"]),
-        )
+            return AccountInfo(
+                net_liquidation=_to_decimal(wanted["NetLiquidation"]),
+                cash_balance=_to_decimal(wanted["AvailableFunds"]),
+                buying_power=_to_decimal(wanted["BuyingPower"]),
+                currency=currency or "USD",
+                excess_liquidity=_to_decimal(wanted["ExcessLiquidity"]),
+                margin=_to_decimal(wanted["MaintMarginReq"]),
+                unrealized_pnl=_to_decimal(wanted["UnrealizedPnL"]),
+            )
 
     async def get_account_info(self) -> AccountInfo:
         # ib_async sync wrappers drive their own event loop, so offload
@@ -150,40 +151,41 @@ class TwsBroker:
         return await asyncio.to_thread(self._get_account_info_blocking)
 
     def _get_positions_blocking(self) -> list[PositionInfo]:
-        ib = self._ensure_connected()
-        account = self._resolve_account(ib)
-        positions = ib.positions(account) or []
+        with self._lock:
+            ib = self._ensure_connected()
+            account = self._resolve_account(ib)
+            positions = ib.positions(account) or []
 
-        result: list[PositionInfo] = []
-        for pos in positions:
-            contract = getattr(pos, "contract", None)
-            symbol = getattr(contract, "symbol", "") if contract is not None else ""
-            sec_type = (
-                getattr(contract, "secType", "STK") if contract is not None else "STK"
-            )
-            currency = (
-                getattr(contract, "currency", "USD") if contract is not None else "USD"
-            )
-            conid_raw = getattr(contract, "conId", 0) if contract is not None else 0
-            try:
-                conid = int(conid_raw or 0)
-            except (TypeError, ValueError):
-                conid = 0
-
-            qty = _to_decimal(getattr(pos, "position", 0))
-            side = "BUY" if qty >= 0 else "SELL"
-            result.append(
-                PositionInfo(
-                    conid=conid,
-                    ticker=str(symbol or ""),
-                    side=side,
-                    quantity=qty,
-                    avg_cost=_to_decimal(getattr(pos, "avgCost", 0)),
-                    asset_class=str(sec_type or "STK"),
-                    currency=str(currency or "USD"),
+            result: list[PositionInfo] = []
+            for pos in positions:
+                contract = getattr(pos, "contract", None)
+                symbol = getattr(contract, "symbol", "") if contract is not None else ""
+                sec_type = (
+                    getattr(contract, "secType", "STK") if contract is not None else "STK"
                 )
-            )
-        return result
+                currency = (
+                    getattr(contract, "currency", "USD") if contract is not None else "USD"
+                )
+                conid_raw = getattr(contract, "conId", 0) if contract is not None else 0
+                try:
+                    conid = int(conid_raw or 0)
+                except (TypeError, ValueError):
+                    conid = 0
+
+                qty = _to_decimal(getattr(pos, "position", 0))
+                side = "BUY" if qty >= 0 else "SELL"
+                result.append(
+                    PositionInfo(
+                        conid=conid,
+                        ticker=str(symbol or ""),
+                        side=side,
+                        quantity=qty,
+                        avg_cost=_to_decimal(getattr(pos, "avgCost", 0)),
+                        asset_class=str(sec_type or "STK"),
+                        currency=str(currency or "USD"),
+                    )
+                )
+            return result
 
     async def get_positions(self) -> list[PositionInfo]:
         return await asyncio.to_thread(self._get_positions_blocking)
@@ -220,39 +222,40 @@ class TwsBroker:
             )
 
         try:
-            ib = self._ensure_connected()
-            account = self._resolve_account(ib)
-            contract = Stock(request.ticker, "SMART", "USD")
-            qualify = getattr(ib, "qualifyContracts", None)
-            if callable(qualify):
-                qualify(contract)
-            order = LimitOrder(
-                action=request.side,
-                totalQuantity=float(request.quantity),
-                lmtPrice=float(request.limit_price),
-            )
-            order.account = account
-            order.tif = request.tif or "DAY"
-            order.outsideRth = bool(request.outside_rth)
-            order.transmit = True
-            trade = ib.placeOrder(contract, order)
-            sleep = getattr(ib, "sleep", None)
-            if callable(sleep):
-                sleep(1.0)
-            order_id = getattr(getattr(trade, "order", None), "orderId", None) or getattr(
-                getattr(trade, "order", None), "permId", None
-            )
-            status_obj = getattr(trade, "orderStatus", None)
-            status = (getattr(status_obj, "status", None) or "SUBMITTED")
-            filled = _to_decimal(getattr(status_obj, "filled", 0)) if status_obj else None
-            avg_fill = getattr(status_obj, "avgFillPrice", None) if status_obj else None
-            return OrderResult(
-                broker_order_id=str(order_id or ""),
-                status=str(status),
-                filled_price=_to_decimal(avg_fill) if avg_fill else None,
-                filled_quantity=filled,
-                error_message=None,
-            )
+            with self._lock:
+                ib = self._ensure_connected()
+                account = self._resolve_account(ib)
+                contract = Stock(request.ticker, "SMART", "USD")
+                qualify = getattr(ib, "qualifyContracts", None)
+                if callable(qualify):
+                    qualify(contract)
+                order = LimitOrder(
+                    action=request.side,
+                    totalQuantity=float(request.quantity),
+                    lmtPrice=float(request.limit_price),
+                )
+                order.account = account
+                order.tif = request.tif or "DAY"
+                order.outsideRth = bool(request.outside_rth)
+                order.transmit = True
+                trade = ib.placeOrder(contract, order)
+                sleep = getattr(ib, "sleep", None)
+                if callable(sleep):
+                    sleep(1.0)
+                order_id = getattr(getattr(trade, "order", None), "orderId", None) or getattr(
+                    getattr(trade, "order", None), "permId", None
+                )
+                status_obj = getattr(trade, "orderStatus", None)
+                status = (getattr(status_obj, "status", None) or "SUBMITTED")
+                filled = _to_decimal(getattr(status_obj, "filled", 0)) if status_obj else None
+                avg_fill = getattr(status_obj, "avgFillPrice", None) if status_obj else None
+                return OrderResult(
+                    broker_order_id=str(order_id or ""),
+                    status=str(status),
+                    filled_price=_to_decimal(avg_fill) if avg_fill else None,
+                    filled_quantity=filled,
+                    error_message=None,
+                )
         except Exception as exc:  # noqa: BLE001
             return OrderResult(
                 broker_order_id="",
