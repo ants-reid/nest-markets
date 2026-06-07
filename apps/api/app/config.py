@@ -1,14 +1,24 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_API_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _API_ROOT.parent.parent
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            _API_ROOT / ".env",
+            _API_ROOT / ".env.local",
+            _REPO_ROOT / ".env",
+            _REPO_ROOT / ".env.local",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -95,6 +105,7 @@ class Settings(BaseSettings):
     # Live trading remains locked regardless of these flags.
     auto_paper_background_scheduler_enabled: bool = Field(default=False)
     auto_paper_minutes_between_runs: int = Field(default=30)
+    auto_paper_max_open_positions: int = Field(default=5)
     auto_paper_kill_on_error_count: int = Field(default=3)
     auto_paper_kill_on_reject_rate: float = Field(default=0.5)
 
