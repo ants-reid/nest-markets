@@ -35,6 +35,7 @@ from app.services.broker_mode_guard import (
 )
 from app.services.broker_service import BrokerService
 from app.services.risk_limit_service import RiskLimitService
+from app.services.paper_candidate_hygiene_service import PaperCandidateHygieneService
 from app.services.paper_candidate_refresh_service import PaperCandidateRefreshService
 from app.services.trading_control_arming_state_service import TradingControlArmingStateService
 from app.services.trading_control_service import (
@@ -97,6 +98,32 @@ class CandidateRefreshResponse(BaseModel):
     skipped_count: int
     dry_run: bool
     candidates: list[CandidateRefreshItemResponse]
+
+
+class CandidateHygieneCandidateResponse(BaseModel):
+    """One affected candidate returned by hygiene scan."""
+
+    signal_id: str
+    symbol: str
+    provider_name: str | None = None
+    signal_status: str
+    scan_ts: str | None = None
+    signal_score: float
+    reasons: list[str]
+
+
+class CandidateHygieneResponse(BaseModel):
+    """Response payload for paper candidate hygiene endpoint."""
+
+    dry_run: bool
+    apply: bool
+    stale_count: int
+    duplicate_count: int
+    outside_allowlist_count: int
+    would_update_count: int
+    updated_count: int
+    recommendations: list[str]
+    affected_candidates: list[CandidateHygieneCandidateResponse]
 
 
 class AutoPaperOutcomeCounts(BaseModel):
@@ -276,6 +303,68 @@ def refresh_auto_paper_candidates(
         skipped_count=int(result["skipped_count"]),
         dry_run=bool(dry_run),
         candidates=[CandidateRefreshItemResponse(**item) for item in result["candidates"]],
+    )
+
+
+@router.post("/auto-paper/candidates/hygiene", response_model=CandidateHygieneResponse)
+def maintain_auto_paper_candidate_hygiene(
+    session: Annotated[Session, Depends(get_db_session)],
+    dry_run: bool = True,
+    apply: bool = False,
+    max_age_hours: int | None = None,
+    keep_per_symbol: int = 1,
+) -> CandidateHygieneResponse:
+    """Dry-run/apply paper candidate queue hygiene for paper-test candidate rows."""
+    settings = get_settings()
+    if settings.broker_mode.lower() != "paper":
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate hygiene is allowed only when BROKER_MODE is paper.",
+        )
+    if settings.live_execution_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate hygiene is blocked while LIVE_EXECUTION_ENABLED is true.",
+        )
+    if not settings.auto_paper_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate hygiene requires AUTO_PAPER_ENABLED=true.",
+        )
+    if apply and dry_run:
+        raise HTTPException(
+            status_code=409,
+            detail="Set dry_run=false when apply=true.",
+        )
+
+    symbols = [
+        symbol.strip().upper()
+        for symbol in settings.auto_paper_symbol_allowlist.split(",")
+        if symbol and symbol.strip()
+    ]
+
+    service = PaperCandidateHygieneService(session=session)
+    result = service.run(
+        dry_run=dry_run,
+        apply=apply,
+        max_age_hours=max_age_hours,
+        keep_per_symbol=keep_per_symbol,
+        allowlist_symbols=symbols,
+    )
+
+    if apply and not dry_run and result["updated_count"] > 0:
+        session.commit()
+
+    return CandidateHygieneResponse(
+        dry_run=bool(result["dry_run"]),
+        apply=bool(result["apply"]),
+        stale_count=int(result["stale_count"]),
+        duplicate_count=int(result["duplicate_count"]),
+        outside_allowlist_count=int(result["outside_allowlist_count"]),
+        would_update_count=int(result["would_update_count"]),
+        updated_count=int(result["updated_count"]),
+        recommendations=list(result["recommendations"]),
+        affected_candidates=[CandidateHygieneCandidateResponse(**item) for item in result["affected_candidates"]],
     )
 
 

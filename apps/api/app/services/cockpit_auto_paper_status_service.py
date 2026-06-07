@@ -33,6 +33,7 @@ from app.db.session import SessionLocal
 from app.services.auto_paper_gate_service import AutoPaperGateService
 from app.services.cockpit_mode_service import get_cockpit_mode_state
 from app.services.opportunity_ranker_service import OpportunityRankerService
+from app.services.paper_candidate_hygiene_service import PaperCandidateHygieneService
 from app.services.trading_control_service import TradingControlState, get_trading_mode
 from app.services.visual_seed import provider_filter
 from app.services.worker_run_log_service import WorkerRunEntry, WorkerRunLogService
@@ -55,6 +56,7 @@ _DEFAULT_MAX_OPEN_POSITIONS = 5
 _QUEUE_RECENCY_HOURS = 8
 _QUEUE_MIN_SIGNAL_SCORE = 50.0
 _MANUAL_SEED_PROVIDER = "manual_scheduler_seed"
+_HYGIENE_DUPLICATE_RECOMMEND_THRESHOLD = 3
 
 
 def _safe_float(value: Any) -> float | None:
@@ -243,6 +245,17 @@ def _load_candidate_queue_hygiene(
     if allowlist:
         allowlist_blocked_count = sum(1 for symbol in symbols if symbol.upper() not in allowlist)
 
+    hygiene_scan = PaperCandidateHygieneService(session).run(
+        dry_run=True,
+        apply=False,
+        max_age_hours=_QUEUE_RECENCY_HOURS,
+        keep_per_symbol=1,
+        allowlist_symbols=sorted(allowlist),
+    )
+    stale_count = int(hygiene_scan.get("stale_count", 0))
+    duplicate_count = int(hygiene_scan.get("duplicate_count", 0))
+    outside_allowlist_count = int(hygiene_scan.get("outside_allowlist_count", 0))
+
     cap_blocked = open_paper_positions_count >= max_open_paper_positions
     decision_blocked = not bool(controlled_gate_decision.get("allowed", False))
     recommendations: list[str] = []
@@ -267,11 +280,31 @@ def _load_candidate_queue_hygiene(
         reason = controlled_gate_decision.get("reason") or "no reason supplied"
         recommendations.append(f"Controlled gate is blocked at {gate_name}: {reason}")
 
+    hygiene_recommended = (
+        stale_count > 0
+        or duplicate_count > _HYGIENE_DUPLICATE_RECOMMEND_THRESHOLD
+        or outside_allowlist_count > 0
+    )
+    suggested_action = (
+        "Apply paper candidate hygiene"
+        if hygiene_recommended
+        else "Paper candidate hygiene is not currently required"
+    )
+    if hygiene_recommended:
+        recommendations.append("Run paper candidate hygiene dry-run, then apply if the result looks safe.")
+
     return {
         "stale_manual_seed_count": stale_manual_seed_count,
         "duplicate_symbol_candidate_count": duplicate_symbol_candidate_count,
         "already_submitted_count": already_submitted_count,
         "allowlist_blocked_count": allowlist_blocked_count,
+        "hygiene_available": True,
+        "hygiene_recommended": hygiene_recommended,
+        "hygiene_duplicate_threshold": _HYGIENE_DUPLICATE_RECOMMEND_THRESHOLD,
+        "hygiene_suggested_action": suggested_action,
+        "stale_count": stale_count,
+        "duplicate_count": duplicate_count,
+        "outside_allowlist_count": outside_allowlist_count,
         "cap_blocked": cap_blocked,
         "controlled_gate_blocked": decision_blocked,
         "age_bucket_counts": age_buckets,
@@ -797,6 +830,13 @@ def get_auto_paper_status_card(
                 "duplicate_symbol_candidate_count": 0,
                 "already_submitted_count": 0,
                 "allowlist_blocked_count": 0,
+                "hygiene_available": False,
+                "hygiene_recommended": False,
+                "hygiene_duplicate_threshold": _HYGIENE_DUPLICATE_RECOMMEND_THRESHOLD,
+                "hygiene_suggested_action": "Queue hygiene snapshot unavailable",
+                "stale_count": 0,
+                "duplicate_count": 0,
+                "outside_allowlist_count": 0,
                 "cap_blocked": open_paper_positions_count >= max_open_paper_positions,
                 "controlled_gate_blocked": not bool(controlled_gate_decision.get("allowed", False)),
                 "age_bucket_counts": {
@@ -825,6 +865,13 @@ def get_auto_paper_status_card(
             "duplicate_symbol_candidate_count": 0,
             "already_submitted_count": 0,
             "allowlist_blocked_count": 0,
+            "hygiene_available": False,
+            "hygiene_recommended": False,
+            "hygiene_duplicate_threshold": _HYGIENE_DUPLICATE_RECOMMEND_THRESHOLD,
+            "hygiene_suggested_action": "Queue hygiene snapshot unavailable",
+            "stale_count": 0,
+            "duplicate_count": 0,
+            "outside_allowlist_count": 0,
             "cap_blocked": open_paper_positions_count >= max_open_paper_positions,
             "controlled_gate_blocked": not bool(controlled_gate_decision.get("allowed", False)),
             "age_bucket_counts": {

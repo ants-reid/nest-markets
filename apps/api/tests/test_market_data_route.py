@@ -318,6 +318,114 @@ def test_refresh_candidates_does_not_submit_orders(client, monkeypatch):
     assert payload["dry_run"] is True
 
 
+def test_hygiene_candidates_defaults_to_dry_run(client, monkeypatch):
+    c, session = client
+    captured: dict[str, object] = {}
+
+    class StubHygieneService:
+        def __init__(self, session):
+            captured["session"] = session
+
+        def run(self, *, dry_run, apply, max_age_hours, keep_per_symbol, allowlist_symbols):
+            captured["dry_run"] = dry_run
+            captured["apply"] = apply
+            captured["max_age_hours"] = max_age_hours
+            captured["keep_per_symbol"] = keep_per_symbol
+            captured["allowlist_symbols"] = allowlist_symbols
+            return {
+                "dry_run": dry_run,
+                "apply": apply,
+                "stale_count": 0,
+                "duplicate_count": 0,
+                "outside_allowlist_count": 0,
+                "would_update_count": 0,
+                "updated_count": 0,
+                "recommendations": ["Queue hygiene is clean for paper-test candidates."],
+                "affected_candidates": [],
+            }
+
+    monkeypatch.setattr(market_data_route, "PaperCandidateHygieneService", StubHygieneService)
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL,MSFT",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/hygiene")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dry_run"] is True
+    assert payload["apply"] is False
+    assert captured["dry_run"] is True
+    assert captured["apply"] is False
+    assert captured["keep_per_symbol"] == 1
+    assert captured["allowlist_symbols"] == ["AAPL", "MSFT"]
+    session.commit.assert_not_called()
+
+
+def test_hygiene_candidates_blocks_when_live_enabled(client, monkeypatch):
+    c, _session = client
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=True,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/hygiene")
+
+    assert response.status_code == 409
+    assert "LIVE_EXECUTION_ENABLED" in response.json()["detail"]
+
+
+def test_hygiene_candidates_blocks_when_not_paper_mode(client, monkeypatch):
+    c, _session = client
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="live",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/hygiene")
+
+    assert response.status_code == 409
+    assert "BROKER_MODE" in response.json()["detail"]
+
+
+def test_hygiene_candidates_requires_dry_run_false_when_apply_true(client, monkeypatch):
+    c, _session = client
+    monkeypatch.setattr(
+        market_data_route,
+        "get_settings",
+        lambda: SimpleNamespace(
+            broker_mode="paper",
+            live_execution_enabled=False,
+            auto_paper_enabled=True,
+            auto_paper_symbol_allowlist="AAPL",
+        ),
+    )
+
+    response = c.post("/market-data/auto-paper/candidates/hygiene?apply=true")
+
+    assert response.status_code == 409
+    assert "dry_run=false" in response.json()["detail"]
+
+
 def test_get_auto_paper_history_filters_by_source_and_outcome(client, monkeypatch):
     c, _session = client
 

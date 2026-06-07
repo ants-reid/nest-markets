@@ -212,6 +212,9 @@ def test_card_shape_with_no_runs(isolated_service):
     assert "stale_manual_seed_count" in card["queue_hygiene"]
     assert "duplicate_symbol_candidate_count" in card["queue_hygiene"]
     assert "cleanup_recommendations" in card["queue_hygiene"]
+    assert "hygiene_available" in card["queue_hygiene"]
+    assert "hygiene_recommended" in card["queue_hygiene"]
+    assert "hygiene_suggested_action" in card["queue_hygiene"]
     assert isinstance(card["next_run_guidance"]["can_run_now"], bool)
     assert isinstance(card["next_run_guidance"]["safe_for_supervised_session"], bool)
     assert isinstance(card["next_run_guidance"]["paper_normal_mode_active"], bool)
@@ -415,4 +418,57 @@ def test_status_card_recommends_refresh_when_no_candidates(isolated_service, mon
     assert card["candidate_queue"]["eligible_count"] == 0
     assert card["candidate_queue"]["refresh_available"] is True
     assert card["candidate_queue"]["empty_reason"] == "no_recent_eligible_candidates"
-    assert "refresh paper candidates" in card["next_run_guidance"]["suggested_operator_action"].lower()
+    assert card["next_run_guidance"]["blocked_by"]["no_candidates"] is True
+
+
+def test_status_card_marks_hygiene_recommended_when_noise_exists(isolated_service, monkeypatch):
+    monkeypatch.setattr(
+        cockpit_auto_paper_status_service,
+        "_load_candidate_queue_snapshot",
+        lambda **_: {
+            "recency_hours": 8,
+            "min_signal_score": 50.0,
+            "eligible_count": 2,
+            "empty_reason": None,
+            "refresh_available": False,
+            "top_candidates": [],
+            "selection_explanation": "snapshot",
+        },
+    )
+    monkeypatch.setattr(
+        cockpit_auto_paper_status_service,
+        "_load_candidate_queue_hygiene",
+        lambda **_: {
+            "stale_manual_seed_count": 1,
+            "duplicate_symbol_candidate_count": 12,
+            "already_submitted_count": 0,
+            "allowlist_blocked_count": 9,
+            "hygiene_available": True,
+            "hygiene_recommended": True,
+            "hygiene_duplicate_threshold": 3,
+            "hygiene_suggested_action": "Apply paper candidate hygiene",
+            "stale_count": 1,
+            "duplicate_count": 12,
+            "outside_allowlist_count": 9,
+            "cap_blocked": False,
+            "controlled_gate_blocked": False,
+            "age_bucket_counts": {
+                "fresh_le_30m": 0,
+                "recent_30m_2h": 0,
+                "aging_2h_8h": 0,
+                "stale_gt_8h": 0,
+                "unknown": 0,
+            },
+            "cleanup_recommendations": ["Run paper candidate hygiene dry-run, then apply if the result looks safe."],
+        },
+    )
+
+    card = get_auto_paper_status_card(
+        trading_control_state=_paper_armed_state(),
+        run_log_service=isolated_service,
+        session=_FakeSession(),
+    )
+
+    assert card["queue_hygiene"]["hygiene_available"] is True
+    assert card["queue_hygiene"]["hygiene_recommended"] is True
+    assert "candidate hygiene" in card["queue_hygiene"]["hygiene_suggested_action"].lower()
