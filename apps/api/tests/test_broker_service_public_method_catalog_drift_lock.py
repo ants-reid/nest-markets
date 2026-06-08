@@ -27,6 +27,7 @@ EXPECTED_PUBLIC_METHODS: frozenset[str] = frozenset(
         "get_normalized_trade_events",
         "get_order_status",
         "get_positions",
+        "get_runtime_diagnostics",
         "normalize_and_stage_trade_events",
         "reconcile_positions",
         "submit_auto_order",

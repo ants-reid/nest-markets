@@ -91,6 +91,17 @@ function buildReadinessChecklistItems({
   dryRun: BrokerOrderDryRunResult | null;
   formatControlValue: (value: string) => string;
 }): ReadinessChecklistItem[] {
+  if (health.status === "ready" && health.data.broker_readiness?.items?.length) {
+    return health.data.broker_readiness.items.map((item) => ({
+      id: item.key,
+      label: item.label,
+      status: item.status === "green" ? "ready" : item.status === "yellow" ? "advisory" : "missing",
+      detail: `${item.status.toUpperCase()} status`,
+      reason: item.reason,
+      suggested_action: item.suggested_action,
+    }));
+  }
+
   return [
     {
       id: "portfolio-snapshot",

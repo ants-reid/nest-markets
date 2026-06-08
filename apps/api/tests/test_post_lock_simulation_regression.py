@@ -377,7 +377,7 @@ async def test_async_bridge_runs_inside_an_existing_event_loop():
 
 def test_auto_paper_worker_submission_path_uses_auto_submit_gate_only():
     worker = AutoPaperTraderWorker(session=MagicMock())
-    opportunity = SimpleNamespace(asset="AAPL", direction="long")
+    opportunity = SimpleNamespace(asset="AAPL", direction="long", signal_id=123)
     signal = SimpleNamespace(entry_min=101.5)
     fake_service = SimpleNamespace(
         submit_auto_order=AsyncMock(

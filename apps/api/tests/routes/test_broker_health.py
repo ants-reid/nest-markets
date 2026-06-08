@@ -36,6 +36,38 @@ def _clear_settings_cache():
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _mock_readiness_dependencies():
+    class _StubService:
+        def get_runtime_diagnostics(self):
+            return {
+                "tws_runtime_client_id": 43,
+                "tws_connection_state": "connected",
+                "tws_last_error_code": None,
+                "tws_last_error_message": None,
+            }
+
+    with patch(
+        "app.api.routes.broker._probe_broker_account_health",
+        new=AsyncMock(return_value=(True, True, "IBKR account snapshot loaded.")),
+    ), patch(
+        "app.api.routes.broker._probe_broker_positions_health",
+        new=AsyncMock(return_value=(True, True, "IBKR positions snapshot loaded.")),
+    ), patch(
+        "app.api.routes.broker.get_auto_paper_status_card",
+        return_value={
+            "next_run_guidance": {"paper_normal_mode_active": True},
+            "candidate_queue": {"eligible_count": 1},
+            "audit_alignment": {"status": "ok"},
+            "latest_paper_order": None,
+        },
+    ), patch(
+        "app.api.routes.broker.get_broker_service",
+        return_value=_StubService(),
+    ):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # is_paper_account_id unit tests
 # ---------------------------------------------------------------------------
@@ -222,3 +254,103 @@ class TestBrokerHealthStatus:
         assert data["gateway_reachable"] is False
         bm = data["broker_mode"]
         assert bm["mode"] == "live"
+
+
+class TestBrokerReadinessChecklist:
+    def test_readiness_healthy_paper_config_is_green(self, client, monkeypatch):
+        monkeypatch.setenv("IBKR_ACCOUNT_ID", "DUP153837")
+        monkeypatch.setenv("BROKER_PROVIDER", "tws")
+        monkeypatch.setenv("TWS_ENABLED", "true")
+        monkeypatch.setenv("BROKER_MODE", "paper")
+        monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "false")
+        monkeypatch.setenv("PAPER_TRADING_ENABLED", "true")
+        monkeypatch.setenv("AUTO_PAPER_ENABLED", "true")
+        get_settings.cache_clear()
+        with patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=True)):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        assert checklist["overall_status"] == "green"
+        assert checklist["items"]
+        assert all(item["status"] == "green" for item in checklist["items"])
+
+    def test_readiness_live_execution_enabled_is_red(self, client, monkeypatch):
+        monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "true")
+        get_settings.cache_clear()
+        with patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=True)):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "live_execution_disabled")
+        assert item["status"] == "red"
+        assert "LIVE_EXECUTION_ENABLED=false" in item["suggested_action"]
+
+    def test_readiness_non_paper_mode_is_red(self, client, monkeypatch):
+        monkeypatch.setenv("BROKER_MODE", "live")
+        get_settings.cache_clear()
+        with patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=True)):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "broker_mode_paper")
+        assert item["status"] == "red"
+
+    def test_readiness_tws_unavailable_is_yellow_with_action(self, client):
+        class _DisconnectedService:
+            def get_runtime_diagnostics(self):
+                return {
+                    "tws_runtime_client_id": None,
+                    "tws_connection_state": "disconnected",
+                    "tws_last_error_code": None,
+                    "tws_last_error_message": None,
+                }
+
+        with patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=False)), patch(
+            "app.api.routes.broker.get_broker_service",
+            return_value=_DisconnectedService(),
+        ):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "tws_reachable")
+        assert item["status"] in {"yellow", "red"}
+        assert "TWS/Gateway" in item["suggested_action"]
+
+    def test_readiness_account_not_visible_is_red(self, client, monkeypatch):
+        monkeypatch.setenv("IBKR_ACCOUNT_ID", "U1234567")
+        get_settings.cache_clear()
+        with patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=True)):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "paper_account_visible")
+        assert item["status"] == "red"
+
+    def test_readiness_client_id_contention_is_red(self, client):
+        class _StubService:
+            def get_runtime_diagnostics(self):
+                return {
+                    "tws_runtime_client_id": 43,
+                    "tws_connection_state": "error",
+                    "tws_last_error_code": "326",
+                    "tws_last_error_message": "client id is already in use",
+                }
+
+        with patch("app.api.routes.broker.get_broker_service", return_value=_StubService()), patch(
+            "app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=False)
+        ):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "client_id_contention_inactive")
+        assert item["status"] == "red"
+        assert "duplicate" in item["suggested_action"].lower() or "contention" in item["suggested_action"].lower()
+
+    def test_readiness_audit_alignment_warning_maps_yellow(self, client):
+        with patch(
+            "app.api.routes.broker.get_auto_paper_status_card",
+            return_value={
+                "next_run_guidance": {"paper_normal_mode_active": True},
+                "candidate_queue": {"eligible_count": 1},
+                "audit_alignment": {"status": "warning"},
+                "latest_paper_order": None,
+            },
+        ), patch("app.api.routes.broker.check_ibkr_gateway", new=AsyncMock(return_value=True)):
+            data = client.get("/broker/health").json()
+        checklist = data["broker_readiness"]
+        item = next(i for i in checklist["items"] if i["key"] == "audit_alignment_visible")
+        assert item["status"] in {"yellow", "red"}

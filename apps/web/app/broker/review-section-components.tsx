@@ -43,6 +43,10 @@ export function ReadinessChecklistItemsList({
           <div className={styles.readinessItemBody}>
             <span className={styles.readinessItemLabel}>{item.label}</span>
             <span className={styles.readinessItemDetail}>{item.detail}</span>
+            {item.reason ? <span className={styles.readinessItemDetail}>Reason: {item.reason}</span> : null}
+            {item.suggested_action ? (
+              <span className={styles.readinessItemDetail}>Action: {item.suggested_action}</span>
+            ) : null}
           </div>
         </div>
       ))}

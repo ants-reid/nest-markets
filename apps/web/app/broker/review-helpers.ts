@@ -10,6 +10,8 @@ export type ReadinessChecklistItem = {
   label: string;
   status: ChecklistItemStatus;
   detail: string;
+  reason?: string;
+  suggested_action?: string;
 };
 
 export type ReadinessSnapshot = {
@@ -141,7 +143,9 @@ function isReadinessChecklistItem(value: unknown): value is ReadinessChecklistIt
     && typeof value.id === "string"
     && typeof value.label === "string"
     && isChecklistItemStatus(value.status)
-    && typeof value.detail === "string";
+    && typeof value.detail === "string"
+    && (value.reason === undefined || typeof value.reason === "string")
+    && (value.suggested_action === undefined || typeof value.suggested_action === "string");
 }
 
 function isReadinessSnapshot(value: unknown): value is ReadinessSnapshot {
@@ -301,9 +305,9 @@ export function buildBackupPackSectionPayload(pack: ReadinessBackupPack, section
 }
 
 export function checklistStatusLabel(status: ChecklistItemStatus): string {
-  if (status === "ready") return "Ready";
-  if (status === "missing") return "Missing";
-  return "Advisory";
+  if (status === "ready") return "Green";
+  if (status === "missing") return "Red";
+  return "Yellow";
 }
 
 export function summarizeSnapshotStatuses(snapshot: ReadinessSnapshot | null): Record<ChecklistItemStatus, number> {

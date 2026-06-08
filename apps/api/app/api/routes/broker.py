@@ -1,7 +1,9 @@
 """Broker endpoints — order execution, account, positions."""
+import asyncio
 import logging
 from typing import Any
 from decimal import Decimal
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -16,7 +18,9 @@ from app.schemas.broker_schemas import (
     BrokerTradeEventAuditTrailSchema,
     BrokerOrderAuditEntrySchema,
     BrokerOrderAuditTrailSchema,
-    BrokerHealthSchema,
+    BrokerHealthWithReadinessSchema,
+    BrokerReadinessChecklistItemSchema,
+    BrokerReadinessChecklistSchema,
     BrokerModeSchema,
     SeriousPaperRouteCheckResponseSchema,
     TradingControlSchema,
@@ -45,6 +49,7 @@ from app.services.broker_service import BrokerService
 from app.services.broker_service import PaperPreflightBlockedError
 from app.services.paper_source_contract import broker_sources_from_mode
 from app.services.serious_paper_routing_service import SeriousPaperRoutingService
+from app.services.cockpit_auto_paper_status_service import get_auto_paper_status_card
 from app.services.trading_control_service import (
     AutoTradingBlockedError,
     LiveTradingNotArmedError,
@@ -161,6 +166,59 @@ def _paper_fallback_account_info() -> AccountInfoSchema:
     )
 
 
+def _readiness_status_rank(value: str) -> int:
+    if value == "red":
+        return 2
+    if value == "yellow":
+        return 1
+    return 0
+
+
+def _build_readiness_item(
+    *,
+    key: str,
+    label: str,
+    status: str,
+    reason: str,
+    suggested_action: str,
+) -> BrokerReadinessChecklistItemSchema:
+    return BrokerReadinessChecklistItemSchema(
+        key=key,
+        label=label,
+        status=status,
+        reason=reason,
+        suggested_action=suggested_action,
+    )
+
+
+async def _probe_broker_account_health(service: BrokerService) -> tuple[bool, bool, str]:
+    try:
+        await asyncio.wait_for(service.get_account_info(), timeout=8.0)
+        return True, True, "IBKR account snapshot loaded."
+    except Exception as exc:
+        if not is_live_mode_enabled() and (
+            isinstance(exc, asyncio.TimeoutError)
+            or _is_broker_transport_error(exc)
+            or _is_tws_unavailable_error(exc)
+        ):
+            return True, False, f"Account probe degraded in paper mode; fallback snapshot allowed ({exc})."
+        return False, False, f"Account probe failed: {exc}"
+
+
+async def _probe_broker_positions_health(service: BrokerService) -> tuple[bool, bool, str]:
+    try:
+        await asyncio.wait_for(service.get_positions(), timeout=8.0)
+        return True, True, "IBKR positions snapshot loaded."
+    except Exception as exc:
+        if not is_live_mode_enabled() and (
+            isinstance(exc, asyncio.TimeoutError)
+            or _is_broker_transport_error(exc)
+            or _is_tws_unavailable_error(exc)
+        ):
+            return True, False, f"Positions probe degraded in paper mode; empty fallback allowed ({exc})."
+        return False, False, f"Positions probe failed: {exc}"
+
+
 @router.get("/mode", response_model=BrokerModeSchema)
 async def get_broker_mode():
     """Return current broker mode status (paper/live isolation metadata)."""
@@ -208,7 +266,7 @@ async def get_broker_control():
     )
 
 
-@router.get("/health", response_model=BrokerHealthSchema)
+@router.get("/health", response_model=BrokerHealthWithReadinessSchema)
 async def get_broker_health():
     """Runtime health check for the IBKR broker setup (paper or live).
 
@@ -254,8 +312,266 @@ async def get_broker_health():
         status = "paper_ready" if gateway_reachable else "paper_config_only"
 
     meta = get_broker_mode_metadata()
-    diagnostics = get_broker_service().get_runtime_diagnostics()
-    return BrokerHealthSchema(
+    service = get_broker_service()
+    diagnostics = service.get_runtime_diagnostics()
+    trading_state = get_trading_mode()
+
+    account_ok, account_live, account_reason = await _probe_broker_account_health(service)
+    positions_ok, positions_live, positions_reason = await _probe_broker_positions_health(service)
+
+    tws_connected = str(diagnostics.get("tws_connection_state") or "").lower() == "connected"
+    host_port_reachable = bool(gateway_reachable or tws_connected)
+    contention_active = str(diagnostics.get("tws_last_error_code") or "") == "326" or (
+        "already in use" in str(diagnostics.get("tws_last_error_message") or "").lower()
+    )
+
+    cockpit_card: dict[str, Any] | None = None
+    try:
+        cockpit_card = get_auto_paper_status_card()
+    except Exception:
+        cockpit_card = None
+
+    paper_normal_mode_active = bool(
+        (cockpit_card or {}).get("next_run_guidance", {}).get("paper_normal_mode_active")
+    )
+    audit_alignment_status = str((cockpit_card or {}).get("audit_alignment", {}).get("status") or "unknown").lower()
+    candidate_queue_visible = isinstance((cockpit_card or {}).get("candidate_queue"), dict)
+    latest_paper_order_visible = isinstance((cockpit_card or {}).get("latest_paper_order"), dict) or (
+        "latest_paper_order" in (cockpit_card or {})
+    )
+
+    items: list[BrokerReadinessChecklistItemSchema] = []
+    items.append(
+        _build_readiness_item(
+            key="broker_provider_tws",
+            label="Broker provider is TWS",
+            status="green" if str(meta.get("broker") or "").lower() == "tws" else "red",
+            reason=f"Configured provider: {meta.get('broker')}",
+            suggested_action="Set BROKER_PROVIDER=tws.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="broker_mode_paper",
+            label="Broker mode is paper",
+            status="green" if str(meta.get("mode") or "").lower() == "paper" else "red",
+            reason=f"Configured mode: {meta.get('mode')}",
+            suggested_action="Set BROKER_MODE=paper.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="live_execution_disabled",
+            label="Live execution is disabled",
+            status="green" if not bool(meta.get("live_execution_enabled")) else "red",
+            reason=f"LIVE_EXECUTION_ENABLED={meta.get('live_execution_enabled')}",
+            suggested_action="Set LIVE_EXECUTION_ENABLED=false.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="live_submit_blocked",
+            label="Live order submission remains blocked",
+            status="green" if not trading_state.live_order_submission_allowed else "red",
+            reason=f"live_order_submission_allowed={trading_state.live_order_submission_allowed}",
+            suggested_action="Keep trading control in paper/manual mode with live submits blocked.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="paper_trading_enabled",
+            label="Paper trading is enabled",
+            status="green" if bool(meta.get("paper_trading_enabled")) else "red",
+            reason=f"paper_trading_enabled={meta.get('paper_trading_enabled')}",
+            suggested_action="Set PAPER_TRADING_ENABLED=true.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="paper_submit_allowed",
+            label="Paper order submission is allowed",
+            status="green" if trading_state.paper_order_submission_allowed else "red",
+            reason=f"paper_order_submission_allowed={trading_state.paper_order_submission_allowed}",
+            suggested_action="Set trading control to allow paper submits.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="tws_enabled",
+            label="TWS adapter is enabled",
+            status="green" if settings.tws_enabled else "red",
+            reason=f"TWS_ENABLED={settings.tws_enabled}",
+            suggested_action="Set TWS_ENABLED=true.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="tws_reachable",
+            label="TWS host/port is reachable",
+            status="green" if host_port_reachable else "yellow",
+            reason=(
+                "Gateway probe reachable."
+                if gateway_reachable
+                else f"tws_connection_state={diagnostics.get('tws_connection_state') or 'unknown'}"
+            ),
+            suggested_action="Ensure TWS/Gateway is running and reachable at configured host/port.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="paper_account_visible",
+            label="IBKR paper account DUP153837 is configured",
+            status="green" if (account_id == "DUP153837" and account_is_paper) else "red",
+            reason=f"account_id={account_id} account_is_paper={account_is_paper}",
+            suggested_action="Set IBKR_ACCOUNT_ID=DUP153837.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="account_endpoint_healthy",
+            label="Account endpoint is healthy",
+            status="green" if account_ok else "red",
+            reason=account_reason,
+            suggested_action=(
+                "No action needed."
+                if account_live
+                else "Check TWS connectivity; paper fallback is active until broker account responds."
+            ),
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="positions_endpoint_healthy",
+            label="Positions endpoint is healthy",
+            status="green" if positions_ok else "red",
+            reason=positions_reason,
+            suggested_action=(
+                "No action needed."
+                if positions_live
+                else "Check TWS connectivity; paper empty-list fallback is active until broker positions respond."
+            ),
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="single_tws_client_owner",
+            label="No duplicate backend TWS client owner detected",
+            status="red" if contention_active else "green",
+            reason=(
+                f"tws_last_error_code={diagnostics.get('tws_last_error_code')}"
+                if contention_active
+                else "No client-id contention diagnostics detected."
+            ),
+            suggested_action="Restart duplicate API/TWS client processes and keep one backend owner for the configured client id.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="client_id_contention_inactive",
+            label="TWS client-id contention is inactive",
+            status="red" if contention_active else "green",
+            reason=(
+                diagnostics.get("tws_last_error_message") or "No contention message present."
+            ),
+            suggested_action="If contention appears, stop duplicate workers and reconnect with a single client id owner.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="auto_paper_enabled",
+            label="Auto-paper mode is enabled",
+            status="green" if settings.auto_paper_enabled else "yellow",
+            reason=f"AUTO_PAPER_ENABLED={settings.auto_paper_enabled}",
+            suggested_action="Set AUTO_PAPER_ENABLED=true for scheduled paper runs.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="paper_normal_mode_active",
+            label="Paper Normal Mode is active",
+            status="green" if paper_normal_mode_active else "yellow",
+            reason=(
+                "Cockpit guidance reports paper_normal_mode_active=true."
+                if paper_normal_mode_active
+                else "Cockpit guidance does not report Paper Normal Mode as active."
+            ),
+            suggested_action="Align paper mode, auto-paper enabled, and paper submission allowance.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="scheduler_visible",
+            label="Scheduler state is visible",
+            status="green",
+            reason=(
+                "AUTO_PAPER_BACKGROUND_SCHEDULER_ENABLED=true"
+                if settings.auto_paper_background_scheduler_enabled
+                else "AUTO_PAPER_BACKGROUND_SCHEDULER_ENABLED=false"
+            ),
+            suggested_action="Use /market-data/auto-paper/scheduler/status to inspect scheduler state.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="candidate_queue_visible",
+            label="Candidate queue visibility is available",
+            status="green" if candidate_queue_visible else "yellow",
+            reason=(
+                "candidate_queue payload is present in cockpit status."
+                if candidate_queue_visible
+                else "candidate_queue payload not present in cockpit status."
+            ),
+            suggested_action="Review candidate_queue in cockpit status before supervised runs.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="audit_alignment_visible",
+            label="Audit alignment visibility is available",
+            status=("green" if audit_alignment_status == "ok" else "yellow"),
+            reason=(
+                f"audit_alignment status is {audit_alignment_status}."
+                if audit_alignment_status != "unknown"
+                else "audit_alignment payload is unavailable."
+            ),
+            suggested_action="Inspect audit_alignment for warnings after each run.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="latest_paper_order_visible",
+            label="Latest paper order visibility is available",
+            status="green" if latest_paper_order_visible else "yellow",
+            reason=(
+                "latest_paper_order field is present in cockpit status."
+                if latest_paper_order_visible
+                else "latest_paper_order field is missing from cockpit status."
+            ),
+            suggested_action="Use cockpit latest_paper_order to track current order lifecycle state.",
+        )
+    )
+    items.append(
+        _build_readiness_item(
+            key="clear_fix_text_present",
+            label="Checklist provides clear fix text",
+            status="green",
+            reason="Every checklist item includes a suggested action.",
+            suggested_action="No action needed.",
+        )
+    )
+
+    overall_status = "green"
+    if any(_readiness_status_rank(item.status) == 2 for item in items):
+        overall_status = "red"
+    elif any(_readiness_status_rank(item.status) == 1 for item in items):
+        overall_status = "yellow"
+
+    readiness = BrokerReadinessChecklistSchema(
+        overall_status=overall_status,
+        last_checked_at=datetime.now(timezone.utc).isoformat(),
+        items=items,
+    )
+    return BrokerHealthWithReadinessSchema(
         status=status,
         mode_guard_ok=mode_guard_ok,
         gateway_reachable=gateway_reachable,
@@ -267,6 +583,7 @@ async def get_broker_health():
         tws_connection_state=diagnostics.get("tws_connection_state"),
         tws_last_error_code=diagnostics.get("tws_last_error_code"),
         tws_last_error_message=diagnostics.get("tws_last_error_message"),
+        broker_readiness=readiness,
     )
 
 
@@ -275,7 +592,7 @@ async def get_account():
     """Get account balance summary."""
     try:
         service = get_broker_service()
-        info = await service.get_account_info()
+        info = await asyncio.wait_for(service.get_account_info(), timeout=8.0)
         meta = get_broker_mode_metadata()
         source_labels = broker_sources_from_mode(meta)
         return AccountInfoSchema(
@@ -290,7 +607,9 @@ async def get_account():
             **source_labels,
         )
     except Exception as exc:
-        if not is_live_mode_enabled() and _is_broker_transport_error(exc):
+        if not is_live_mode_enabled() and (
+            isinstance(exc, asyncio.TimeoutError) or _is_broker_transport_error(exc)
+        ):
             _logger.info("Broker account unavailable in paper mode; returning empty snapshot: %s", exc)
             return _paper_fallback_account_info()
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
@@ -313,7 +632,7 @@ async def get_positions():
     """Get all open positions."""
     try:
         service = get_broker_service()
-        positions = await service.get_positions()
+        positions = await asyncio.wait_for(service.get_positions(), timeout=8.0)
         meta = get_broker_mode_metadata()
         source_labels = broker_sources_from_mode(meta)
         return [
@@ -333,7 +652,9 @@ async def get_positions():
             for p in positions
         ]
     except Exception as exc:
-        if not is_live_mode_enabled() and _is_broker_transport_error(exc):
+        if not is_live_mode_enabled() and (
+            isinstance(exc, asyncio.TimeoutError) or _is_broker_transport_error(exc)
+        ):
             _logger.info("Broker positions unavailable in paper mode; returning empty list: %s", exc)
             return []
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):

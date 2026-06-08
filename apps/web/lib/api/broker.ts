@@ -22,6 +22,17 @@ export interface BrokerHealth {
   account_id: string;
   account_is_paper: boolean;
   broker_mode: BrokerModeInfo;
+  broker_readiness?: {
+    overall_status: "green" | "yellow" | "red";
+    last_checked_at: string;
+    items: Array<{
+      key: string;
+      label: string;
+      status: "green" | "yellow" | "red";
+      reason: string;
+      suggested_action: string;
+    }>;
+  };
 }
 
 export async function getBrokerHealth(): Promise<BrokerHealth> {

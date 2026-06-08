@@ -15,6 +15,24 @@ class BrokerModeSchema(BaseModel):
     paper_trading_enabled: bool
 
 
+class BrokerReadinessChecklistItemSchema(BaseModel):
+    """One operator-facing broker readiness checklist item."""
+
+    key: str
+    label: str
+    status: str  # green | yellow | red
+    reason: str
+    suggested_action: str
+
+
+class BrokerReadinessChecklistSchema(BaseModel):
+    """Structured readiness checklist for paper/live broker posture."""
+
+    overall_status: str  # green | yellow | red
+    last_checked_at: str
+    items: list[BrokerReadinessChecklistItemSchema] = Field(default_factory=list)
+
+
 class BrokerHealthSchema(BaseModel):
     """Runtime health check for the IBKR broker setup.
 
@@ -36,6 +54,12 @@ class BrokerHealthSchema(BaseModel):
     tws_connection_state: Optional[str] = None
     tws_last_error_code: Optional[str] = None
     tws_last_error_message: Optional[str] = None
+
+
+class BrokerHealthWithReadinessSchema(BrokerHealthSchema):
+    """Broker health plus structured readiness checklist for cockpit/operator UI."""
+
+    broker_readiness: Optional[BrokerReadinessChecklistSchema] = None
 
 
 class SeriousPaperRouteCheckResponseSchema(BaseModel):
