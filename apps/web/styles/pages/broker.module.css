@@ -63,6 +63,86 @@
   margin-bottom: 1.75rem;
 }
 
+.autopilotPanel {
+  margin-bottom: 1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-fill);
+  padding: 0.9rem 1rem;
+}
+
+.autopilotLabel {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.autopilotHint {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.autopilotActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.autopilotBadge {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.autopilotButton {
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--state-info) 14%, var(--surface-fill));
+  color: var(--text-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.autopilotButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.autopilotLink {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.autopilotLink:hover {
+  color: var(--text-strong);
+  text-decoration: underline;
+}
+
+.autopilotMeta,
+.autopilotError {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+}
+
+.autopilotMeta {
+  color: var(--text-muted);
+}
+
+.autopilotError {
+  color: var(--state-danger);
+}
+
 .sectionNav {
   display: flex;
   flex-wrap: wrap;

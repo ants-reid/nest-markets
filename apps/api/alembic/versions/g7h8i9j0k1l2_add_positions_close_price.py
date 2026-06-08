@@ -7,6 +7,7 @@ Create Date: 2026-05-19 10:00:00.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -17,11 +18,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "positions",
-        sa.Column("close_price", sa.Numeric(18, 8), nullable=True),
-    )
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    existing_cols = {col["name"] for col in inspector.get_columns("positions")}
+    if "close_price" not in existing_cols:
+        op.add_column(
+            "positions",
+            sa.Column("close_price", sa.Numeric(18, 8), nullable=True),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("positions", "close_price")
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    existing_cols = {col["name"] for col in inspector.get_columns("positions")}
+    if "close_price" in existing_cols:
+        op.drop_column("positions", "close_price")

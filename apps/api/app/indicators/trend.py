@@ -92,15 +92,41 @@ def calculate_trend_strength(
     return _clamp(gap / 0.08, 0.0, 1.0)
 
 
-def calculate_trend_score(
-    sma_short: float,
-    sma_medium: float,
-    sma_long: float,
-    current_price: float,
-    bars_up: int = 0,
-    bars_down: int = 0,
-) -> TrendResult:
-    """Compute structured trend result from SMA inputs."""
+def calculate_trend_score(*args, **kwargs):
+    """Dual-mode trend scoring.
+
+    Supports:
+    - calculate_trend_score(prices, fast_period=20, slow_period=50, slope_lookback=5) -> float | None
+    - calculate_trend_score(sma_short, sma_medium, sma_long, current_price, bars_up=0, bars_down=0) -> TrendResult
+    """
+    if len(args) >= 1 and isinstance(args[0], Sequence) and not isinstance(args[0], (str, bytes)):
+        prices = [float(v) for v in args[0]]
+        fast_period = int(kwargs.get("fast_period", 20))
+        slow_period = int(kwargs.get("slow_period", 50))
+        slope_lookback = int(kwargs.get("slope_lookback", 5))
+        return calculate_trend_score_from_prices(
+            prices,
+            fast_period=fast_period,
+            slow_period=slow_period,
+            slope_lookback=slope_lookback,
+        )
+
+    if len(args) >= 4:
+        sma_short = float(args[0])
+        sma_medium = float(args[1])
+        sma_long = float(args[2])
+        current_price = float(args[3])
+    elif all(name in kwargs for name in ("sma_short", "sma_medium", "sma_long", "current_price")):
+        sma_short = float(kwargs["sma_short"])
+        sma_medium = float(kwargs["sma_medium"])
+        sma_long = float(kwargs["sma_long"])
+        current_price = float(kwargs["current_price"])
+    else:
+        raise TypeError("calculate_trend_score requires either a price series or SMA inputs")
+
+    bars_up = int(kwargs.get("bars_up", 0))
+    bars_down = int(kwargs.get("bars_down", 0))
+
     direction = calculate_trend_direction(sma_short, sma_medium, sma_long, current_price)
     strength = calculate_trend_strength(sma_short, sma_medium, sma_long)
     duration_bars = bars_up if direction == "up" else (bars_down if direction == "down" else 0)

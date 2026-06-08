@@ -10,8 +10,8 @@ import inspect
 
 from app.services.approval_service import ApprovalService
 
-_EXPECTED_SHA = "a5197d2046ae2a68e24997dc5b4a84acdc545f6d8e46df1dcf5e7ec675002dba"
-_EXPECTED_LEN = 632
+_EXPECTED_SHA = "5ccde083a007943a5cdffee7d2a8196a82f3a48024d2bf57c5b296dfe0dfe4db"
+_EXPECTED_LEN = 1337
 
 
 def _src_meta() -> tuple[str, int, str]:

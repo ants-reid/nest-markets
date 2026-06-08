@@ -22,9 +22,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import ProgrammingError
 
 from app.clients.broker.broker_interface import OrderResult
 from app.config import get_settings
+from app.db.models import TradingHalt
+from app.db.models.broker_submit_decision import BrokerSubmitDecision
+from app.db.session import SessionLocal, ensure_public_search_path
 from app.main import create_app
 from app.services import audit_log_service
 
@@ -49,6 +53,22 @@ def _clear_settings_cache():
 def _isolated_audit_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Each test gets its own audit log file so events never bleed across tests."""
     monkeypatch.setattr(audit_log_service, "_AUDIT_LOG_PATH", tmp_path / "audit.jsonl")
+
+
+@pytest.fixture(autouse=True)
+def _ensure_broker_tables_and_clear_state():
+    with SessionLocal() as session:
+        ensure_public_search_path(session)
+        try:
+            session.query(TradingHalt).filter(
+                TradingHalt.scope == "global",
+                TradingHalt.status == "active",
+            ).delete(synchronize_session=False)
+            session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+            session.commit()
+        except ProgrammingError:
+            session.rollback()
+    yield
 
 
 def _order_payload(**overrides) -> dict:

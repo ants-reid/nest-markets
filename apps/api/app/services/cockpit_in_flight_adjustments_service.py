@@ -214,7 +214,7 @@ def _position_item(
 
     if position.signal_id is not None:
         decision = risk_by_signal.get(str(position.signal_id))
-        if decision and decision.approved != "approved":
+        if decision and not decision.approved:
             label = "risk_attention"
             block_reason = decision.block_reason_code or decision.blocking_rule or "unknown"
             reason = "Related risk decision is not approved and needs operator risk review."
@@ -284,7 +284,7 @@ def _order_item(
 
     if order.signal_id is not None:
         decision = risk_by_signal.get(str(order.signal_id))
-        if decision and decision.approved != "approved":
+        if decision and not decision.approved:
             label = "risk_attention"
             block_reason = decision.block_reason_code or decision.blocking_rule or "unknown"
             reason = "Related risk decision is not approved and needs operator review."
@@ -359,7 +359,7 @@ def _recommendation_item(
 
     if recommendation.signal_id is not None:
         decision = risk_by_signal.get(str(recommendation.signal_id))
-        if decision and decision.approved != "approved":
+        if decision and not decision.approved:
             label = "risk_attention"
             block_reason = decision.block_reason_code or decision.blocking_rule or "unknown"
             reason = "Linked risk decision indicates unresolved gating concerns."
@@ -426,7 +426,7 @@ def _monitor_notes(incidents: list[IncidentLog]) -> list[CockpitInFlightNoteSche
 def _risk_notes(risk_decisions: list[RiskDecision]) -> list[str]:
     notes: list[str] = []
     for decision in risk_decisions:
-        if decision.approved == "approved":
+        if decision.approved:
             continue
         reason = decision.block_reason_code or decision.blocking_rule or "unknown"
         signal_text = str(decision.signal_id) if decision.signal_id else "unknown-signal"

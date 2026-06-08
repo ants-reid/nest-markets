@@ -45,8 +45,8 @@ from app.workers.auto_paper_trader_worker import AutoPaperTraderWorker
 
 EXPECTED_HASHES: dict[str, tuple[str, int]] = {
     "AutoPaperTraderWorker.execute": (
-        "b7930994375ae88d5e178309860e7f35223dbf128922a4833ba61b764633d17b",
-        4889,
+        "6dd97ea458bf6f4f1bbaa390e478080762c0e3c4025859d44f5014d25bc58b99",
+        18166,
     ),
     "AutoPaperCloseWorker.execute": (
         "df6bf652d7d2adc6e1af9cd943c42b02b0d8e469633fef74dffe13a22d99e2cb",

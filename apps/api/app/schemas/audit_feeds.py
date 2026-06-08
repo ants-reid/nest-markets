@@ -37,7 +37,7 @@ class RiskDecisionAuditRowSchema(BaseModel):
     created_at: Optional[str] = None
     timestamp: Optional[str] = None
     signal_id: Optional[str] = None
-    approved: str
+    approved: bool
     blocking_rule: Optional[str] = None
     block_reason_code: Optional[str] = None
     risk_profile_id: Optional[str] = None

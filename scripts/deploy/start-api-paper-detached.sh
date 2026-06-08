@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+API_DIR="$ROOT_DIR/apps/api"
+PID_FILE="${MH_API_PID_FILE:-/tmp/mh_api_8000.pid}"
+LOG_FILE="${MH_API_LOG_FILE:-/tmp/mh_api_8000.log}"
+HOST="${MH_API_HOST:-127.0.0.1}"
+PORT="${MH_API_PORT:-8000}"
+STARTUP_TIMEOUT_SECONDS="${MH_API_STARTUP_TIMEOUT_SECONDS:-60}"
+
+cd "$API_DIR"
+
+# Stop any process already bound to the API port.
+lsof -ti tcp:"$PORT" | xargs -r kill
+
+# Stable paper-safe defaults; callers can override via env vars.
+export LIVE_EXECUTION_ENABLED="${LIVE_EXECUTION_ENABLED:-false}"
+export BROKER_MODE="${BROKER_MODE:-paper}"
+export BROKER_PROVIDER="${BROKER_PROVIDER:-tws}"
+export TWS_ENABLED="${TWS_ENABLED:-true}"
+export TWS_HOST="${TWS_HOST:-127.0.0.1}"
+export TWS_PORT="${TWS_PORT:-4002}"
+export TWS_CLIENT_ID="${TWS_CLIENT_ID:-143}"
+export TWS_TIMEOUT_SECONDS="${TWS_TIMEOUT_SECONDS:-8}"
+export TWS_CONNECT_TIMEOUT_SECONDS="${TWS_CONNECT_TIMEOUT_SECONDS:-8}"
+export IBKR_ACCOUNT_TYPE="${IBKR_ACCOUNT_TYPE:-paper}"
+export IBKR_ACCOUNT_ID="${IBKR_ACCOUNT_ID:-DUP153837}"
+export PAPER_TRADING_ENABLED="${PAPER_TRADING_ENABLED:-true}"
+export AUTO_PAPER_ENABLED="${AUTO_PAPER_ENABLED:-true}"
+export AUTO_PAPER_BACKGROUND_SCHEDULER_ENABLED="${AUTO_PAPER_BACKGROUND_SCHEDULER_ENABLED:-true}"
+export AUTO_PAPER_MINUTES_BETWEEN_RUNS="${AUTO_PAPER_MINUTES_BETWEEN_RUNS:-1}"
+export AUTO_PAPER_MAX_OPEN_POSITIONS="${AUTO_PAPER_MAX_OPEN_POSITIONS:-200}"
+export AUTO_PAPER_MAX_ORDERS_PER_RUN="${AUTO_PAPER_MAX_ORDERS_PER_RUN:-50}"
+export AUTO_PAPER_MAX_ORDERS_PER_DAY="${AUTO_PAPER_MAX_ORDERS_PER_DAY:-1000}"
+export AUTO_PAPER_MAX_NOTIONAL_USD="${AUTO_PAPER_MAX_NOTIONAL_USD:-1000000}"
+export AUTO_PAPER_ORDER_TYPE="${AUTO_PAPER_ORDER_TYPE:-LIMIT}"
+export AUTO_PAPER_SYMBOL_ALLOWLIST="${AUTO_PAPER_SYMBOL_ALLOWLIST:-}"
+export AUTO_PAPER_REQUIRE_TWS="${AUTO_PAPER_REQUIRE_TWS:-true}"
+export AUTO_PAPER_REQUIRE_LIVE_EXECUTION_DISABLED="${AUTO_PAPER_REQUIRE_LIVE_EXECUTION_DISABLED:-true}"
+export AUTO_HISTORY_IMPORT_ENABLED="${AUTO_HISTORY_IMPORT_ENABLED:-true}"
+export AUTO_HISTORY_IMPORT_MINUTES_BETWEEN_RUNS="${AUTO_HISTORY_IMPORT_MINUTES_BETWEEN_RUNS:-180}"
+export AUTO_HISTORY_IMPORT_REQUESTED_YEARS="${AUTO_HISTORY_IMPORT_REQUESTED_YEARS:-3}"
+export AUTO_HISTORY_IMPORT_PROVIDER="${AUTO_HISTORY_IMPORT_PROVIDER:-yfinance}"
+export AUTO_HISTORY_IMPORT_TIMEFRAMES="${AUTO_HISTORY_IMPORT_TIMEFRAMES:-1d}"
+export SIGNAL_SWEEP_INTERVAL_SECONDS="${SIGNAL_SWEEP_INTERVAL_SECONDS:-120}"
+export AUTO_LEARNING_ENABLED="${AUTO_LEARNING_ENABLED:-true}"
+export AUTO_LEARNING_MINUTES_BETWEEN_RUNS="${AUTO_LEARNING_MINUTES_BETWEEN_RUNS:-360}"
+export AUTO_LEARNING_MIN_TOTAL_OUTCOMES="${AUTO_LEARNING_MIN_TOTAL_OUTCOMES:-30}"
+export AUTO_LEARNING_MIN_NEW_OUTCOMES="${AUTO_LEARNING_MIN_NEW_OUTCOMES:-10}"
+export AUTO_LEARNING_MIN_HOURS_BETWEEN_VERSIONS="${AUTO_LEARNING_MIN_HOURS_BETWEEN_VERSIONS:-6}"
+
+nohup ./.venv/bin/uvicorn app.main:app --host "$HOST" --port "$PORT" >"$LOG_FILE" 2>&1 &
+PID="$!"
+echo "$PID" > "$PID_FILE"
+
+# Startup wait with process-health checks.
+for _ in $(seq 1 "$STARTUP_TIMEOUT_SECONDS"); do
+  if ! ps -p "$PID" >/dev/null 2>&1; then
+    echo "ERROR: API process exited during startup (pid=$PID)"
+    echo "Last log lines:"
+    tail -n 80 "$LOG_FILE" || true
+    exit 1
+  fi
+
+  if curl -sS --max-time 2 "http://${HOST}:${PORT}/health" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+if ! curl -sS --max-time 5 "http://${HOST}:${PORT}/health" >/dev/null 2>&1; then
+  echo "ERROR: API did not become healthy within ${STARTUP_TIMEOUT_SECONDS}s"
+  echo "Last log lines:"
+  tail -n 80 "$LOG_FILE" || true
+  exit 1
+fi
+
+echo "API started detached"
+echo "pid_file=$PID_FILE"
+echo "log_file=$LOG_FILE"
+echo "pid=$PID"
+curl -sS --max-time 5 "http://${HOST}:${PORT}/health"
+echo

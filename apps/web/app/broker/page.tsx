@@ -27,8 +27,12 @@ import {
   getBrokerOrderAudit,
   getDailyPnl,
   getNormalizedBrokerTrades,
+  getAutoPaperSchedulerStatus,
+  pauseAutoPaperScheduler,
+  resumeAutoPaperScheduler,
   dryRunBrokerOrder,
   submitBrokerOrder,
+  type AutoPaperSchedulerStatus,
   type BrokerAccountInfo,
   type BrokerDailyPnl,
   type BrokerTradingControl,
@@ -66,6 +70,11 @@ type HealthState =
   | { status: "loading" }
   | { status: "ready"; data: BrokerHealth }
   | { status: "error" };
+
+type SchedulerState =
+  | { status: "loading" }
+  | { status: "ready"; data: AutoPaperSchedulerStatus }
+  | { status: "error"; message: string };
 
 type AuditState =
   | { status: "loading" }
@@ -135,6 +144,9 @@ export default function BrokerPage() {
   const [provenance, setProvenance] = useState<ProvenanceState>({ status: "loading" });
   const [control, setControl] = useState<ControlState>({ status: "loading" });
   const [dailyPnl, setDailyPnl] = useState<BrokerDailyPnl | null>(null);
+  const [scheduler, setScheduler] = useState<SchedulerState>({ status: "loading" });
+  const [autopilotBusy, setAutopilotBusy] = useState(false);
+  const [autopilotMessage, setAutopilotMessage] = useState<string | null>(null);
   const [form, setForm] = useState<SubmitFormState>({
     ticker: "AAPL",
     side: "BUY",
@@ -207,6 +219,49 @@ export default function BrokerPage() {
     } catch {
       // Non-fatal: daily P&L is advisory context only. Silently ignore failures.
       setDailyPnl(null);
+    }
+  }
+
+  async function loadScheduler() {
+    try {
+      const data = await getAutoPaperSchedulerStatus();
+      setScheduler({ status: "ready", data });
+    } catch (e) {
+      setScheduler({
+        status: "error",
+        message: e instanceof Error ? e.message : "Failed to load autopilot scheduler state.",
+      });
+    }
+  }
+
+  async function toggleAutopilot() {
+    if (scheduler.status !== "ready") {
+      setAutopilotMessage("Scheduler state unavailable.");
+      return;
+    }
+    if (scheduler.data.state === "missing" || scheduler.data.state === "scheduler_unavailable") {
+      setAutopilotMessage("Autopilot scheduler is not available in the running API process.");
+      return;
+    }
+
+    setAutopilotBusy(true);
+    setAutopilotMessage(null);
+    try {
+      const next =
+        scheduler.data.state === "running"
+          ? await pauseAutoPaperScheduler()
+          : await resumeAutoPaperScheduler();
+      setScheduler({ status: "ready", data: next });
+      setAutopilotMessage(
+        next.state === "running"
+          ? "Autopilot started: scheduler is running."
+          : "Autopilot paused: scheduler is paused.",
+      );
+    } catch (e) {
+      setAutopilotMessage(e instanceof Error ? e.message : "Failed to change autopilot state.");
+      await loadScheduler();
+    } finally {
+      setAutopilotBusy(false);
     }
   }
 
@@ -343,6 +398,7 @@ export default function BrokerPage() {
     void loadControl();
     void loadProvenance();
     void loadDailyPnl();
+    void loadScheduler();
   }, []);
   useLivePolling(() => load(), 15000, { enabled: true, runImmediately: false });
   useLivePolling(() => loadHealth(), 30000, { enabled: true, runImmediately: false });
@@ -350,6 +406,7 @@ export default function BrokerPage() {
   useLivePolling(() => loadControl(), 30000, { enabled: true, runImmediately: false });
   useLivePolling(() => loadProvenance(), 30000, { enabled: true, runImmediately: false });
   useLivePolling(() => loadDailyPnl(), 60000, { enabled: true, runImmediately: false });
+  useLivePolling(() => loadScheduler(), 30000, { enabled: true, runImmediately: false });
 
   const readinessPanelProps = {
     state,
@@ -432,6 +489,51 @@ export default function BrokerPage() {
         <p className={styles.subtitle}>
           Live account summary and open positions from IBKR paper account.
         </p>
+
+        <section className={styles.autopilotPanel} data-testid="broker-autopilot-panel">
+          <div>
+            <p className={styles.autopilotLabel}>Autopilot</p>
+            <p className={styles.autopilotHint}>One click starts or pauses server-side scheduled auto-paper trading.</p>
+          </div>
+          <div className={styles.autopilotActions}>
+            {scheduler.status === "ready" && (
+              <span className={styles.autopilotBadge}>
+                {scheduler.data.state === "running" ? "Running" : "Paused"}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void toggleAutopilot()}
+              className={styles.autopilotButton}
+              disabled={
+                autopilotBusy
+                || scheduler.status !== "ready"
+                || scheduler.data.state === "missing"
+                || scheduler.data.state === "scheduler_unavailable"
+              }
+            >
+              {autopilotBusy
+                ? "Working..."
+                : scheduler.status === "ready" && scheduler.data.state === "running"
+                  ? "Pause Autopilot"
+                  : "Start Autopilot"}
+            </button>
+            <Link href="/cockpit/auto-paper-status" className={styles.autopilotLink}>
+              Open Auto-Paper Cockpit
+            </Link>
+          </div>
+          {scheduler.status === "ready" && scheduler.data.next_run_time && (
+            <p className={styles.autopilotMeta}>Next run: {formatTimestamp(scheduler.data.next_run_time)}</p>
+          )}
+          {scheduler.status === "error" && <p className={styles.autopilotError}>{scheduler.message}</p>}
+          {scheduler.status === "ready" && scheduler.data.state === "missing" && (
+            <p className={styles.autopilotError}>Scheduler job missing in this API runtime.</p>
+          )}
+          {scheduler.status === "ready" && scheduler.data.state === "scheduler_unavailable" && (
+            <p className={styles.autopilotError}>Scheduler unavailable in this API runtime.</p>
+          )}
+          {autopilotMessage && <p className={styles.autopilotMeta}>{autopilotMessage}</p>}
+        </section>
 
         <nav className={styles.sectionNav} aria-label="Broker review sections" data-testid="broker-section-nav">
           {sectionNavItems.map((item) => (

@@ -93,10 +93,17 @@ class AutoPaperAuditReconciliationService:
         return result
 
     def _eligible_for_reconciliation(self, paper_order: PaperOrder) -> bool:
-        if str(paper_order.order_type or "").lower() != "auto_paper":
+        if self._normalize_text(paper_order.order_type) != "auto_paper":
             return False
-        normalized_status = str(paper_order.status or "").lower()
+        normalized_status = self._normalize_text(paper_order.status)
         return normalized_status in {"accepted", "filled"}
+
+    def _normalize_text(self, value: Any) -> str:
+        if value is None:
+            return ""
+        if hasattr(value, "value"):
+            value = value.value
+        return str(value).strip().lower()
 
     def _coerce_broker_order_id(self, broker_order_id: Any) -> str | None:
         if broker_order_id is None:
@@ -196,7 +203,7 @@ class AutoPaperAuditReconciliationService:
             source_metadata={
                 "reconciled_from": "paper_order",
                 "paper_order_id": str(paper_order.id),
-                "paper_order_status": paper_order.status,
+                "paper_order_status": self._normalize_text(paper_order.status),
                 "paper_order_ibkr_status": paper_order.ibkr_status,
                 "paper_order_submitted_at": self._serialize_timestamp(paper_order),
             },

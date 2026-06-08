@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
+from app.db.enums import ApprovalStatus
 from app.db.models import ApprovalRequest as ApprovalRequestModel
 from app.db.models import AuditLog, RiskDecision
 
@@ -39,12 +40,26 @@ class ApprovalService:
     # Session-based DB API (used by tests; session must be provided)      #
     # ------------------------------------------------------------------ #
 
-    def create_request(self, risk_decision_id_or_signal, reason_or_mode=None, **kwargs):
+    def create_request(self, risk_decision_id_or_signal=None, reason_or_mode=None, *args, **kwargs):
         """Create an approval request.
 
         Session-based: create_request(risk_decision_id: UUID, reason: str)
         Stateless:     create_request(signal, execution_mode, risk_approved, ...)
         """
+        if risk_decision_id_or_signal is None and "signal" in kwargs:
+            risk_decision_id_or_signal = kwargs.pop("signal")
+        if reason_or_mode is None and "execution_mode" in kwargs:
+            reason_or_mode = kwargs.pop("execution_mode")
+
+        # Legacy positional support for stateless calls:
+        # create_request(signal, execution_mode, risk_approved, ttl_minutes?, now?)
+        if len(args) > 0 and "risk_approved" not in kwargs:
+            kwargs["risk_approved"] = args[0]
+        if len(args) > 1 and "ttl_minutes" not in kwargs:
+            kwargs["ttl_minutes"] = args[1]
+        if len(args) > 2 and "now" not in kwargs:
+            kwargs["now"] = args[2]
+
         if self._session is not None and isinstance(risk_decision_id_or_signal, UUID):
             return self._create_db_request(risk_decision_id_or_signal, reason_or_mode or "")
         # Stateless legacy path
@@ -63,12 +78,12 @@ class ApprovalService:
             .filter(RiskDecision.id == risk_decision_id)
             .first()
         )
-        if decision is None or decision.approved != "approved":
+        if decision is None or not decision.approved:
             raise ValueError("risk decision is not approved")
 
         request = ApprovalRequestModel(
             risk_decision_id=risk_decision_id,
-            status="pending",
+            status=ApprovalStatus.PENDING,
             timestamp=datetime.now(UTC),
         )
         self._session.add(request)
@@ -91,7 +106,7 @@ class ApprovalService:
     ) -> ApprovalRequestModel:
         """Approve a pending request."""
         request = self._get_pending_request(request_id)
-        request.status = "approved"
+        request.status = ApprovalStatus.APPROVED
         request.approved_by = approved_by
         request.approved_at = datetime.now(UTC)
         self._session.commit()
@@ -105,7 +120,7 @@ class ApprovalService:
     ) -> ApprovalRequestModel:
         """Reject a pending request."""
         request = self._get_pending_request(request_id)
-        request.status = "rejected"
+        request.status = ApprovalStatus.REJECTED
         request.rejected_by = rejected_by
         self._session.commit()
         return request
@@ -117,7 +132,7 @@ class ApprovalService:
     ) -> ApprovalRequestModel:
         """Expire a pending request."""
         request = self._get_pending_request(request_id)
-        request.status = "expired"
+        request.status = ApprovalStatus.EXPIRED
         request.expired_at = datetime.now(UTC)
         self._session.commit()
         return request
@@ -130,7 +145,8 @@ class ApprovalService:
         )
         if request is None:
             raise ValueError(f"approval request {request_id} not found")
-        if request.status != "pending":
+        current_status = request.status.value if hasattr(request.status, "value") else str(request.status)
+        if current_status != "pending":
             raise ValueError(f"expected pending approval request, got '{request.status}'")
         return request
 

@@ -56,7 +56,10 @@ class AutoPaperGateService:
     def is_symbol_allowed(self, symbol: str | None) -> bool:
         if not symbol:
             return False
-        return symbol.strip().upper() in self.allowlist
+        allowlist = self.allowlist
+        if not allowlist:
+            return True
+        return symbol.strip().upper() in allowlist
 
     def count_orders_today(self, session: Session) -> int:
         """Count auto-paper orders submitted since UTC midnight.
@@ -166,7 +169,10 @@ class AutoPaperGateService:
                 f"AUTO_PAPER_ORDER_TYPE must be 'LIMIT' (got {s.auto_paper_order_type!r})",
             )
         if not self.allowlist:
-            return blocked("symbol_allowlist", "AUTO_PAPER_SYMBOL_ALLOWLIST is empty")
+            return blocked(
+                "symbol_allowlist",
+                "AUTO_PAPER_SYMBOL_ALLOWLIST must include at least one symbol",
+            )
         if s.auto_paper_max_orders_per_run <= 0:
             return blocked(
                 "max_orders_per_run",

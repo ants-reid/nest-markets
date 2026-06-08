@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import ProgrammingError
 from unittest.mock import ANY, MagicMock, patch
 
 from app.db.models.broker_submit_decision import BrokerSubmitDecision
 from app.db.models import TradingHalt
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, ensure_public_search_path
 from app.main import create_app
 from app.config import get_settings
 
@@ -28,29 +29,45 @@ def _clear_settings_cache():
 @pytest.fixture(autouse=True)
 def _clear_active_global_halts():
     with SessionLocal() as session:
-        session.query(TradingHalt).filter(
-            TradingHalt.scope == "global",
-            TradingHalt.status == "active",
-        ).delete(synchronize_session=False)
-        session.commit()
+        ensure_public_search_path(session)
+        try:
+            session.query(TradingHalt).filter(
+                TradingHalt.scope == "global",
+                TradingHalt.status == "active",
+            ).delete(synchronize_session=False)
+            session.commit()
+        except ProgrammingError:
+            session.rollback()
     yield
     with SessionLocal() as session:
-        session.query(TradingHalt).filter(
-            TradingHalt.scope == "global",
-            TradingHalt.status == "active",
-        ).delete(synchronize_session=False)
-        session.commit()
+        ensure_public_search_path(session)
+        try:
+            session.query(TradingHalt).filter(
+                TradingHalt.scope == "global",
+                TradingHalt.status == "active",
+            ).delete(synchronize_session=False)
+            session.commit()
+        except ProgrammingError:
+            session.rollback()
 
 
 @pytest.fixture(autouse=True)
 def _clear_submit_decisions():
     with SessionLocal() as session:
-        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
-        session.commit()
+        ensure_public_search_path(session)
+        try:
+            session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+            session.commit()
+        except ProgrammingError:
+            session.rollback()
     yield
     with SessionLocal() as session:
-        session.query(BrokerSubmitDecision).delete(synchronize_session=False)
-        session.commit()
+        ensure_public_search_path(session)
+        try:
+            session.query(BrokerSubmitDecision).delete(synchronize_session=False)
+            session.commit()
+        except ProgrammingError:
+            session.rollback()
 
 
 def _payload(**overrides):

@@ -61,11 +61,14 @@ def calculate_features(
 
     # Calculate momentum indicators
     rsi_14 = calculate_rsi(closes, 14)
+    rsi_14_value = rsi_14.value if rsi_14 is not None else None
     atr_14 = calculate_atr(bars, 14)
+    atr_14_value = atr_14.value if hasattr(atr_14, "value") else atr_14
     adx_14 = calculate_adx(bars, 14)
 
     # Calculate volatility
     volatility = calculate_parkinson_volatility(bars, 20)
+    volatility_value = volatility.value if hasattr(volatility, "value") else volatility
 
     # Calculate trend
     trend = calculate_trend_score(
@@ -80,7 +83,9 @@ def calculate_features(
     # Calculate momentum
     roc_12 = calculate_roc(closes, 12)
     calculate_momentum_score(
-        rsi_14.value or 50, roc_12.value or 0, adx_14.adx or 20
+        rsi_14_value or 50,
+        roc_12.value or 0,
+        (adx_14.adx if adx_14 is not None else 20),
     )
 
     # Calculate spread quality if quotes available
@@ -96,9 +101,9 @@ def calculate_features(
     # Calculate regime
     volume_ratio = _calculate_volume_ratio(bars, 20)
     classify_regime(
-        adx_14.adx or 20,
-        rsi_14.value or 50,
-        volatility.value or 0.01,
+        (adx_14.adx if adx_14 is not None else 20),
+        rsi_14_value or 50,
+        volatility_value or 0.01,
         trend.direction,
         trend.strength,
     )
@@ -107,7 +112,7 @@ def calculate_features(
     if spread_quality:
         market_quality = assess_market_quality(
             spread_quality.spread_bps,
-            volatility.value or 0.01,
+            volatility_value or 0.01,
             volume_ratio,
         )
 
@@ -119,13 +124,13 @@ def calculate_features(
         "sma_50": sma_50_val,
         "sma_200": sma_200_val,
         # Momentum
-        "rsi_14": rsi_14.value,
-        "atr_14": atr_14.value,
-        "bb_upper": _calculate_bb_upper(sma_20_val, atr_14.value) if sma_20_val and atr_14.value else None,
+        "rsi_14": rsi_14_value,
+        "atr_14": atr_14_value,
+        "bb_upper": _calculate_bb_upper(sma_20_val, atr_14_value) if sma_20_val and atr_14_value else None,
         "bb_middle": sma_20_val,
-        "bb_lower": _calculate_bb_lower(sma_20_val, atr_14.value) if sma_20_val and atr_14.value else None,
+        "bb_lower": _calculate_bb_lower(sma_20_val, atr_14_value) if sma_20_val and atr_14_value else None,
         # Volatility
-        "volatility": volatility.value,
+        "volatility": volatility_value,
         # Trend
         "trend_direction": trend.direction,
         "trend_strength": trend.strength,

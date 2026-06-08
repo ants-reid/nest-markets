@@ -20,6 +20,9 @@ import {
   listAlertRules,
   listPaperExecutions,
   runAutoPaperTrader,
+  getSchedulerStatus,
+  pauseScheduler,
+  resumeScheduler,
   getAutoPaperHistory,
   getKillSwitch,
   activateKillSwitch,
@@ -27,6 +30,7 @@ import {
   type WorkerResultResponse,
   type RunHistoryEntry,
   type KillSwitchResponse,
+  type SchedulerJobStatus,
   type ActiveAlertResponse,
   type AlertNotificationResponse,
   type AlertRuleResponse,
@@ -58,10 +62,6 @@ const OPEN_STATUSES = new Set(["new", "submitted", "accepted", "filled"]);
 const CLOSED_STATUSES = new Set(["closed", "rejected", "canceled", "expired"]);
 const ACTIONABLE_STATUSES = new Set(["new", "submitted", "rejected"]);
 const MAX_OPEN_POSITIONS = 6;
-const AUTO_PAPER_INTERVAL_OPTIONS_MINUTES = [5, 10, 15, 30, 60];
-const AUTO_PAPER_DEFAULT_INTERVAL_MINUTES = 15;
-const AUTO_PAPER_SETTINGS_KEY = "dashboard:autoPaperSettings:v2";
-const AUTO_PAPER_NEXT_RUN_AT_KEY = "dashboard:autoPaperNextRunAt:v1";
 const EXECUTION_MODE_OPTIONS = [
   { value: "paper", label: "Paper account" },
   { value: "confirm_live", label: "Confirm before live" },
@@ -102,16 +102,15 @@ export function PersonalDashboard() {
   const [dashboard, setDashboard] = useState<DashboardState>({ state: "loading", data: null, error: null });
   const [autoPaperRunning, setAutoPaperRunning] = useState(false);
   const [autoPaperStatus, setAutoPaperStatus] = useState<string | null>(null);
-  const [autoPaperAutoEnabled, setAutoPaperAutoEnabled] = useState(false);
-  const [autoPaperIntervalMinutes, setAutoPaperIntervalMinutes] = useState(AUTO_PAPER_DEFAULT_INTERVAL_MINUTES);
   const [lastAutoPaperResult, setLastAutoPaperResult] = useState<WorkerResultResponse | null>(null);
-  const [nextAutoPaperRunAt, setNextAutoPaperRunAt] = useState<Date | null>(null);
-  const [secondsUntilAutoRun, setSecondsUntilAutoRun] = useState<number | null>(null);
   const [killSwitch, setKillSwitch] = useState<KillSwitchResponse | null>(null);
   const [killSwitchLoading, setKillSwitchLoading] = useState(false);
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
+  const [serverAutopilot, setServerAutopilot] = useState<SchedulerJobStatus | null>(null);
+  const [serverAutopilotBusy, setServerAutopilotBusy] = useState(false);
+  const [serverAutopilotMessage, setServerAutopilotMessage] = useState<string | null>(null);
 
-  const [autoPaperSettingsLoaded, setAutoPaperSettingsLoaded] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [globalExecutionMode, setGlobalExecutionMode] = useState<GlobalExecutionMode>("paper");
 
   async function loadDashboard() {
@@ -152,35 +151,9 @@ export function PersonalDashboard() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let loadedAutoEnabled = false;
-    let loadedInterval = AUTO_PAPER_DEFAULT_INTERVAL_MINUTES;
-    let loadedNextRunAt: Date | null = null;
     let loadedMode: GlobalExecutionMode = "paper";
 
     try {
-      const raw = window.localStorage.getItem(AUTO_PAPER_SETTINGS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as {
-          autoEnabled?: boolean;
-          intervalMinutes?: number;
-        };
-        if (typeof parsed.autoEnabled === "boolean") {
-          loadedAutoEnabled = parsed.autoEnabled;
-        }
-        if (
-          typeof parsed.intervalMinutes === "number"
-          && AUTO_PAPER_INTERVAL_OPTIONS_MINUTES.includes(parsed.intervalMinutes)
-        ) {
-          loadedInterval = parsed.intervalMinutes;
-        }
-      }
-      const nextRunRaw = window.localStorage.getItem(AUTO_PAPER_NEXT_RUN_AT_KEY);
-      if (nextRunRaw) {
-        const nextRunTs = Date.parse(nextRunRaw);
-        if (Number.isFinite(nextRunTs) && nextRunTs > Date.now()) {
-          loadedNextRunAt = new Date(nextRunTs);
-        }
-      }
       const savedMode = window.localStorage.getItem(GLOBAL_EXECUTION_MODE_KEY);
       if (savedMode === "paper" || savedMode === "confirm_live" || savedMode === "auto_live") {
         loadedMode = savedMode;
@@ -189,50 +162,15 @@ export function PersonalDashboard() {
       // Ignore invalid persisted state and continue with defaults.
     }
 
-    setAutoPaperAutoEnabled(loadedAutoEnabled);
-    setAutoPaperIntervalMinutes(loadedInterval);
-    setNextAutoPaperRunAt(loadedNextRunAt);
     setGlobalExecutionMode(loadedMode);
-    setAutoPaperSettingsLoaded(true);
+    setPreferencesLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!autoPaperSettingsLoaded) return;
+    if (!preferencesLoaded) return;
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      AUTO_PAPER_SETTINGS_KEY,
-      JSON.stringify({
-        autoEnabled: autoPaperAutoEnabled,
-        intervalMinutes: autoPaperIntervalMinutes,
-      }),
-    );
     window.localStorage.setItem(GLOBAL_EXECUTION_MODE_KEY, globalExecutionMode);
-  }, [autoPaperSettingsLoaded, autoPaperAutoEnabled, autoPaperIntervalMinutes, globalExecutionMode]);
-
-  useEffect(() => {
-    if (!nextAutoPaperRunAt) {
-      setSecondsUntilAutoRun(null);
-      return;
-    }
-    const updateCountdown = () => {
-      const diffMs = nextAutoPaperRunAt.getTime() - Date.now();
-      setSecondsUntilAutoRun(Math.max(0, Math.floor(diffMs / 1000)));
-    };
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 1000);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [nextAutoPaperRunAt]);
-
-  function scheduleNextAutoRun(intervalMinutes: number) {
-    const next = new Date(Date.now() + intervalMinutes * 60 * 1000);
-    setNextAutoPaperRunAt(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(AUTO_PAPER_NEXT_RUN_AT_KEY, next.toISOString());
-    }
-    return next;
-  }
+  }, [preferencesLoaded, globalExecutionMode]);
 
   async function loadKillSwitchAndHistory() {
     try {
@@ -244,11 +182,51 @@ export function PersonalDashboard() {
     }
   }
 
+  async function loadServerAutopilot() {
+    try {
+      const status = await getSchedulerStatus();
+      setServerAutopilot(status);
+    } catch {
+      setServerAutopilot(null);
+    }
+  }
+
   useEffect(() => {
     void loadKillSwitchAndHistory();
+    void loadServerAutopilot();
   }, []);
 
   useLivePolling(() => loadKillSwitchAndHistory(), 12000, { enabled: true, runImmediately: false });
+  useLivePolling(() => loadServerAutopilot(), 12000, { enabled: true, runImmediately: false });
+
+  async function handleToggleServerAutopilot() {
+    if (serverAutopilotBusy || serverAutopilot === null) return;
+    if (serverAutopilot.state === "missing" || serverAutopilot.state === "scheduler_unavailable") {
+      setServerAutopilotMessage("Server autopilot scheduler is not available in this API runtime.");
+      return;
+    }
+
+    setServerAutopilotBusy(true);
+    setServerAutopilotMessage(null);
+    try {
+      const next = serverAutopilot.state === "running"
+        ? await pauseScheduler()
+        : await resumeScheduler();
+      setServerAutopilot(next);
+      setServerAutopilotMessage(
+        next.state === "running"
+          ? "Server autopilot started."
+          : "Server autopilot paused.",
+      );
+    } catch (error) {
+      setServerAutopilotMessage(
+        error instanceof Error ? error.message : "Failed to toggle server autopilot.",
+      );
+      await loadServerAutopilot();
+    } finally {
+      setServerAutopilotBusy(false);
+    }
+  }
 
   async function handleToggleKillSwitch() {
     if (killSwitchLoading) return;
@@ -287,54 +265,8 @@ export function PersonalDashboard() {
     }
   }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!autoPaperSettingsLoaded) return;
-
-    if (!autoPaperAutoEnabled) {
-      setNextAutoPaperRunAt(null);
-      window.localStorage.removeItem(AUTO_PAPER_NEXT_RUN_AT_KEY);
-      return;
-    }
-
-    // Only seed next-run once (or after it has been cleared), never on remount.
-    const existing = window.localStorage.getItem(AUTO_PAPER_NEXT_RUN_AT_KEY);
-    if (!existing) {
-      scheduleNextAutoRun(autoPaperIntervalMinutes);
-    }
-
-    const syncTimer = window.setInterval(() => {
-      const raw = window.localStorage.getItem(AUTO_PAPER_NEXT_RUN_AT_KEY);
-      if (!raw) {
-        setNextAutoPaperRunAt(null);
-        return;
-      }
-      const ts = Date.parse(raw);
-      if (!Number.isFinite(ts)) {
-        setNextAutoPaperRunAt(null);
-        return;
-      }
-      setNextAutoPaperRunAt(new Date(ts));
-    }, 1000);
-
-    return () => {
-      window.clearInterval(syncTimer);
-    };
-  }, [autoPaperSettingsLoaded, autoPaperAutoEnabled, autoPaperIntervalMinutes]);
-
   async function handleRunAutoPaperBatch() {
     await executeAutoPaperBatch("manual");
-  }
-
-  function formatAutoCountdown(value: number | null): string {
-    if (value === null) return "--:--";
-    const minutes = Math.floor(value / 60)
-      .toString()
-      .padStart(2, "0");
-    const seconds = Math.floor(value % 60)
-      .toString()
-      .padStart(2, "0");
-    return `${minutes}:${seconds}`;
   }
 
   const metrics = useMemo(() => {
@@ -756,33 +688,23 @@ export function PersonalDashboard() {
                     ))}
                   </select>
 
-                  <label htmlFor="auto-paper-interval" className={styles.controlLabel} style={{ marginTop: "0.5rem" }}>
-                    Auto batch cadence
-                  </label>
-                  <select
-                    id="auto-paper-interval"
-                    className={styles.tradeSelect}
-                    value={autoPaperIntervalMinutes}
-                    onChange={(event) => {
-                      setAutoPaperIntervalMinutes(Number(event.target.value));
-                    }}
-                  >
-                    {AUTO_PAPER_INTERVAL_OPTIONS_MINUTES.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        Every {minutes} min
-                      </option>
-                    ))}
-                  </select>
-
                   <button
                     type="button"
-                    className={autoPaperAutoEnabled ? styles.tradeActionButtonSecondary : styles.tradeActionButton}
+                    className={
+                      serverAutopilot?.state === "running"
+                        ? styles.tradeActionButtonSecondary
+                        : styles.tradeActionButton
+                    }
                     onClick={() => {
-                      setAutoPaperAutoEnabled((previous) => !previous);
+                      void handleToggleServerAutopilot();
                     }}
-                    disabled={autoPaperRunning}
+                    disabled={serverAutopilotBusy || serverAutopilot === null}
                   >
-                    {autoPaperAutoEnabled ? "Pause Auto Paper" : "Resume Auto Paper"}
+                    {serverAutopilotBusy
+                      ? "Working..."
+                      : serverAutopilot?.state === "running"
+                        ? "Pause Server Autopilot"
+                        : "Start Server Autopilot"}
                   </button>
                 </div>
 
@@ -819,18 +741,16 @@ export function PersonalDashboard() {
                     </strong>
                   </div>
                   <div className={styles.statsRow}>
-                    <span>Auto mode</span>
-                    <strong className={autoPaperAutoEnabled ? styles.statsValueSuccess : styles.statsValueDanger}>
-                      {autoPaperAutoEnabled ? "Running" : "Paused"}
+                    <span>Server autopilot</span>
+                    <strong
+                      className={
+                        serverAutopilot?.state === "running"
+                          ? styles.statsValueSuccess
+                          : styles.statsValueDanger
+                      }
+                    >
+                      {serverAutopilot?.state ?? "unknown"}
                     </strong>
-                  </div>
-                  <div className={styles.statsRow}>
-                    <span>Cadence</span>
-                    <strong className={styles.statsValueWarning}>Every {autoPaperIntervalMinutes} min</strong>
-                  </div>
-                  <div className={styles.statsRow}>
-                    <span>Next auto run</span>
-                    <strong className={styles.statsValueWarning}>{formatAutoCountdown(secondsUntilAutoRun)}</strong>
                   </div>
                   <div className={styles.statsRow}>
                     <span>Last run status</span>
@@ -841,6 +761,14 @@ export function PersonalDashboard() {
                       ? `${lastAutoPaperResult.message} (${formatMarketTimeLabel(lastAutoPaperResult.finished_at)})`
                       : "No auto-paper run recorded in this session yet."}
                   </p>
+                  {serverAutopilot?.next_run_time && (
+                    <p className={styles.statusMessage}>
+                      Next server run: {formatMarketTimeLabel(serverAutopilot.next_run_time)}
+                    </p>
+                  )}
+                  {serverAutopilotMessage && (
+                    <p className={styles.statusMessage}>{serverAutopilotMessage}</p>
+                  )}
                 </div>
 
                 {/* Kill-switch panel */}
@@ -852,10 +780,9 @@ export function PersonalDashboard() {
                     </strong>
                   </div>
                   <button
-                    className={killSwitch?.kill_switch_active ? styles.tradeActionButton : styles.tradeActionButtonSecondary}
+                    className={`${killSwitch?.kill_switch_active ? styles.tradeActionButton : styles.tradeActionButtonSecondary} ${styles.killSwitchButton}`}
                     onClick={() => void handleToggleKillSwitch()}
                     disabled={killSwitchLoading || killSwitch === null}
-                    style={{ marginTop: "0.5rem", width: "100%" }}
                   >
                     {killSwitchLoading
                       ? "Updating…"
@@ -868,31 +795,33 @@ export function PersonalDashboard() {
                 {/* Recent run history */}
                 {runHistory.length > 0 && (
                   <div className={styles.tradeStatusCard}>
-                    <p style={{ fontWeight: 600, marginBottom: "0.4rem" }}>Recent runs</p>
-                    <table style={{ width: "100%", fontSize: "0.75rem", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr>
-                          <th style={{ textAlign: "left", paddingBottom: "0.25rem" }}>Time</th>
-                          <th style={{ textAlign: "left", paddingBottom: "0.25rem" }}>Status</th>
-                          <th style={{ textAlign: "left", paddingBottom: "0.25rem" }}>Message</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {runHistory.map((entry, i) => (
-                          <tr key={i} style={{ borderTop: "1px solid var(--surface-border)" }}>
-                            <td style={{ padding: "0.2rem 0.4rem 0.2rem 0", whiteSpace: "nowrap" }}>
-                              {formatMarketTimeLabel(entry.finished_at)}
-                            </td>
-                            <td style={{ padding: "0.2rem 0.4rem", whiteSpace: "nowrap" }}>
-                              <span className={entry.status === "success" ? styles.statsValueSuccess : styles.statsValueDanger}>
-                                {entry.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: "0.2rem 0" }}>{entry.message}</td>
+                    <p className={styles.recentRunsTitle}>Recent runs</p>
+                    <div className={styles.recentRunsTableWrap}>
+                      <table className={styles.recentRunsTable}>
+                        <thead>
+                          <tr>
+                            <th className={styles.recentRunsHead}>Time</th>
+                            <th className={styles.recentRunsHead}>Status</th>
+                            <th className={styles.recentRunsHead}>Message</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {runHistory.map((entry, i) => (
+                            <tr key={i} className={styles.recentRunsRow}>
+                              <td className={styles.recentRunsCellTime}>
+                                {formatMarketTimeLabel(entry.finished_at)}
+                              </td>
+                              <td className={styles.recentRunsCellStatus}>
+                                <span className={entry.status === "success" ? styles.statsValueSuccess : styles.statsValueDanger}>
+                                  {entry.status}
+                                </span>
+                              </td>
+                              <td className={styles.recentRunsCellMessage}>{entry.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 

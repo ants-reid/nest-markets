@@ -29,7 +29,7 @@ def calculate_atr(
     lows_or_period: Sequence[float] | int | None = None,
     closes: Sequence[float] | None = None,
     period: int = 14,
-) -> ATRResult:
+) -> ATRResult | float | None:
     """Compute average true range using Wilder smoothing.
 
     Accepts either:
@@ -57,7 +57,7 @@ def _atr_from_bars(bars: Sequence[dict[str, Any]], period: int) -> ATRResult:
     highs = [float(bar["high"]) for bar in bars]
     lows_series = [float(bar["low"]) for bar in bars]
     closes_series = [float(bar["close"]) for bar in bars]
-    return _compute_atr(highs, lows_series, closes_series, period)
+    return ATRResult(value=_compute_atr(highs, lows_series, closes_series, period))
 
 
 def _atr_from_series(
@@ -65,7 +65,7 @@ def _atr_from_series(
     lows: Sequence[float],
     closes: Sequence[float],
     period: int,
-) -> ATRResult:
+) -> float | None:
     if period <= 0:
         raise ValueError("period must be positive")
     return _compute_atr(
@@ -81,23 +81,13 @@ def _compute_atr(
     lows_series: list[float],
     closes_series: list[float],
     period: int,
-) -> ATRResult:
+) -> float | None:
     if not (len(highs) == len(lows_series) == len(closes_series)):
         raise ValueError("high, low, and close series must have the same length")
     if len(highs) < period + 1:
-        return ATRResult(value=None)
+        return None
 
     true_ranges: list[float] = []
-    for idx in range(1, len(highs)):
-        true_ranges.append(
-            calculate_true_range(highs[idx], lows_series[idx], closes_series[idx - 1])
-        )
-
-    atr_value = sum(true_ranges[:period]) / float(period)
-    for tr_value in true_ranges[period:]:
-        atr_value = ((atr_value * (period - 1)) + tr_value) / float(period)
-
-    return ATRResult(value=atr_value)
     for idx in range(1, len(highs)):
         true_ranges.append(
             calculate_true_range(highs[idx], lows_series[idx], closes_series[idx - 1])

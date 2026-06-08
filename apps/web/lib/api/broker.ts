@@ -276,3 +276,21 @@ export interface BrokerDailyPnl {
 export async function getDailyPnl(): Promise<BrokerDailyPnl> {
   return apiRequest<BrokerDailyPnl>("/broker/daily-pnl", { method: "GET" });
 }
+
+export interface AutoPaperSchedulerStatus {
+  job_id: string;
+  next_run_time: string | null;
+  state: "running" | "paused" | "missing" | "scheduler_unavailable";
+}
+
+export async function getAutoPaperSchedulerStatus(): Promise<AutoPaperSchedulerStatus> {
+  return apiRequest<AutoPaperSchedulerStatus>("/market-data/auto-paper/scheduler/status", { method: "GET" });
+}
+
+export async function pauseAutoPaperScheduler(): Promise<AutoPaperSchedulerStatus> {
+  return apiRequest<AutoPaperSchedulerStatus>("/market-data/auto-paper/scheduler/pause", { method: "POST" });
+}
+
+export async function resumeAutoPaperScheduler(): Promise<AutoPaperSchedulerStatus> {
+  return apiRequest<AutoPaperSchedulerStatus>("/market-data/auto-paper/scheduler/resume", { method: "POST" });
+}

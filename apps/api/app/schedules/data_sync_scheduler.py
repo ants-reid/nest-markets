@@ -6,6 +6,8 @@ from app.schedules.base_scheduler import BaseScheduler, ScheduledJob
 from app.workers.auto_paper_close_worker import AutoPaperCloseWorker
 from app.workers.auto_paper_trader_worker import AutoPaperTraderWorker
 from app.workers.data_sync_worker import DataSyncWorker
+from app.workers.historical_import_worker import HistoricalImportWorker
+from app.workers.learning_trainer_worker import LearningTrainerWorker
 from app.workers.news_ingest_worker import NewsIngestWorker
 from app.workers.signal_sweep_worker import SignalSweepWorker
 
@@ -50,6 +52,20 @@ class DataSyncScheduler(BaseScheduler):
                 enabled=True,
             )
         )
+        self.register_job(
+            ScheduledJob(
+                name="historical_import",
+                cron="15 */6 * * *",  # every 6 hours
+                enabled=True,
+            )
+        )
+        self.register_job(
+            ScheduledJob(
+                name="learning_trainer",
+                cron="45 */6 * * *",  # every 6 hours
+                enabled=True,
+            )
+        )
 
     def get_worker(self, job_name: str):
         """Return the worker instance matching a scheduled job name."""
@@ -63,4 +79,8 @@ class DataSyncScheduler(BaseScheduler):
             return AutoPaperTraderWorker()
         if job_name == "auto_paper_close":
             return AutoPaperCloseWorker()
+        if job_name == "historical_import":
+            return HistoricalImportWorker()
+        if job_name == "learning_trainer":
+            return LearningTrainerWorker()
         raise KeyError(f"Unknown scheduled job: {job_name}")

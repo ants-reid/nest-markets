@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-EXPECTED_HEAD_REVISION = "g7h8i9j0k1l2"
+EXPECTED_HEAD_REVISION = "h8i9j0k1l2m3"
 EXPECTED_INITIAL_REVISION_FILE = "001_initial_tables.py"
 EXPECTED_MIGRATION_COUNT_FLOOR = 31  # current 33; floor allows -2
 

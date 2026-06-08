@@ -70,11 +70,13 @@ class PaperCandidateHygieneService:
         by_symbol: dict[str, list[Signal]] = defaultdict(list)
         for signal, asset in candidate_rows:
             symbol = asset.symbol.upper()
+            if allowlist and symbol not in allowlist:
+                outside_allowlist_ids.add(str(signal.id))
+                continue
+
             by_symbol[symbol].append(signal)
             if signal.scan_ts is not None and signal.scan_ts < cutoff:
                 stale_ids.add(str(signal.id))
-            if allowlist and symbol not in allowlist:
-                outside_allowlist_ids.add(str(signal.id))
 
         for symbol_signals in by_symbol.values():
             ordered = sorted(

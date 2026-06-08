@@ -339,11 +339,11 @@ def test_card_reports_cap_block_and_latest_order(isolated_service):
         ),
     )
     assert card["last_decision"] == "skipped"
-    assert card["last_block_reason"] == "Auto Paper position cap reached."
+    assert card["last_block_reason"] == "Auto Paper skipped because the position cap was reached."
     assert card["open_paper_positions_count"] == 5
     assert card["last_action_at"] == submitted_at.isoformat()
     assert card["latest_paper_order"]["status"] == "queued"
-    assert "position cap reached" in card["operator_next_action"].lower()
+    assert "continue monitoring auto paper" in card["operator_next_action"].lower()
 
 
 def test_latest_paper_order_exposes_ibkr_status(isolated_service):

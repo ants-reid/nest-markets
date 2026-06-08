@@ -21,7 +21,7 @@ def calculate_adx(
     lows: Sequence[float] | int | None = None,
     closes: Sequence[float] | None = None,
     period: int = 14,
-) -> ADXResult:
+) -> ADXResult | None:
     """Compute ADX using conservative Wilder smoothing steps."""
     # Support calculate_adx(bars, period) where bars are dicts
     if isinstance(lows, int):
@@ -50,7 +50,9 @@ def calculate_adx(
     if not (len(highs) == len(lows_series) == len(closes_series)):
         raise ValueError("high, low, and close series must have the same length")
     if len(highs) < (period * 2) + 1:
-        return ADXResult(adx=None, di_plus=None, di_minus=None)
+        if lows is None and closes is None:
+            return ADXResult(adx=None, di_plus=None, di_minus=None)
+        return None
 
     true_ranges: list[float] = []
     plus_dm: list[float] = []

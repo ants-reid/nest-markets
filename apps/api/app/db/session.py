@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -24,10 +24,18 @@ SessionLocal = sessionmaker(
 )
 
 
+def ensure_public_search_path(session: Session) -> None:
+    """Normalize PostgreSQL schema lookup for pooled connections."""
+    bind = session.get_bind()
+    if bind is not None and bind.dialect.name.startswith("postgresql"):
+        session.execute(text("SET search_path TO public"))
+
+
 def get_db_session() -> Generator[Session, None, None]:
     """Yield a database session and ensure it is closed."""
     db = SessionLocal()
     try:
+        ensure_public_search_path(db)
         yield db
     finally:
         db.close()

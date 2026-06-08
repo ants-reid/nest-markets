@@ -101,13 +101,15 @@ def build_feature_snapshot(
 
     ema_fast = calculate_ema(closes, ema_fast_period)
     ema_slow = calculate_ema(closes, ema_slow_period)
-    rsi_value = calculate_rsi(closes, period=14)
+    rsi_result = calculate_rsi(closes, period=14)
+    rsi_value = rsi_result.value if rsi_result is not None else None
     atr_value = calculate_atr(highs, lows, closes, period=14)
 
     adx_result = calculate_adx(highs, lows, closes, period=14)
     adx_value = adx_result.adx if adx_result is not None else None
 
-    realized_vol = calculate_realized_volatility(closes, period=20)
+    realized_vol_result = calculate_realized_volatility(closes, period=20)
+    realized_vol = realized_vol_result.value if realized_vol_result is not None else None
     volatility_score = _normalize_volatility(realized_vol)
 
     trend_value = calculate_trend_score(closes, fast_period=20, slow_period=50, slope_lookback=5)

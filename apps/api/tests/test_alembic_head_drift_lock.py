@@ -32,7 +32,7 @@ from pathlib import Path
 
 
 # Pinned head as of the restart stabilisation rebaseline.
-EXPECTED_HEAD: str = "g7h8i9j0k1l2"
+EXPECTED_HEAD: str = "h8i9j0k1l2m3"
 
 
 _REVISION_RE = re.compile(r'^revision\s*(?::\s*[^=]+)?=\s*["\']([^"\']+)["\']', re.M)

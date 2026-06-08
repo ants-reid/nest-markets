@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.clients.broker.broker_interface import OrderRequest
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, ensure_public_search_path
 from app.services.broker_mode_guard import get_broker_mode_metadata
 from app.services.risk_limit_service import RiskLimitService
 from app.services.trading_halt_service import TradingHaltService
@@ -27,6 +27,7 @@ class BrokerPreflightAdvisoryService:
         warnings: list[dict[str, Any]] = []
         preflight_data: dict[str, Any] = {}
         session = SessionLocal()
+        ensure_public_search_path(session)
 
         try:
             trading_mode = str(get_broker_mode_metadata().get("mode") or "paper").lower()

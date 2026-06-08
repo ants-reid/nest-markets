@@ -198,9 +198,6 @@ def assert_auto_trading_allowed() -> None:
     )
 
 
-_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN = 3
-_CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY = 25
-_CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD = 1000.0
 _EQUITY_SYMBOL_RE = re.compile(r"^[A-Z]{1,5}$")
 _CONTROLLED_AUTO_PAPER_SOURCE = "auto_paper_trader"
 _AUTO_SUBMIT_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -323,15 +320,15 @@ def is_controlled_auto_paper_allowed() -> bool:
         return False
     if settings.auto_paper_max_orders_per_run < 1:
         return False
-    if settings.auto_paper_max_orders_per_run > _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_RUN:
+    if settings.auto_paper_max_orders_per_run > 3:
         return False
     if settings.auto_paper_max_orders_per_day < 1:
         return False
-    if settings.auto_paper_max_orders_per_day > _CONTROLLED_AUTO_PAPER_MAX_ORDERS_PER_DAY:
+    if settings.auto_paper_max_orders_per_day > 25:
         return False
     if settings.auto_paper_max_notional_usd <= 0:
         return False
-    if settings.auto_paper_max_notional_usd > _CONTROLLED_AUTO_PAPER_MAX_NOTIONAL_USD:
+    if settings.auto_paper_max_notional_usd > 1000:
         return False
 
     ticker = str(context.get("ticker") or "").upper()

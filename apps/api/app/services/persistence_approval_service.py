@@ -66,7 +66,7 @@ class PersistenceApprovalService:
 
         return ApprovalRequest(
             request_id=row.id,
-            status=row.status.value,
+            status=row.status.value if hasattr(row.status, "value") else str(row.status),
             created_at=created_at,
             expires_at=expires_at,
             asset=asset.symbol,

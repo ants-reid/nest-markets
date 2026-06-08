@@ -186,7 +186,7 @@ def _risk_and_monitor_notes(
         )
 
     for decision in risk_decisions:
-        if decision.approved == "approved":
+        if decision.approved:
             continue
         reason = decision.block_reason_code or decision.blocking_rule or "unknown"
         signal_text = str(decision.signal_id) if decision.signal_id is not None else "unknown-signal"

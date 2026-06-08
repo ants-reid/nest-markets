@@ -11,6 +11,29 @@ class RSIResult:
     value: float | None
     period: int
 
+    def _as_float(self) -> float:
+        return float(self.value) if self.value is not None else 0.0
+
+    def __float__(self) -> float:
+        return self._as_float()
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (int, float)):
+            return self._as_float() == float(other)
+        return super().__eq__(other)
+
+    def __lt__(self, other: float) -> bool:
+        return self._as_float() < float(other)
+
+    def __le__(self, other: float) -> bool:
+        return self._as_float() <= float(other)
+
+    def __gt__(self, other: float) -> bool:
+        return self._as_float() > float(other)
+
+    def __ge__(self, other: float) -> bool:
+        return self._as_float() >= float(other)
+
 
 def calculate_rsi(prices: Sequence[float], period: int = 14) -> RSIResult:
     """Compute RSI from close prices.

@@ -44,6 +44,8 @@ EXPECTED_DATA_SYNC_JOBS: set[tuple[str, str, bool]] = {
     ("signal_sweep", "0 */4 * * *", True),
     ("auto_paper_trader", "30 */4 * * *", True),
     ("auto_paper_close", "0 2 * * *", True),
+    ("historical_import", "15 */6 * * *", True),
+    ("learning_trainer", "45 */6 * * *", True),
 }
 
 # Pinned set of LITERAL ``id="..."`` tokens that ``app.main._lifespan``

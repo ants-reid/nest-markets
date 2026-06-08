@@ -4,9 +4,11 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.enums import OrderStatus
 from app.db.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 
@@ -27,10 +29,22 @@ class PaperOrder(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notional: Mapped[Optional[float]] = mapped_column(Numeric(18, 8), nullable=True)
     limit_price: Mapped[Optional[float]] = mapped_column(Numeric(18, 8), nullable=True)
     stop_price: Mapped[Optional[float]] = mapped_column(Numeric(18, 8), nullable=True)
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    status_raw: Mapped[str] = mapped_column("status", String(50), nullable=False, default="pending")
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     broker_order_id: Mapped[Optional[int]] = mapped_column(nullable=True)
     commission: Mapped[Optional[float]] = mapped_column(Numeric(18, 8), nullable=True)
     avg_fill_price: Mapped[Optional[float]] = mapped_column(Numeric(18, 8), nullable=True)
     ibkr_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    @hybrid_property
+    def status(self) -> OrderStatus:
+        return OrderStatus(self.status_raw)
+
+    @status.setter
+    def status(self, value: OrderStatus | str) -> None:
+        self.status_raw = value.value if hasattr(value, "value") else str(value)
+
+    @status.expression
+    def status(cls):
+        return cls.status_raw

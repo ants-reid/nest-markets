@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.config import get_settings
 from app.db.enums import AssetClass, SignalStatus
 from app.db.models.signal import Signal
 from app.schedules.data_sync_scheduler import DataSyncScheduler
@@ -376,14 +377,16 @@ def test_auto_paper_trader_scheduler_returns_correct_worker():
 
 
 def test_auto_paper_respects_position_cap():
-    """Worker must not open trade #6 when 5 auto-paper positions are already open."""
+    """Worker must skip new orders when open auto-paper positions are already at cap."""
     mock_session = MagicMock()
+    settings = get_settings()
+    max_open = int(getattr(settings, "auto_paper_max_open_positions", 5))
 
     opportunities = [_make_opportunity(f"ASSET{i}") for i in range(3)]
     signals = {op.signal_id: _make_signal(op.signal_id) for op in opportunities}
 
     # Already at cap
-    mock_session.execute.return_value.scalar_one.return_value = 5
+    mock_session.execute.return_value.scalar_one.return_value = max_open
     mock_session.get.side_effect = lambda model, id_: signals.get(id_)
 
     risk_profile = _make_risk_profile()

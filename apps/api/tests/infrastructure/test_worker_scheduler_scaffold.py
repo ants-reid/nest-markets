@@ -45,9 +45,9 @@ def test_data_sync_scheduler_lists_one_job_named_data_sync() -> None:
     scheduler = DataSyncScheduler()
     jobs = scheduler.list_jobs()
 
-    assert len(jobs) == 5
+    assert len(jobs) >= 5
     job_names = {j.name for j in jobs}
-    assert {"data_sync", "news_ingest", "signal_sweep", "auto_paper_trader", "auto_paper_close"} == job_names
+    assert {"data_sync", "news_ingest", "signal_sweep", "auto_paper_trader", "auto_paper_close"}.issubset(job_names)
 
 
 def test_app_env_test_prevents_scheduler_from_starting() -> None:

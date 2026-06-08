@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -51,7 +52,11 @@ def _seed_asset_signal_order(session: Session, *, symbol: str = "EURUSD", status
 def _db_session() -> tuple[Session, str, Connection]:
     schema_name = f"test_alert_routes_{uuid4().hex}"
 
-    admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    except ProgrammingError:
+        engine.dispose()
+        admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
     admin_connection.execute(text(f'CREATE SCHEMA "{schema_name}"'))
     admin_connection.close()
 
@@ -65,7 +70,11 @@ def _db_session() -> tuple[Session, str, Connection]:
 
 def _cleanup_schema(schema_name: str) -> None:
     """Drop one temporary test schema."""
-    admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    except ProgrammingError:
+        engine.dispose()
+        admin_connection = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
     admin_connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
     admin_connection.close()
 

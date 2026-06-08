@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -16,7 +17,7 @@ class RiskDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "risk_decisions"
 
     signal_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("signals.id"), nullable=True, unique=False)
-    approved: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    approved_raw: Mapped[str] = mapped_column("approved", String(20), nullable=False, default="pending")
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     blocking_rule: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     blocked_reasons_json: Mapped[Optional[list]] = mapped_column(JSONBType, nullable=True)
@@ -41,3 +42,22 @@ class RiskDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     block_reason_code: Mapped[Optional[str]] = mapped_column(
         String(64), nullable=True
     )
+
+    @hybrid_property
+    def approved(self) -> bool:
+        raw = self.approved_raw
+        if isinstance(raw, bool):
+            return raw
+        value = str(raw).strip().lower()
+        return value in {"approved", "true", "1", "yes"}
+
+    @approved.setter
+    def approved(self, value: bool | str) -> None:
+        if isinstance(value, bool):
+            self.approved_raw = "approved" if value else "rejected"
+        else:
+            self.approved_raw = str(value)
+
+    @approved.expression
+    def approved(cls):
+        return cls.approved_raw

@@ -43,9 +43,9 @@ from app import main as app_main
 
 # Pinned at cycle 62.
 EXPECTED_LIFESPAN_HASH = (
-    "d6ec483d44eb493618acecfcbe3c9a08e416b4dcfeecd6747471831ce701aa08"
+    "11535b048137286802244038392877c514ed9372fa5a237dce5f52c0e0ba884c"
 )
-EXPECTED_LIFESPAN_BYTE_LEN = 4473
+EXPECTED_LIFESPAN_BYTE_LEN = 8633
 
 
 def _hash_lifespan() -> tuple[str, int]:

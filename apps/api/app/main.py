@@ -145,13 +145,21 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             if job.enabled:
                 # signal_sweep runs on a short interval rather than its default cron
                 if job.name == "signal_sweep":
+                    sweep_seconds = max(
+                        30,
+                        int(getattr(settings, "signal_sweep_interval_seconds", 120)),
+                    )
                     scheduler.add_job(
                         data_sync.get_worker(job.name).run,
-                        IntervalTrigger(seconds=30),
+                        IntervalTrigger(seconds=sweep_seconds),
                         id=job.name,
                         replace_existing=True,
                     )
-                    _logger.info("Scheduled job registered: %s (every 30s)", job.name)
+                    _logger.info(
+                        "Scheduled job registered: %s (every %ds)",
+                        job.name,
+                        sweep_seconds,
+                    )
                 elif job.name == "auto_paper_trader":
                     worker = data_sync.get_worker(job.name)
                     background_enabled = bool(
@@ -194,6 +202,50 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                             replace_existing=True,
                         )
                         _logger.info("Scheduled job registered: %s (%s)", job.name, job.cron)
+                elif job.name == "historical_import":
+                    if not bool(getattr(settings, "auto_history_import_enabled", False)):
+                        _logger.info(
+                            "Scheduled job skipped: %s (AUTO_HISTORY_IMPORT_ENABLED=false)",
+                            job.name,
+                        )
+                        continue
+                    interval_minutes = max(
+                        30,
+                        int(getattr(settings, "auto_history_import_minutes_between_runs", 180)),
+                    )
+                    scheduler.add_job(
+                        data_sync.get_worker(job.name).run,
+                        IntervalTrigger(minutes=interval_minutes),
+                        id=job.name,
+                        replace_existing=True,
+                    )
+                    _logger.info(
+                        "Scheduled job registered: %s (interval every %d min)",
+                        job.name,
+                        interval_minutes,
+                    )
+                elif job.name == "learning_trainer":
+                    if not bool(getattr(settings, "auto_learning_enabled", False)):
+                        _logger.info(
+                            "Scheduled job skipped: %s (AUTO_LEARNING_ENABLED=false)",
+                            job.name,
+                        )
+                        continue
+                    interval_minutes = max(
+                        60,
+                        int(getattr(settings, "auto_learning_minutes_between_runs", 360)),
+                    )
+                    scheduler.add_job(
+                        data_sync.get_worker(job.name).run,
+                        IntervalTrigger(minutes=interval_minutes),
+                        id=job.name,
+                        replace_existing=True,
+                    )
+                    _logger.info(
+                        "Scheduled job registered: %s (interval every %d min)",
+                        job.name,
+                        interval_minutes,
+                    )
                 else:
                     scheduler.add_job(
                         data_sync.get_worker(job.name).run,

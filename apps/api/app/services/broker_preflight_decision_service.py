@@ -11,7 +11,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, ensure_public_search_path
 from app.services.broker_mode_guard import get_broker_mode_metadata
 from app.services.paper_source_contract import broker_dry_run_sources, broker_sources_from_mode
 from app.services.broker_submit_decision_service import (
@@ -315,6 +315,7 @@ class BrokerPreflightDecisionService:
                 correlation_id=correlation_id,
             )
             with SessionLocal() as session:
+                ensure_public_search_path(session)
                 writer = BrokerSubmitDecisionService(session)
                 writer.persist(
                     record,

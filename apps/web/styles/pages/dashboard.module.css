@@ -207,13 +207,16 @@
 .tradeButtonGroup {
   display: grid;
   gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  min-width: 0;
 }
 
 .tradeAutoControls {
   display: grid;
   gap: 8px;
-  grid-template-columns: 1fr auto;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
 }
 
 .controlLabel {
@@ -247,6 +250,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-height: 38px;
   padding: 10px 12px;
   border-radius: 10px;
@@ -255,6 +259,7 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  min-width: 0;
 }
 
 .tradeActionButton {
@@ -277,6 +282,53 @@
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.killSwitchButton {
+  margin-top: 0.5rem;
+}
+
+.recentRunsTitle {
+  margin: 0 0 0.4rem;
+  font-weight: 600;
+  color: var(--text-body);
+  font-size: 12px;
+}
+
+.recentRunsTableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.recentRunsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 420px;
+}
+
+.recentRunsHead {
+  text-align: left;
+  padding-bottom: 0.25rem;
+  color: var(--text-muted);
+}
+
+.recentRunsRow {
+  border-top: 1px solid var(--surface-border);
+}
+
+.recentRunsCellTime {
+  padding: 0.2rem 0.4rem 0.2rem 0;
+  white-space: nowrap;
+}
+
+.recentRunsCellStatus {
+  padding: 0.2rem 0.4rem;
+  white-space: nowrap;
+}
+
+.recentRunsCellMessage {
+  padding: 0.2rem 0;
 }
 
 .riskGrid {

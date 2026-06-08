@@ -27,6 +27,8 @@ EXPECTED_CRON_EXPRESSIONS: dict[str, str] = {
     "signal_sweep": "0 */4 * * *",
     "auto_paper_trader": "30 */4 * * *",
     "auto_paper_close": "0 2 * * *",
+    "historical_import": "15 */6 * * *",
+    "learning_trainer": "45 */6 * * *",
 }
 
 # Subset whose cron form is part of the safety contract.  Speeding any

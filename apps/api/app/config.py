@@ -92,10 +92,10 @@ class Settings(BaseSettings):
 
     # Auto-paper controlled-run gates (default OFF; only allow when all are satisfied)
     auto_paper_enabled: bool = Field(default=False)
-    auto_paper_max_orders_per_run: int = Field(default=1)
-    auto_paper_max_orders_per_day: int = Field(default=1)
-    auto_paper_max_notional_usd: float = Field(default=100.0)
-    auto_paper_symbol_allowlist: str = Field(default="AAPL")
+    auto_paper_max_orders_per_run: int = Field(default=50)
+    auto_paper_max_orders_per_day: int = Field(default=1000)
+    auto_paper_max_notional_usd: float = Field(default=1000000.0)
+    auto_paper_symbol_allowlist: str = Field(default="")
     auto_paper_order_type: str = Field(default="LIMIT")
     auto_paper_limit_price: float = Field(default=50.00)
     auto_paper_require_tws: bool = Field(default=True)
@@ -106,9 +106,26 @@ class Settings(BaseSettings):
     # Live trading remains locked regardless of these flags.
     auto_paper_background_scheduler_enabled: bool = Field(default=False)
     auto_paper_minutes_between_runs: int = Field(default=30)
-    auto_paper_max_open_positions: int = Field(default=5)
+    auto_paper_max_open_positions: int = Field(default=200)
     auto_paper_kill_on_error_count: int = Field(default=3)
     auto_paper_kill_on_reject_rate: float = Field(default=0.5)
+
+    # Automatic historical import loop (disabled by default; opt-in for unattended mode).
+    auto_history_import_enabled: bool = Field(default=False)
+    auto_history_import_minutes_between_runs: int = Field(default=180)
+    auto_history_import_requested_years: int = Field(default=3)
+    auto_history_import_provider: str = Field(default="yfinance")
+    auto_history_import_timeframes: str = Field(default="1d")
+
+    # Signal sweep cadence (seconds). Slower providers should use >= 60s.
+    signal_sweep_interval_seconds: int = Field(default=120)
+
+    # Automatic learning trainer loop (disabled by default; opt-in for unattended model updates).
+    auto_learning_enabled: bool = Field(default=False)
+    auto_learning_minutes_between_runs: int = Field(default=360)
+    auto_learning_min_total_outcomes: int = Field(default=30)
+    auto_learning_min_new_outcomes: int = Field(default=10)
+    auto_learning_min_hours_between_versions: int = Field(default=6)
 
     @property
     def database_url(self) -> str:

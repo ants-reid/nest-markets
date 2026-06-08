@@ -152,11 +152,47 @@ class RiskOutput:
 class RiskService:
     """Session-based deterministic risk gating service."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session | None = None,
+        *,
+        profile: RiskProfile | None = None,
+        execution_mode_service: ExecutionModeService | None = None,
+    ) -> None:
         self._session = session
+        self._legacy_evaluator: RiskEvaluator | None = None
 
-    def evaluate(self, risk_input: RiskInput) -> RiskOutput:
+        if profile is not None or execution_mode_service is not None:
+            if profile is None or execution_mode_service is None:
+                raise TypeError(
+                    "RiskService legacy mode requires both 'profile' and 'execution_mode_service'."
+                )
+            self._legacy_evaluator = RiskEvaluator(profile, execution_mode_service)
+
+        if self._session is None and self._legacy_evaluator is None:
+            raise TypeError(
+                "RiskService requires either 'session' for persistence mode "
+                "or both 'profile' and 'execution_mode_service' for legacy mode."
+            )
+
+    def evaluate(self, *args, **kwargs) -> RiskDecision | RiskOutput:
+        """Evaluate risk in legacy or session mode based on constructor and args."""
+        if self._legacy_evaluator is not None:
+            signal = kwargs.get("signal") if "signal" in kwargs else (args[0] if len(args) > 0 else None)
+            context = kwargs.get("context") if "context" in kwargs else (args[1] if len(args) > 1 else None)
+            if signal is None or context is None:
+                raise TypeError("Legacy evaluate requires 'signal' and 'context'.")
+            return self._legacy_evaluator.evaluate(signal=signal, context=context)
+
+        risk_input = kwargs.get("risk_input") if "risk_input" in kwargs else (args[0] if len(args) > 0 else None)
+        if not isinstance(risk_input, RiskInput):
+            raise TypeError("Session evaluate requires a RiskInput instance.")
+        return self._evaluate_session(risk_input)
+
+    def _evaluate_session(self, risk_input: RiskInput) -> RiskOutput:
         """Evaluate risk input against profile thresholds and persist decision."""
+        if self._session is None:
+            raise RuntimeError("Session mode is not available without a SQLAlchemy session.")
         profile = risk_input.risk_profile
         blocking_rule: str | None = None
         cooldown_active = False

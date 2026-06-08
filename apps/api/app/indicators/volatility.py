@@ -14,6 +14,29 @@ class VolatilityResult:
     value: float | None
     annualized: float | None
 
+    def _as_float(self) -> float:
+        return float(self.value) if self.value is not None else 0.0
+
+    def __float__(self) -> float:
+        return self._as_float()
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (int, float)):
+            return self._as_float() == float(other)
+        return super().__eq__(other)
+
+    def __lt__(self, other: float) -> bool:
+        return self._as_float() < float(other)
+
+    def __le__(self, other: float) -> bool:
+        return self._as_float() <= float(other)
+
+    def __gt__(self, other: float) -> bool:
+        return self._as_float() > float(other)
+
+    def __ge__(self, other: float) -> bool:
+        return self._as_float() >= float(other)
+
 
 def calculate_realized_volatility(prices: Sequence[float], period: int = 20) -> VolatilityResult:
     """Compute close-to-close realized volatility.

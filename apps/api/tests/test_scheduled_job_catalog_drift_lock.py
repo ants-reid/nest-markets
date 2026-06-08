@@ -20,6 +20,8 @@ EXPECTED_JOBS: dict[str, str] = {
     "auto_paper_close": "0 2 * * *",
     "auto_paper_trader": "30 */4 * * *",
     "data_sync": "*/5 * * * *",
+    "historical_import": "15 */6 * * *",
+    "learning_trainer": "45 */6 * * *",
     "news_ingest": "0 * * * *",
     "signal_sweep": "0 */4 * * *",
 }

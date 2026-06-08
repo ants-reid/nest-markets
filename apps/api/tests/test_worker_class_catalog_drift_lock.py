@@ -23,9 +23,9 @@ import inspect
 from app.schedules.data_sync_scheduler import DataSyncScheduler
 
 EXPECTED_SCHEDULER_HASH = (
-    "3618e546432ade86f22201b7f9467cce951e0158770973754a59f18557bb67ec"
+    "e9aab3c19f6d71873a146b0390f3db2b55a3621b8c6ac32a6bd03b402789e581"
 )
-EXPECTED_SCHEDULER_BYTE_LEN = 1691
+EXPECTED_SCHEDULER_BYTE_LEN = 2270
 
 # Module-import catalog: which worker classes are imported into the
 # scheduler module. Frozen names + import paths.
@@ -33,6 +33,8 @@ EXPECTED_WORKER_IMPORTS: dict[str, str] = {
     "AutoPaperCloseWorker": "app.workers.auto_paper_close_worker",
     "AutoPaperTraderWorker": "app.workers.auto_paper_trader_worker",
     "DataSyncWorker": "app.workers.data_sync_worker",
+    "HistoricalImportWorker": "app.workers.historical_import_worker",
+    "LearningTrainerWorker": "app.workers.learning_trainer_worker",
     "NewsIngestWorker": "app.workers.news_ingest_worker",
     "SignalSweepWorker": "app.workers.signal_sweep_worker",
 }

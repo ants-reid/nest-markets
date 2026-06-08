@@ -46,7 +46,7 @@ class PaperExecutionResult:
 class PaperExecutionService:
     """DB-backed paper order lifecycle service."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session | None = None) -> None:
         self._session = session
 
     def create_order(
@@ -62,12 +62,15 @@ class PaperExecutionService:
         Raises:
             ValueError: If risk decision is not approved.
         """
+        if self._session is None:
+            raise RuntimeError("PaperExecutionService.create_order requires a database session")
+
         decision: RiskDecision | None = (
             self._session.query(RiskDecision)
             .filter(RiskDecision.id == risk_decision_id)
             .first()
         )
-        if decision is None or decision.approved != "approved":
+        if decision is None or not decision.approved:
             raise ValueError("risk decision is not approved")
 
         paper_side = "buy" if direction == "long" else "sell" if direction == "short" else direction
@@ -101,6 +104,9 @@ class PaperExecutionService:
         fill_quantity: float | None = None,
     ) -> PaperOrder:
         """Simulate a fill event on a pending order."""
+        if self._session is None:
+            raise RuntimeError("PaperExecutionService.simulate_fill requires a database session")
+
         order: PaperOrder | None = (
             self._session.query(PaperOrder)
             .filter(PaperOrder.id == order_id)
@@ -128,6 +134,9 @@ class PaperExecutionService:
 
     def cancel_order(self, order_id: UUID, reason: str) -> PaperOrder:
         """Cancel a pending paper order."""
+        if self._session is None:
+            raise RuntimeError("PaperExecutionService.cancel_order requires a database session")
+
         order: PaperOrder | None = (
             self._session.query(PaperOrder)
             .filter(PaperOrder.id == order_id)

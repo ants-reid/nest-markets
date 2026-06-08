@@ -11,8 +11,8 @@ import inspect
 
 from app.services.risk_service import RiskService
 
-_EXPECTED_SHA = "58d2b554627f3ad4c12c503487a7b5f896f1e27fd4111ef6c7422f819284a4a4"
-_EXPECTED_LEN = 2750
+_EXPECTED_SHA = "90a25997447e2facd4bb09e1fda65c55568886b4df9d4772ba57befd86cdf69d"
+_EXPECTED_LEN = 928
 
 
 def _src_meta() -> tuple[str, int, str]:

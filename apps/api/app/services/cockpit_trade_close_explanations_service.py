@@ -151,7 +151,7 @@ def _infer_close_label(
     if _price_close_match(close_price, _as_float(position.stop_price)):
         return "stop_hit", "inferred_from_close_price_vs_stop"
 
-    if risk_decision is not None and risk_decision.approved != "approved":
+    if risk_decision is not None and not risk_decision.approved:
         return "risk_close", risk_decision.block_reason_code or risk_decision.blocking_rule
 
     return "unknown", position.close_reason
@@ -276,7 +276,7 @@ def get_cockpit_trade_close_explanations(
             evidence.append(f"signal_outcome.actual_pnl_pct={_as_float(linked_outcome.actual_pnl_pct):.4f}")
         if outcome_match_evidence:
             evidence.append(f"setup_match_basis={outcome_match_evidence}")
-        if linked_risk is not None and linked_risk.approved != "approved":
+        if linked_risk is not None and not linked_risk.approved:
             reason = linked_risk.block_reason_code or linked_risk.blocking_rule or "unknown"
             evidence.append(f"risk_decision={linked_risk.approved}:{reason}")
 

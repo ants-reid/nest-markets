@@ -53,15 +53,29 @@ def calculate_roc(prices: Sequence[float], period: int = 12) -> ROCResult:
     return ROCResult(value=roc_value, direction=direction, strength=strength)
 
 
-def calculate_momentum_score(
-    rsi: float,
-    roc: float,
-    adx: float,
-) -> MomentumScoreResult:
-    """Compute composite momentum score from RSI, ROC, and ADX.
+def calculate_momentum_score(*args, **kwargs):
+    """Dual-mode momentum score API.
 
-    Returns a MomentumScoreResult with direction and normalised strength.
+    Supports:
+    - calculate_momentum_score(prices, lookback=10) -> float | None
+    - calculate_momentum_score(rsi, roc, adx) -> float
     """
+    if len(args) >= 1 and isinstance(args[0], Sequence) and not isinstance(args[0], (str, bytes)):
+        prices = [float(v) for v in args[0]]
+        lookback = int(kwargs.get("lookback", 10))
+        return _calculate_momentum_score_from_prices(prices, lookback=lookback)
+
+    if len(args) >= 3:
+        rsi = float(args[0])
+        roc = float(args[1])
+        adx = float(args[2])
+    elif all(name in kwargs for name in ("rsi", "roc", "adx")):
+        rsi = float(kwargs["rsi"])
+        roc = float(kwargs["roc"])
+        adx = float(kwargs["adx"])
+    else:
+        raise TypeError("calculate_momentum_score requires either prices or rsi/roc/adx")
+
     # Normalise inputs to [-1, 1] components
     rsi_component = _clamp((rsi - 50.0) / 30.0, -1.0, 1.0)
     roc_component = _clamp(roc / 10.0, -1.0, 1.0)

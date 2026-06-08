@@ -30,6 +30,10 @@ from app.schemas.workflow import LiveExecutionResultResponse
 
 router = APIRouter(prefix="/workflow", tags=["workflow"])
 
+# Backward-compatible alias kept for older test modules that monkeypatch
+# the original private name.
+_MockSignalService = MockSignalService
+
 
 
 def _build_workflow_service(session: Session, use_mock: bool) -> WorkflowService:

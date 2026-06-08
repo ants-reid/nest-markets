@@ -37,6 +37,8 @@ ALLOWED_SCHEDULER_JOB_IDS: frozenset[str] = frozenset(
         "signal_sweep",
         "auto_paper_trader",
         "auto_paper_close",
+        "historical_import",
+        "learning_trainer",
         # main.py-registered jobs
         "pnl_snapshot_capture",
         "broker_tickle",

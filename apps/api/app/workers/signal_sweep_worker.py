@@ -1,7 +1,7 @@
 """SignalSweepWorker — iterates the active asset universe and generates signals.
 
 For each active asset the worker:
-1. Fetches recent price bars from Polygon (1-day timeframe).
+1. Fetches recent price bars (Polygon when configured, otherwise yfinance).
 2. Builds a minimal feature snapshot from those bars.
 3. Calls SignalService to generate a structured signal.
 4. Persists the signal via PersistenceSignalService.
@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.llm.router import LLMProviderRouter
 from app.clients.market_data.polygon_client import PolygonClient
+from app.clients.market_data.yfinance_client import YFinanceClient
 from app.config import get_settings
 from app.db.models.asset import Asset
 from app.db.session import SessionLocal
@@ -63,11 +64,16 @@ class SignalSweepWorker(BaseWorker):
 
     def __init__(
         self,
-        client: PolygonClient | None = None,
+        client: PolygonClient | YFinanceClient | None = None,
         session: Session | None = None,
     ) -> None:
         settings = get_settings()
-        self._client = client or PolygonClient(api_key=settings.polygon_api_key)
+        if client is not None:
+            self._client = client
+        elif settings.polygon_api_key:
+            self._client = PolygonClient(api_key=settings.polygon_api_key)
+        else:
+            self._client = YFinanceClient()
         self._session = session
 
     # ------------------------------------------------------------------
