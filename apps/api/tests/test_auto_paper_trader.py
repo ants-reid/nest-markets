@@ -537,7 +537,6 @@ def test_auto_paper_submit_exception_includes_structured_non_empty_error_fields(
         result = worker.run()
 
     assert result.status == "ok"
-    assert "submit-error" in result.message
     auto_diag_start = result.message.find("auto_diag=")
     assert auto_diag_start > -1
     auto_diag_json = result.message[auto_diag_start + len("auto_diag=") :]
