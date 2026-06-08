@@ -472,3 +472,70 @@ def test_status_card_marks_hygiene_recommended_when_noise_exists(isolated_servic
     assert card["queue_hygiene"]["hygiene_available"] is True
     assert card["queue_hygiene"]["hygiene_recommended"] is True
     assert "candidate hygiene" in card["queue_hygiene"]["hygiene_suggested_action"].lower()
+
+
+def test_latest_watchdog_aggregates_error_categories_messages_and_symbols(isolated_service):
+    now = datetime.now(timezone.utc).isoformat()
+    isolated_service.append(
+        WorkerRunEntry(
+            worker_name="auto_paper_test",
+            status="ok",
+            message="auto_paper_trader: 0 positions opened, 2 submit-error",
+            started_at=now,
+            finished_at=now,
+            source="scheduled",
+            watchdog_summary={
+                "tripped": True,
+                "tripped_by": "error_count",
+                "reason": "Watchdog tripped: 2 submit errors",
+                "error_count": 2,
+                "rejected_count": 0,
+                "submit_attempts": 2,
+                "kill_on_error_count": 1,
+                "kill_on_reject_rate": 0.5,
+            },
+            attempt_outcomes=[
+                {
+                    "symbol": "AAPL",
+                    "signal_id": "11111111-1111-1111-1111-111111111111",
+                    "outcome": "submit_error",
+                    "reason_category": "submit_exception",
+                    "error_category": "broker_timeout",
+                    "error_message": "Broker submit timed out",
+                },
+                {
+                    "symbol": "MSFT",
+                    "signal_id": "22222222-2222-2222-2222-222222222222",
+                    "outcome": "submit_error",
+                    "reason_category": "submit_exception",
+                    "error_category": "broker_timeout",
+                    "error_message": "Broker submit timed out",
+                },
+                {
+                    "symbol": "NVDA",
+                    "signal_id": "33333333-3333-3333-3333-333333333333",
+                    "outcome": "submit_error",
+                    "reason_category": "submit_exception",
+                    "error_category": "tws_unavailable",
+                    "error_message": "TWS gateway unavailable",
+                },
+            ],
+        )
+    )
+
+    card = get_auto_paper_status_card(
+        trading_control_state=_paper_armed_state(),
+        run_log_service=isolated_service,
+        session=_FakeSession(),
+    )
+
+    latest_watchdog = card["latest_watchdog"]
+    assert latest_watchdog is not None
+    assert latest_watchdog["top_error_categories"] == ["broker_timeout", "tws_unavailable"]
+    assert latest_watchdog["affected_symbols"] == ["AAPL", "MSFT", "NVDA"]
+    assert latest_watchdog["latest_error_messages"] == [
+        "Broker submit timed out",
+        "TWS gateway unavailable",
+    ]
+    assert latest_watchdog["suggested_operator_action"]
+    assert "gateway" in latest_watchdog["suggested_operator_action"].lower()

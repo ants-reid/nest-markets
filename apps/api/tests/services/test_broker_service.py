@@ -507,6 +507,47 @@ class TestBrokerService:
         mock_broker.submit_order.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_submit_auto_order_block_persists_auto_paper_error_metadata(self, service, mock_broker):
+        order_request = OrderRequest(
+            ticker="AAPL",
+            side="BUY",
+            quantity=Decimal("1"),
+            order_type="LIMIT",
+            limit_price=Decimal("180.5"),
+        )
+
+        with pytest.raises(AutoTradingBlockedError):
+            await service.submit_auto_order(
+                order_request,
+                decision_metadata={
+                    "source": "auto_paper_trader",
+                    "symbol": "AAPL",
+                    "signal_id": "11111111-1111-1111-1111-111111111111",
+                    "attempt_index": 1,
+                    "reason_category": "submit_exception",
+                    "error_category": "mode_guard_blocked",
+                    "error_code": "mh36b_auto_trading_blocked",
+                    "error_message": "Auto trading is not enabled in MH-36B. Manual trading only.",
+                    "exception_type": "AutoTradingBlockedError",
+                },
+            )
+
+        mock_broker.submit_order.assert_not_called()
+        with SessionLocal() as session:
+            row = session.query(BrokerSubmitDecision).one()
+            payload = row.preflight_json
+            assert payload["source"] == "submit_attempt"
+            assert payload["decision_status"] == "error"
+            assert payload["symbol"] == "AAPL"
+            assert payload["signal_id"] == "11111111-1111-1111-1111-111111111111"
+            assert payload["attempt_index"] == 1
+            assert payload["reason_category"] == "submit_exception"
+            assert payload["error_category"] == "mode_guard_blocked"
+            assert payload["error_code"] == "mh36b_auto_trading_blocked"
+            assert payload["error_message"]
+            assert payload["exception_type"] == "AutoTradingBlockedError"
+
+    @pytest.mark.asyncio
     async def test_submit_auto_order_allowed_only_for_controlled_scheduled_auto_paper(
         self,
         service,

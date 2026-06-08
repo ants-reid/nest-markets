@@ -23,6 +23,7 @@ _logger = logging.getLogger(__name__)
 
 _CORRELATION_ID_HARD_CAP = 160
 _REFERENCE_HARD_CAP = 240
+_ERROR_MESSAGE_HARD_CAP = 240
 
 
 def _optional_str(value: Any, *, max_len: int | None = None) -> str | None:
@@ -231,6 +232,14 @@ class BrokerPreflightDecisionService:
         quantity = _optional_number(metadata.get("quantity"))
         limit_price = _optional_number(metadata.get("limit_price"))
         stop_price = _optional_number(metadata.get("stop_price"))
+        symbol = _optional_str(metadata.get("symbol"), max_len=32)
+        signal_id = _optional_uuid(metadata.get("signal_id"))
+        attempt_index = _optional_number(metadata.get("attempt_index"))
+        reason_category = _optional_str(metadata.get("reason_category"), max_len=64)
+        error_category = _optional_str(metadata.get("error_category"), max_len=64)
+        error_code = _optional_str(metadata.get("error_code"), max_len=64)
+        error_message = _optional_str(metadata.get("error_message"), max_len=_ERROR_MESSAGE_HARD_CAP)
+        exception_type = _optional_str(metadata.get("exception_type"), max_len=128)
 
         if recommendation_id is not None:
             sanitized["recommendation_id"] = recommendation_id
@@ -238,6 +247,22 @@ class BrokerPreflightDecisionService:
             sanitized["route_check_reference"] = route_check_reference
         if dry_run_reference is not None:
             sanitized["dry_run_reference"] = dry_run_reference
+        if symbol is not None:
+            sanitized["symbol"] = symbol
+        if signal_id is not None:
+            sanitized["signal_id"] = signal_id
+        if attempt_index is not None:
+            sanitized["attempt_index"] = int(attempt_index)
+        if reason_category is not None:
+            sanitized["reason_category"] = reason_category
+        if error_category is not None:
+            sanitized["error_category"] = error_category
+        if error_code is not None:
+            sanitized["error_code"] = error_code
+        if error_message is not None:
+            sanitized["error_message"] = error_message
+        if exception_type is not None:
+            sanitized["exception_type"] = exception_type
 
         request_summary = {
             "ticker": ticker,

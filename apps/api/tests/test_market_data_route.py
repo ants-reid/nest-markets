@@ -153,6 +153,52 @@ def test_get_auto_paper_history_parses_legacy_message_counts(client, monkeypatch
     }
 
 
+def test_get_auto_paper_history_includes_rich_attempt_outcome_error_fields(client, monkeypatch):
+    c, _session = client
+
+    class StubRunLog:
+        def recent(self, limit: int = 20):
+            return [
+                WorkerRunEntry(
+                    worker_name="auto_paper_trader",
+                    status="ok",
+                    message="auto_paper_trader: 0 positions opened, 1 submit-error",
+                    started_at="2026-04-30T10:00:00+00:00",
+                    finished_at="2026-04-30T10:00:03+00:00",
+                    source="scheduled",
+                    attempt_outcomes=[
+                        {
+                            "symbol": "AAPL",
+                            "signal_id": "11111111-1111-1111-1111-111111111111",
+                            "attempt_index": 1,
+                            "source": "auto_paper_trader",
+                            "outcome": "submit_error",
+                            "reason_category": "submit_exception",
+                            "reason": "Broker submit timed out",
+                            "error_category": "broker_timeout",
+                            "error_code": "broker_timeout",
+                            "error_message": "Broker submit timed out",
+                            "exception_type": "TimeoutError",
+                        }
+                    ],
+                )
+            ]
+
+    monkeypatch.setattr(market_data_route, "_run_log", StubRunLog())
+
+    response = c.get("/market-data/auto-paper/history")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    outcome = payload[0]["attempt_outcomes"][0]
+    assert outcome["attempt_index"] == 1
+    assert outcome["source"] == "auto_paper_trader"
+    assert outcome["error_category"] == "broker_timeout"
+    assert outcome["error_code"] == "broker_timeout"
+    assert outcome["error_message"] == "Broker submit timed out"
+    assert outcome["exception_type"] == "TimeoutError"
+
+
 def test_trigger_auto_paper_run_persists_structured_outcome_counts(client, monkeypatch):
     c, _session = client
     recorded: list[WorkerRunEntry] = []

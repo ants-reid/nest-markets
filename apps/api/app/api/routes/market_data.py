@@ -157,9 +157,15 @@ class AutoPaperAttemptOutcome(BaseModel):
 
     symbol: str
     signal_id: str
+    attempt_index: int | None = None
+    source: str | None = None
     outcome: str
     reason_category: str
     reason: str | None = None
+    error_category: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    exception_type: str | None = None
     blocking_gate: str | None = None
     broker_status: str | None = None
     broker_order_id: str | None = None

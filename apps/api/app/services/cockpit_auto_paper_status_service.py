@@ -53,6 +53,15 @@ _ADVISORY = (
     "trading control."
 )
 _DEFAULT_MAX_OPEN_POSITIONS = 5
+_WATCHDOG_ERROR_ACTIONS = {
+    "mode_guard_blocked": "Verify auto-paper scheduling guardrails and keep live execution disabled while reviewing mode controls.",
+    "tws_client_id_in_use": "Restart or isolate TWS/Gateway client sessions to clear IBKR client-id collisions.",
+    "broker_timeout": "Review TWS gateway responsiveness, then rerun a supervised auto-paper cycle.",
+    "tws_unavailable": "Confirm TWS/Gateway connectivity and IBKR paper session health before the next run.",
+    "preflight_blocked": "Review broker preflight findings and relax only the intended paper-safe limits.",
+    "broker_rejected": "Inspect broker rejection reasons and adjust symbol/order constraints before retrying.",
+    "empty_exception": "Inspect worker logs for missing exception details and validate broker health instrumentation.",
+}
 _QUEUE_RECENCY_HOURS = 8
 _QUEUE_MIN_SIGNAL_SCORE = 50.0
 _MANUAL_SEED_PROVIDER = "manual_scheduler_seed"
@@ -522,6 +531,52 @@ def _derive_last_block_reason(
     return None
 
 
+def _build_latest_watchdog(latest_run: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    if not latest_run:
+        return None
+    watchdog_summary = latest_run.get("watchdog_summary")
+    if not isinstance(watchdog_summary, dict):
+        return None
+
+    attempt_outcomes = latest_run.get("attempt_outcomes") or []
+    error_outcomes = [
+        item
+        for item in attempt_outcomes
+        if isinstance(item, dict)
+        and str(item.get("outcome") or "").lower() in {"submit_error", "submit_exception", "gate_blocked"}
+    ]
+
+    category_counts: Counter[str] = Counter()
+    symbols: list[str] = []
+    latest_messages: list[str] = []
+
+    for item in error_outcomes:
+        category = str(item.get("error_category") or "").strip().lower()
+        if category:
+            category_counts[category] += 1
+
+        symbol = str(item.get("symbol") or "").strip().upper()
+        if symbol and symbol not in symbols:
+            symbols.append(symbol)
+
+        message = str(item.get("error_message") or item.get("reason") or "").strip()
+        if message and message not in latest_messages:
+            latest_messages.append(message)
+
+    top_error_categories = [category for category, _ in category_counts.most_common(3)]
+    suggested_operator_action = None
+    if top_error_categories:
+        suggested_operator_action = _WATCHDOG_ERROR_ACTIONS.get(top_error_categories[0])
+
+    return {
+        **watchdog_summary,
+        "top_error_categories": top_error_categories,
+        "affected_symbols": symbols,
+        "latest_error_messages": latest_messages[:3],
+        "suggested_operator_action": suggested_operator_action,
+    }
+
+
 def _build_risk_gate_summary(
     *,
     trading_control: Dict[str, Any],
@@ -763,9 +818,7 @@ def get_auto_paper_status_card(
     recent = svc.recent(limit=1)
     latest = recent[0] if recent else None
     latest_run = _serialize_run_entry(latest)
-    latest_watchdog = None
-    if latest_run and isinstance(latest_run.get("watchdog_summary"), dict):
-        latest_watchdog = dict(latest_run["watchdog_summary"])
+    latest_watchdog = _build_latest_watchdog(latest_run)
     paper_snapshot = _load_paper_snapshot(session)
     open_paper_positions_count = int(paper_snapshot["open_paper_positions_count"])
     latest_paper_order = paper_snapshot["latest_paper_order"]

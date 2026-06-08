@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -34,6 +35,10 @@ from app.db.models.signal import Signal
 from app.db.session import SessionLocal
 from app.services.auto_paper_gate_service import AutoPaperGateService
 from app.services.auto_paper_audit_reconciliation_service import AutoPaperAuditReconciliationService
+from app.services.broker_submit_decision_service import (
+    BrokerSubmitDecisionRecord,
+    BrokerSubmitDecisionService,
+)
 from app.services.broker_service import BrokerService, PaperPreflightBlockedError
 from app.services.opportunity_ranker_service import OpportunityRankerService
 from app.services.risk_service import RiskInput, RiskService
@@ -55,6 +60,101 @@ _WORKING_BROKER_STATUSES = {"PRESUBMITTED", "PENDINGSUBMIT", "APIPENDING"}
 _ACCEPTED_BROKER_STATUSES = {"SUBMITTED", "FILLED"} | _WORKING_BROKER_STATUSES
 _REJECTED_BROKER_STATUSES = {"REJECTED", "CANCELLED"}
 _AUTO_SUBMIT_TIMEOUT_SECONDS = 20
+_ERROR_MESSAGE_MAX = 240
+_ERROR_CODE_MAX = 64
+
+
+def _sanitize_submit_error_message(message: str | None) -> str:
+    raw = str(message or "")
+    compact = re.sub(r"\s+", " ", raw.replace("\n", " ").replace("\r", " ")).strip()
+    if not compact:
+        return ""
+
+    sanitized = compact
+    secret_patterns = [
+        (r"(?i)(bearer\s+)[A-Za-z0-9._\-]+", r"\1[redacted]"),
+        (r"(?i)(api[_-]?key\s*[=:]\s*)[^\s,;]+", r"\1[redacted]"),
+        (r"(?i)(token\s*[=:]\s*)[^\s,;]+", r"\1[redacted]"),
+        (r"(?i)(secret\s*[=:]\s*)[^\s,;]+", r"\1[redacted]"),
+    ]
+    for pattern, replacement in secret_patterns:
+        sanitized = re.sub(pattern, replacement, sanitized)
+
+    return sanitized[:_ERROR_MESSAGE_MAX]
+
+
+def classify_auto_paper_submit_error(value: object) -> dict[str, str | None]:
+    exception_type = value.__class__.__name__ if isinstance(value, BaseException) else None
+
+    raw_message = ""
+    if isinstance(value, BaseException):
+        raw_message = str(value)
+    elif value is not None:
+        raw_message = str(value)
+
+    if not raw_message:
+        error_attr = getattr(value, "error_message", None)
+        if error_attr:
+            raw_message = str(error_attr)
+    if not raw_message:
+        status_attr = getattr(value, "status", None)
+        if status_attr:
+            raw_message = f"broker status: {status_attr}"
+
+    message = _sanitize_submit_error_message(raw_message)
+    normalized = message.lower()
+    category = "unknown"
+    code: str | None = None
+
+    if "client id is already in use" in normalized or "error 326" in normalized:
+        category = "tws_client_id_in_use"
+        code = "error_326"
+    elif "mh-36b" in normalized or "auto trading is not enabled" in normalized:
+        category = "mode_guard_blocked"
+        code = "mh36b_auto_trading_blocked"
+    elif (
+        "timed out" in normalized
+        or "timeout" in normalized
+        or exception_type in {"TimeoutError", "CancelledError"}
+    ):
+        category = "broker_timeout"
+        code = "broker_timeout"
+    elif any(
+        marker in normalized
+        for marker in (
+            "disconnected",
+            "not connected",
+            "connection refused",
+            "unavailable",
+            "gateway down",
+            "gateway unavailable",
+        )
+    ):
+        category = "tws_unavailable"
+        code = "tws_unavailable"
+    elif "preflight" in normalized and "blocked" in normalized:
+        category = "preflight_blocked"
+        code = "preflight_blocked"
+    elif "rejected" in normalized:
+        category = "broker_rejected"
+        code = "broker_rejected"
+    elif exception_type in {"ValueError", "TypeError", "AssertionError"}:
+        category = "validation_error"
+        code = "validation_error"
+    elif not message:
+        category = "empty_exception"
+        code = "empty_exception"
+
+    if not message:
+        fallback = _sanitize_submit_error_message(exception_type or "submit failed without detail")
+        message = fallback or "submit failed without detail"
+
+    return {
+        "error_category": category,
+        "error_code": (code[:_ERROR_CODE_MAX] if code else None),
+        "error_message": message,
+        "exception_type": exception_type,
+    }
 
 
 class AutoPaperTraderWorker(BaseWorker):
@@ -153,8 +253,61 @@ class AutoPaperTraderWorker(BaseWorker):
         return run_async(
             lambda: self._get_broker_service().submit_auto_order(
                 order_request,
-                decision_metadata={"source": "auto_paper_trader"},
+                decision_metadata={
+                    "source": "auto_paper_trader",
+                    "symbol": opportunity.asset,
+                    "signal_id": str(opportunity.signal_id),
+                },
             )
+        )
+
+    def _persist_submit_error_decision(
+        self,
+        *,
+        session: Session,
+        opportunity,
+        attempt_index: int,
+        classified: dict[str, str | None],
+    ) -> None:
+        reason_message = classified.get("error_message") or "submit failed without detail"
+        reason_category = classified.get("error_category") or "unknown"
+        reason_code = classified.get("error_code") or "submit_error"
+        writer = BrokerSubmitDecisionService(session)
+        writer.persist(
+            BrokerSubmitDecisionRecord(
+                intent="auto",
+                would_block=True,
+                decision_status="error",
+                allowed_to_submit=False,
+                decision_reason=reason_message,
+                blocked_reason_code=reason_code,
+                blocked_reason_text=reason_message,
+                blocked_reasons=[
+                    {
+                        "code": reason_code,
+                        "message": reason_message,
+                        "source": "auto_paper_trader",
+                        "classification": reason_category,
+                        "severity": "error",
+                    }
+                ],
+                warnings=[],
+                execution_mode="ibkr_paper",
+                account_mode="paper",
+                source="auto_paper_trader",
+                submit_gate="blocked",
+                signal_id=opportunity.signal_id,
+            ),
+            source_metadata={
+                "symbol": opportunity.asset,
+                "signal_id": str(opportunity.signal_id),
+                "attempt_index": attempt_index,
+                "reason_category": "submit_exception",
+                "error_category": classified.get("error_category"),
+                "error_code": classified.get("error_code"),
+                "error_message": reason_message,
+                "exception_type": classified.get("exception_type"),
+            },
         )
 
     def _normalize_paper_order_status(self, broker_status: str) -> str:
@@ -298,7 +451,7 @@ class AutoPaperTraderWorker(BaseWorker):
 
             risk_service = RiskService(session)
 
-            for opportunity in opportunities:
+            for candidate_index, opportunity in enumerate(opportunities, start=1):
                 if submit_attempts >= max_per_run:
                     _logger.info(
                         "auto_paper_trader: per-run cap reached (%d/%d), stopping",
@@ -338,6 +491,8 @@ class AutoPaperTraderWorker(BaseWorker):
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": candidate_index,
+                            "source": "auto_paper_trader",
                             "outcome": "controlled_gate_blocked",
                             "reason_category": "controlled_gate",
                             "blocking_gate": order_decision.blocking_gate,
@@ -361,6 +516,8 @@ class AutoPaperTraderWorker(BaseWorker):
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": candidate_index,
+                            "source": "auto_paper_trader",
                             "outcome": "risk_blocked",
                             "reason_category": "risk",
                             "reason": risk_output.blocking_rule,
@@ -379,20 +536,32 @@ class AutoPaperTraderWorker(BaseWorker):
                         lambda req=order_request: asyncio.wait_for(
                             self._get_broker_service().submit_auto_order(
                                 req,
-                                decision_metadata={"source": "auto_paper_trader"},
+                                decision_metadata={
+                                    "source": "auto_paper_trader",
+                                    "symbol": opportunity.asset,
+                                    "signal_id": str(opportunity.signal_id),
+                                    "attempt_index": submit_attempts,
+                                },
                             ),
                             timeout=_AUTO_SUBMIT_TIMEOUT_SECONDS,
                         )
                     )
                 except (AutoTradingBlockedError, PaperPreflightBlockedError) as exc:
                     gate_blocked += 1
+                    classified = classify_auto_paper_submit_error(exc)
                     attempt_outcomes.append(
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": submit_attempts,
+                            "source": "auto_paper_trader",
                             "outcome": "gate_blocked",
                             "reason_category": "submit_gate",
-                            "reason": str(exc),
+                            "reason": classified.get("error_message"),
+                            "error_category": classified.get("error_category"),
+                            "error_code": classified.get("error_code"),
+                            "error_message": classified.get("error_message"),
+                            "exception_type": classified.get("exception_type"),
                         }
                     )
                     _logger.info(
@@ -403,19 +572,32 @@ class AutoPaperTraderWorker(BaseWorker):
                     continue
                 except Exception as exc:
                     watchdog_error_count += 1
+                    classified = classify_auto_paper_submit_error(exc)
                     attempt_outcomes.append(
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": submit_attempts,
+                            "source": "auto_paper_trader",
                             "outcome": "submit_error",
                             "reason_category": "submit_exception",
-                            "reason": str(exc),
+                            "reason": classified.get("error_message"),
+                            "error_category": classified.get("error_category"),
+                            "error_code": classified.get("error_code"),
+                            "error_message": classified.get("error_message"),
+                            "exception_type": classified.get("exception_type"),
                         }
+                    )
+                    self._persist_submit_error_decision(
+                        session=session,
+                        opportunity=opportunity,
+                        attempt_index=submit_attempts,
+                        classified=classified,
                     )
                     _logger.error(
                         "auto_paper_trader: broker submit error for %s — %s",
                         opportunity.asset,
-                        exc,
+                        classified.get("error_message"),
                     )
                     if watchdog_error_count >= kill_on_error_count:
                         watchdog_tripped_by = "error_count"
@@ -442,6 +624,8 @@ class AutoPaperTraderWorker(BaseWorker):
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": submit_attempts,
+                            "source": "auto_paper_trader",
                             "outcome": "rejected" if normalized_status == "REJECTED" else "cancelled",
                             "reason_category": "broker_status",
                             "broker_status": normalized_status,
@@ -471,15 +655,34 @@ class AutoPaperTraderWorker(BaseWorker):
                 if normalized_status not in _ACCEPTED_BROKER_STATUSES:
                     unsupported += 1
                     watchdog_error_count += 1
+                    classified = classify_auto_paper_submit_error(
+                        broker_result.error_message or f"Unsupported broker outcome: {broker_result.status}"
+                    )
                     attempt_outcomes.append(
                         {
                             "symbol": opportunity.asset,
                             "signal_id": str(opportunity.signal_id),
+                            "attempt_index": submit_attempts,
+                            "source": "auto_paper_trader",
                             "outcome": "submit_error",
                             "reason_category": "unsupported_broker_status",
                             "broker_status": normalized_status,
-                            "reason": f"Unsupported broker outcome: {broker_result.status}",
+                            "reason": classified.get("error_message"),
+                            "error_category": "broker_rejected",
+                            "error_code": classified.get("error_code") or "unsupported_broker_status",
+                            "error_message": classified.get("error_message"),
+                            "exception_type": classified.get("exception_type"),
                         }
+                    )
+                    self._persist_submit_error_decision(
+                        session=session,
+                        opportunity=opportunity,
+                        attempt_index=submit_attempts,
+                        classified={
+                            **classified,
+                            "error_category": "broker_rejected",
+                            "error_code": classified.get("error_code") or "unsupported_broker_status",
+                        },
                     )
                     _logger.warning(
                         "auto_paper_trader: unsupported broker outcome %s for %s",
@@ -504,6 +707,8 @@ class AutoPaperTraderWorker(BaseWorker):
                     {
                         "symbol": opportunity.asset,
                         "signal_id": str(opportunity.signal_id),
+                        "attempt_index": submit_attempts,
+                        "source": "auto_paper_trader",
                         "outcome": "accepted",
                         "reason_category": "broker_status",
                         "broker_status": normalized_status,

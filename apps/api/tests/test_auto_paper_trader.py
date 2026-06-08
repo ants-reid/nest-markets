@@ -16,7 +16,10 @@ from app.services.auto_paper_gate_service import AutoPaperGateDecision
 from app.services.trading_control_service import AutoTradingBlockedError
 from app.services.opportunity_ranker_service import RankedOpportunity
 from app.services.risk_service import RiskOutput
-from app.workers.auto_paper_trader_worker import AutoPaperTraderWorker
+from app.workers.auto_paper_trader_worker import (
+    AutoPaperTraderWorker,
+    classify_auto_paper_submit_error,
+)
 from app.workers.base_worker import BaseWorker
 
 
@@ -455,3 +458,101 @@ def test_auto_paper_treats_ibkr_working_status_as_accepted(broker_status):
     assert paper_order.ibkr_status == broker_status
     assert position.broker_order_id == "12"
     assert signal.signal_status == SignalStatus.PAPER_SUBMITTED
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_category", "expected_code", "message_fragment"),
+    [
+        (Exception(), "empty_exception", "empty_exception", "Exception"),
+        (
+            RuntimeError("Error 326: client id is already in use"),
+            "tws_client_id_in_use",
+            "error_326",
+            "Error 326",
+        ),
+        (
+            AutoTradingBlockedError("Auto trading is not enabled in MH-36B. Manual trading only."),
+            "mode_guard_blocked",
+            "mh36b_auto_trading_blocked",
+            "MH-36B",
+        ),
+        (TimeoutError(), "broker_timeout", "broker_timeout", "TimeoutError"),
+        (
+            RuntimeError("TWS gateway unavailable"),
+            "tws_unavailable",
+            "tws_unavailable",
+            "unavailable",
+        ),
+    ],
+)
+def test_classify_auto_paper_submit_error_maps_expected_categories(
+    value,
+    expected_category,
+    expected_code,
+    message_fragment,
+):
+    classified = classify_auto_paper_submit_error(value)
+    assert classified["error_category"] == expected_category
+    assert classified["error_code"] == expected_code
+    assert classified["error_message"]
+    assert message_fragment.lower() in classified["error_message"].lower()
+    assert "traceback" not in classified["error_message"].lower()
+
+
+def test_classify_auto_paper_submit_error_redacts_secret_like_tokens():
+    classified = classify_auto_paper_submit_error(
+        RuntimeError("token=abcd123 api_key=my-secret-key bearer abc.xyz")
+    )
+    assert "abcd123" not in classified["error_message"]
+    assert "my-secret-key" not in classified["error_message"]
+    assert "abc.xyz" not in classified["error_message"]
+    assert "[redacted]" in classified["error_message"]
+
+
+def test_auto_paper_submit_exception_includes_structured_non_empty_error_fields():
+    mock_session = MagicMock()
+
+    opportunity = _make_opportunity("EURUSD")
+    signal = _make_signal(opportunity.signal_id)
+
+    mock_session.execute.return_value.scalar_one.return_value = 0
+    mock_session.get.return_value = signal
+
+    risk_profile = _make_risk_profile()
+    mock_session.query.return_value.filter.return_value.first.return_value = risk_profile
+
+    approved_output = RiskOutput(approved=True, decision="approved")
+
+    with patch("app.workers.auto_paper_trader_worker.OpportunityRankerService") as mock_ranker_cls, \
+         patch("app.workers.auto_paper_trader_worker.RiskService") as mock_risk_cls, \
+         patch(
+             "app.workers.auto_paper_trader_worker.BrokerService.submit_auto_order",
+             new_callable=AsyncMock,
+             side_effect=TimeoutError(),
+         ):
+        mock_ranker_cls.return_value.rank.return_value = [opportunity]
+        mock_risk_cls.return_value.evaluate.return_value = approved_output
+
+        worker = AutoPaperTraderWorker(session=mock_session)
+        result = worker.run()
+
+    assert result.status == "ok"
+    assert "submit-error" in result.message
+    auto_diag_start = result.message.find("auto_diag=")
+    assert auto_diag_start > -1
+    auto_diag_json = result.message[auto_diag_start + len("auto_diag=") :]
+
+    import json
+
+    parsed = json.loads(auto_diag_json)
+    outcomes = parsed.get("attempt_outcomes") or []
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    assert outcome["outcome"] == "submit_error"
+    assert outcome["reason_category"] == "submit_exception"
+    assert outcome["error_category"] == "broker_timeout"
+    assert outcome["error_code"] == "broker_timeout"
+    assert outcome["error_message"]
+    assert outcome["exception_type"] == "TimeoutError"
+    assert outcome["attempt_index"] == 1
+    assert outcome["source"] == "auto_paper_trader"
