@@ -614,14 +614,12 @@ async def get_account():
             return _paper_fallback_account_info()
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
             diagnostics = service.get_runtime_diagnostics()
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "code": "tws_unavailable",
-                    "message": str(exc),
-                    "diagnostics": diagnostics,
-                },
-            ) from exc
+            _logger.warning(
+                "Broker account tws_unavailable in paper mode; returning fallback snapshot. diagnostics=%s error=%s",
+                diagnostics,
+                exc,
+            )
+            return _paper_fallback_account_info()
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise
@@ -659,14 +657,12 @@ async def get_positions():
             return []
         if not is_live_mode_enabled() and _is_tws_unavailable_error(exc):
             diagnostics = service.get_runtime_diagnostics()
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "code": "tws_unavailable",
-                    "message": str(exc),
-                    "diagnostics": diagnostics,
-                },
-            ) from exc
+            _logger.warning(
+                "Broker positions tws_unavailable in paper mode; returning empty list fallback. diagnostics=%s error=%s",
+                diagnostics,
+                exc,
+            )
+            return []
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except HTTPException:
         raise

@@ -115,7 +115,7 @@ async def test_get_positions_returns_empty_list_when_gateway_unreachable_in_pape
 
 
 @pytest.mark.asyncio
-async def test_get_account_returns_503_on_tws_client_id_contention(client, mock_service):
+async def test_get_account_returns_fallback_on_tws_client_id_contention_in_paper_mode(client, mock_service):
     with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
         mock_service.get_account_info = AsyncMock(
             side_effect=RuntimeError(
@@ -132,16 +132,16 @@ async def test_get_account_returns_503_on_tws_client_id_contention(client, mock_
 
         response = client.get("/broker/account")
 
-    assert response.status_code == 503
-    detail = response.json()["detail"]
-    assert detail["code"] == "tws_unavailable"
-    assert "client id in use" in detail["message"].lower()
-    assert detail["diagnostics"]["tws_runtime_client_id"] == 43
-    assert detail["diagnostics"]["tws_last_error_code"] == "326"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["net_liquidation"] == 0.0
+    assert data["cash_balance"] == 0.0
+    assert data["buying_power"] == 0.0
+    assert data["broker_mode"]["mode"] == "paper"
 
 
 @pytest.mark.asyncio
-async def test_get_positions_returns_503_on_tws_timeout(client, mock_service):
+async def test_get_positions_returns_fallback_on_tws_timeout_in_paper_mode(client, mock_service):
     with patch("app.api.routes.broker.get_broker_service") as mock_get_service:
         mock_service.get_positions = AsyncMock(
             side_effect=RuntimeError("API connection failed: TimeoutError()")
@@ -156,11 +156,8 @@ async def test_get_positions_returns_503_on_tws_timeout(client, mock_service):
 
         response = client.get("/broker/positions")
 
-    assert response.status_code == 503
-    detail = response.json()["detail"]
-    assert detail["code"] == "tws_unavailable"
-    assert "timeout" in detail["message"].lower()
-    assert detail["diagnostics"]["tws_last_error_code"] == "timeout"
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 @pytest.mark.asyncio
